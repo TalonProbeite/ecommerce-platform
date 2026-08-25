@@ -1,0 +1,39 @@
+name: shop-prod
+
+include:
+  # - services/auth/docker-compose.prod.yaml
+  # - services/notification/docker-compose.prod.yaml
+
+services:
+  api-gateway:
+    image: nginx:alpine
+    container_name: api-gateway-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx_gateway/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx_gateway/ssl:/etc/nginx/ssl:ro 
+
+  rabbitmq:
+    image: rabbitmq:3-alpine
+    container_name: rabbitmq-prod
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  autoheal:
+    image: willfarrell/autoheal
+    container_name: autoheal
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=all 
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  rabbitmq_data:
