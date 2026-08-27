@@ -1,0 +1,57 @@
+name: shop-global
+
+services:
+  global-nginx:
+    image: nginx:alpine
+    container_name: global-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      shop_global:
+        aliases:
+          - global-nginx
+          - global_nginx
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  global-rabbitmq:
+    image: rabbitmq:3-management
+    container_name: global-rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      shop_global:
+        aliases:
+          - global-rabbitmq
+          - global_rabbitmq
+          - rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  rabbitmq_data:
+
+networks:
+  shop_global:
+    name: shop_global
+    driver: bridge
