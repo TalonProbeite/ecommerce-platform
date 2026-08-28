@@ -1,5 +1,7 @@
 name: shop-global
 
+include:
+    - services/auth/docker-compose.prod.yaml
 services:
   global-nginx:
     image: nginx:alpine
@@ -12,10 +14,7 @@ services:
       - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
       - ./docker/nginx/ssl:/etc/nginx/ssl:ro
     networks:
-      shop_global:
-        aliases:
-          - global-nginx
-          - global_nginx
+      - shop_global
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80 || exit 1"]
       interval: 10s
@@ -36,11 +35,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
-      shop_global:
-        aliases:
-          - global-rabbitmq
-          - global_rabbitmq
-          - rabbitmq
+      - shop_global
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
