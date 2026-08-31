@@ -2,7 +2,7 @@ name: shop-auth-local
 
 services:
   auth-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: auth-db
     restart: unless-stopped
     env_file:
@@ -12,7 +12,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASS:-postgres}
       POSTGRES_DB: ${DB_NAME:-shop_auth}
     volumes:
-      - auth_pg_data:/var/lib/postgresql/data
+      - auth_pg_data:/var/lib/postgresql/
     networks:
       - auth_internal
     healthcheck:

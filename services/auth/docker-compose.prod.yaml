@@ -2,7 +2,7 @@ name: shop-auth-prod
 
 services:
   auth-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: auth-db-prod
     restart: always
     env_file:
@@ -12,7 +12,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASS:-postgres}
       POSTGRES_DB: ${DB_NAME:-shop_auth}
     volumes:
-      - auth_pg_data:/var/lib/postgresql/data
+      - auth_pg_data:/var/lib/postgresql/
     networks:
       - auth_internal
     healthcheck:
@@ -76,7 +76,7 @@ services:
       - shop_global
       - auth_internal
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
       interval: 10s
       timeout: 5s
       retries: 3
