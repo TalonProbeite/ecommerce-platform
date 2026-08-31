@@ -1,7 +1,7 @@
 .PHONY: prod-up prod-down prod-stop
 
 prod-up:
-	docker compose up --build - d
+	docker compose up -d --build $(ARGS)
 
 prod-down:
 	docker compose down $(ARGS)
