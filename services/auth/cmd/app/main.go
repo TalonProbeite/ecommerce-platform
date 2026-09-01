@@ -10,14 +10,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/db"
 	"shop/auth/internal/infra/logger"
 	"shop/auth/internal/infra/rabbitmq"
+	"shop/auth/internal/infra/validator"
 	"shop/auth/internal/transport/http/handler"
+
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -70,6 +71,8 @@ func main() {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+	e.Validator = validator.New()
+
 	e.Use(middleware.Recover())
 
 	healthHandler := handler.NewHealthHandler()
