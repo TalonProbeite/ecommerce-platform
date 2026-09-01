@@ -98,7 +98,7 @@ services:
       - shop_global
       - auth_internal
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
       interval: 10s
       timeout: 5s
       retries: 3

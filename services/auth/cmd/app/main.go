@@ -14,10 +14,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	"shop/auth/internal/config"
-	"shop/auth/internal/handler"
 	"shop/auth/internal/infra/db"
 	"shop/auth/internal/infra/logger"
 	"shop/auth/internal/infra/rabbitmq"
+	"shop/auth/internal/transport/http/handler"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -73,7 +73,7 @@ func main() {
 	e.Use(middleware.Recover())
 
 	healthHandler := handler.NewHealthHandler()
-	readyzHandler := handler.NewReadyzHandler(pg ,rdb,rabbit)
+	readyzHandler := handler.NewReadyzHandler(pg, rdb, rabbit)
 	e.GET("/healthz", healthHandler.Check)
 	e.GET("/readyz", readyzHandler.Check)
 
