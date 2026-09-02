@@ -16,9 +16,10 @@ import (
 	"shop/auth/internal/infra/rabbitmq"
 	"shop/auth/internal/infra/validator"
 	"shop/auth/internal/transport/http/handler"
+	"shop/auth/internal/transport/http/middleware"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	echomw "github.com/labstack/echo/v4/middleware"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -73,12 +74,18 @@ func main() {
 	e.HidePort = true
 	e.Validator = validator.New()
 
-	e.Use(middleware.Recover())
+	private := e.Group("/api/private")
+	public := e.Group("/api")
+
+	e.Use(echomw.Recover())
+	e.Use(middleware.RequestLogger(log))
+
+	private.Use(middleware.RequireAuth(cfg.RSAPublicKey()))
 
 	healthHandler := handler.NewHealthHandler()
 	readyzHandler := handler.NewReadyzHandler(pg, rdb, rabbit)
-	e.GET("/healthz", healthHandler.Check)
-	e.GET("/readyz", readyzHandler.Check)
+	public.GET("/healthz", healthHandler.Check)
+	public.GET("/readyz", readyzHandler.Check)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
