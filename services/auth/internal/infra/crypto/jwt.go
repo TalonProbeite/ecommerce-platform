@@ -7,13 +7,23 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+type JWTManager struct {
+	privateKey *rsa.PrivateKey
+}
+
+func NewJWTManager(key *rsa.PrivateKey) *JWTManager {
+	return &JWTManager{
+		privateKey: key,
+	}
+}
+
 type CustomClaim struct {
 	UserId string `json:"user_id"`
 	Role   string `json:"role"`
 	jwt.RegisteredClaims
 }
 
-func GenerateToken(key *rsa.PrivateKey, userId string, role ...string) (string, error) {
+func (m *JWTManager) GenerateToken(userId string, role ...string) (string, error) {
 	currentRole := "customer"
 	if len(role) > 0 {
 		currentRole = role[0]
@@ -30,7 +40,7 @@ func GenerateToken(key *rsa.PrivateKey, userId string, role ...string) (string, 
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 
-	signedToken, err := token.SignedString(key)
+	signedToken, err := token.SignedString(m.privateKey)
 	if err != nil {
 		return "", err
 	}
