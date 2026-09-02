@@ -1,13 +1,10 @@
-.PHONY: local-up local-down prod-up prod-down
-
-local-up:
-	docker compose -f docker-compose.local.yaml up -d --build
-
-local-down:
-	docker compose -f docker-compose.local.yaml down
+.PHONY: prod-up prod-down prod-stop
 
 prod-up:
-	docker compose -f docker-compose.prod.yaml up -d --build
+	docker compose up -d --build $(ARGS)
 
 prod-down:
-	docker compose -f docker-compose.prod.yaml down
+	docker compose down $(ARGS)
+
+prod-stop:
+	docker compose stop $(ARGS)

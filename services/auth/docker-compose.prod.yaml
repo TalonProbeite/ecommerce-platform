@@ -1,0 +1,113 @@
+name: shop-auth-prod
+
+services:
+  auth-db:
+    image: postgres:18-alpine
+    container_name: auth-db-prod
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-postgres}
+      POSTGRES_DB: ${DB_NAME:-shop_auth}
+    volumes:
+      - auth_pg_data:/var/lib/postgresql/
+    networks:
+      - auth_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-shop_auth}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-redis:
+    image: redis:7-alpine
+    container_name: auth-redis-prod
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - auth_redis_data:/data
+    networks:
+      - auth_internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-app:
+    image: shop-auth-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: auth-app-prod
+    restart: always
+    env_file:
+      - .env
+    environment:
+      ENV: production
+      APP_PORT: ${APP_PORT:-8080}
+      DB_HOST: ${DB_HOST:-auth-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-postgres}
+      DB_NAME: ${DB_NAME:-shop_auth}
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-false}
+      JWT_PRIVATE_KEY_BASE64: ${JWT_PRIVATE_KEY_BASE64}
+      JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
+      REDIS_HOST: ${REDIS_HOST:-auth-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-global-rabbitmq}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      auth-redis:
+        condition: service_healthy
+      global-rabbitmq:
+        condition: service_healthy
+    networks:
+      - shop_global
+      - auth_internal
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  auth-nginx:
+    image: nginx:alpine
+    container_name: auth-nginx-prod
+    restart: always
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      auth-app:
+        condition: service_healthy
+    networks:
+      - shop_global
+      - auth_internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -q --spider https://127.0.0.1:443/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  auth_pg_data:
+  auth_redis_data:
+
+networks:
+  auth_internal:
+    driver: bridge
+  shop_global:
+    name: shop_global
