@@ -13,6 +13,10 @@ type UserRepo struct {
 	pg *sqlx.DB
 }
 
+func NewUserRepo(pg *sqlx.DB) *UserRepo {
+	
+}
+
 func (r UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var u domain.User
 
@@ -72,4 +76,16 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) error {
 	}
 
 	return nil
+}
+
+
+func (r *UserRepo) GetStatus(ctx context.Context, userID string) (bool, error) {
+	query := `SELECT is_active FROM users WHERE id == $1`
+	var is_active bool
+
+	if err := r.pg.GetContext(ctx, &is_active, query, userID); err != nil {
+		return false, fmt.Errorf("get status by id: %w", err)
+	}
+
+	return is_active, nil
 }
