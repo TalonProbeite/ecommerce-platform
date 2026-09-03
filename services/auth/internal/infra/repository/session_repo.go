@@ -16,24 +16,22 @@ func NewSessionRepo(rdb *redis.Client) *SessionRepo{
 	return &repo
 }
 
-func (s SessionRepo) SaveToken(ctx context.Context,
-	userID string,
-	token string) error {
-	if err := s.rdb.Set(ctx, token, userID, 7*24*time.Hour).Err(); err != nil {
+func (s *SessionRepo) SaveEntry(ctx context.Context, key string, value string, ttl time.Duration) error {
+	if err := s.rdb.Set(ctx, key,  value, ttl).Err(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s SessionRepo) DeleteToken(ctx context.Context, token string) error {
-	if err := s.rdb.Del(ctx, token).Err(); err != nil {
+func (s *SessionRepo) DeleteEntry(ctx context.Context, key string) error {
+	if err := s.rdb.Del(ctx, key).Err(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *SessionRepo) GetUserID(ctx context.Context, token string) (string, error) {
-	userID, err := s.rdb.Get(ctx, token).Result()
+func (s *SessionRepo) GetValue(ctx context.Context, key string) (string, error) {
+	userID, err := s.rdb.Get(ctx, key).Result()
 	if err != nil {
 		return "", err
 	}

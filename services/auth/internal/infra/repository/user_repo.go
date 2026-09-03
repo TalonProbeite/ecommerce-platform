@@ -14,10 +14,12 @@ type UserRepo struct {
 }
 
 func NewUserRepo(pg *sqlx.DB) *UserRepo {
-	
+	repo := UserRepo{pg}
+
+	return  &repo
 }
 
-func (r UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var u domain.User
 
 	query := `SELECT id , email , password_hash, role , is_active FROM users WHERE email = $1`
@@ -66,7 +68,7 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) error {
 		INSERT INTO profiles (id, user_id, first_name, last_name, phone)
 		VALUES ($1, $2, $3, $4, $5)
 	`
-	_, err = tx.ExecContext(ctx, profileQuery, profileID.String(), u.ID, u.FirstName, u.LasyName, u.Phone)
+	_, err = tx.ExecContext(ctx, profileQuery, profileID.String(), u.ID, u.FirstName, u.LastName, u.Phone)
 	if err != nil {
 		return fmt.Errorf("insert profile: %w", err)
 	}
@@ -80,7 +82,7 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) error {
 
 
 func (r *UserRepo) GetStatus(ctx context.Context, userID string) (bool, error) {
-	query := `SELECT is_active FROM users WHERE id == $1`
+	query := `SELECT is_active FROM users WHERE id = $1`
 	var is_active bool
 
 	if err := r.pg.GetContext(ctx, &is_active, query, userID); err != nil {
