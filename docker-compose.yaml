@@ -22,7 +22,7 @@ services:
       retries: 3
       start_period: 5s
 
-  global-rabbitmq:
+  rabbitmq:
     image: rabbitmq:3-management
     container_name: global-rabbitmq
     restart: always
