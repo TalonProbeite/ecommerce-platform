@@ -32,15 +32,15 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 	return &u, nil
 }
 
-func (r *UserRepo) Create(ctx context.Context, u *domain.User) error {
+func (r *UserRepo) Create(ctx context.Context, u *domain.User) (uuid.UUID, error) {
 	userID, err := uuid.NewV7()
 	if err != nil {
-		return fmt.Errorf("generate user uuid v7: %w", err)
+		return uuid.Nil, fmt.Errorf("generate user uuid v7: %w", err)
 	}
 
 	profileID, err := uuid.NewV7()
 	if err != nil {
-		return fmt.Errorf("generate profile uuid v7: %w", err)
+		return uuid.Nil, fmt.Errorf("generate profile uuid v7: %w", err)
 	}
 
 	u.ID = userID.String()
@@ -51,33 +51,33 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) error {
 
 	tx, err := r.pg.BeginTxx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
+		return uuid.Nil, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
 	userQuery := `
-		INSERT INTO users (id, email, password_hash, role, is_active)
-		VALUES ($1, $2, $3, $4, $5)
-	`
-	_, err = tx.ExecContext(ctx, userQuery, u.ID, u.Email, u.Password, u.Role, u.IsActive)
+        INSERT INTO users (id, email, password_hash, role, is_active, is_email_verified)
+        VALUES ($1, $2, $3, $4, $5, $6)
+    `
+	_, err = tx.ExecContext(ctx, userQuery, u.ID, u.Email, u.Password, u.Role, u.IsActive, u.IsEmailVerified)
 	if err != nil {
-		return fmt.Errorf("insert user: %w", err)
+		return uuid.Nil, fmt.Errorf("insert user: %w", err)
 	}
 
 	profileQuery := `
-		INSERT INTO profiles (id, user_id, first_name, last_name, phone)
-		VALUES ($1, $2, $3, $4, $5)
-	`
+        INSERT INTO profiles (id, user_id, first_name, last_name, phone)
+        VALUES ($1, $2, $3, $4, $5)
+    `
 	_, err = tx.ExecContext(ctx, profileQuery, profileID.String(), u.ID, u.FirstName, u.LastName, u.Phone)
 	if err != nil {
-		return fmt.Errorf("insert profile: %w", err)
+		return uuid.Nil, fmt.Errorf("insert profile: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit tx: %w", err)
+		return uuid.Nil, fmt.Errorf("commit tx: %w", err)
 	}
 
-	return nil
+	return userID, nil
 }
 
 
