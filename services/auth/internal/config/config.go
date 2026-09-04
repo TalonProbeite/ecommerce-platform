@@ -3,52 +3,69 @@ package config
 import (
 	"crypto/rsa"
 	"encoding/base64"
-	"fmt"
 	"log"
-
+	"time"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
-type Config struct {
-	Env                 string `env:"ENV" env-default:"local"`
-	Port                string `env:"APP_PORT" env-default:"8080"`
-	DBHost              string `env:"DB_HOST" env-default:"localhost"`
-	DBPort              string `env:"DB_PORT" env-default:"5432"`
-	DBUser              string `env:"DB_USER" env-required:"true"`
-	DBPass              string `env:"DB_PASS" env-required:"true"`
-	DBName              string `env:"DB_NAME" env-required:"true"`
-	AutoMigrate         bool   `env:"AUTO_MIGRATE" env-default:"false"`
+
+type AppConfig struct {
+	Port string `env:"APP_PORT" env-default:"8080"`
+	Env string `env:"APP_ENV" env-default:"local"`
+	ShutdownTimeout  time.Duration `env:"SHUTDOWN_TIMEOUT" env-default:"10s"`
+	AutoMigrate bool `env:"AUTO_MIGRATE" env-default:"true"`
+}
+
+
+
+type PostgresConfig struct {
+	DatabaseURL string `env:"DATABASE_URL" env-required:"true"`
+}
+
+type RedisConfig struct {
+	RedisURL string `env:"REDIS_URL" env-required:"true"`
+}
+
+
+type RabbitConfig struct {
+	RabbitURL string `env:"RABBITMQ_URL" env-default:"amqp://guest:guest@auth-rabbitmq:5672/"`
+	ExchangeName string `env:"EXCHANGE_NAME" env-default:"events_exchange"`
+	ExchangeType string `env:"EXCHANGE_TYPE" env-default:"direct"`
+}
+
+
+type JWTConfig struct {
 	JwtPrivateKeyBase64 string `env:"JWT_PRIVATE_KEY_BASE64" env-required:"true"`
-	JwtPublicKeyBase64  string `env:"JWT_PUBLIC_KEY_BASE64" env-required:"true"`
-	RedisHost           string `env:"REDIS_HOST" env-default:"localhost"`
-	RedisPort           string `env:"REDIS_PORT" env-default:"6379"`
-	RedisPass           string `env:"REDIS_PASSWORD" env-default:""`
-	RedisDB             int    `env:"REDIS_DB" env-default:"0"`
-	RabbitHost          string `env:"RABBITMQ_HOST" env-default:"localhost"`
-	RabbitPort          string `env:"RABBITMQ_PORT" env-default:"5672"`
-	RabbitUser          string `env:"RABBITMQ_USER" env-default:"guest"`
-	RabbitPass          string `env:"RABBITMQ_PASS" env-default:"guest"`
+ 	JwtPublicKeyBase64  string `env:"JWT_PUBLIC_KEY_BASE64" env-required:"true"`
+	Algorithm string `env:"ALGORITHM_JWT" env-default:"RS256"`
 }
 
-func (c *Config) PostgresDSN() string {
-	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		c.DBUser, c.DBPass, c.DBHost, c.DBPort, c.DBName,
-	)
+
+type Config struct {
+	App AppConfig 
+	Postgres PostgresConfig
+	Redis RedisConfig
+	Rabbit RabbitConfig
+	JWT JWTConfig
 }
 
-func (c *Config) RedisAddr() string {
-	return fmt.Sprintf("%s:%s", c.RedisHost, c.RedisPort)
-}
 
-func (c *Config) RabbitURL() string {
-	return fmt.Sprintf("amqp://%s:%s@%s:%s/",
-		c.RabbitUser, c.RabbitPass, c.RabbitHost, c.RabbitPort,
-	)
+
+func MustLoad() *Config {
+	var cfg Config
+
+	if err := cleanenv.ReadConfig(".env", &cfg); err != nil {
+		if envErr := cleanenv.ReadEnv(&cfg); envErr != nil {
+			log.Fatalf("failed to load configuration: %v", envErr)
+		}
+	}
+
+	return &cfg
 }
 
 func (c *Config) RSAPrivateKey() *rsa.PrivateKey {
-	pemBytes, err := base64.StdEncoding.DecodeString(c.JwtPrivateKeyBase64)
+	pemBytes, err := base64.StdEncoding.DecodeString(c.JWT.JwtPrivateKeyBase64)
 	if err != nil {
 		log.Fatalf("failed to decode base64 private key: %v", err)
 	}
@@ -62,7 +79,7 @@ func (c *Config) RSAPrivateKey() *rsa.PrivateKey {
 }
 
 func (c *Config) RSAPublicKey() *rsa.PublicKey {
-	pemBytes, err := base64.StdEncoding.DecodeString(c.JwtPublicKeyBase64)
+	pemBytes, err := base64.StdEncoding.DecodeString(c.JWT.JwtPublicKeyBase64)
 	if err != nil {
 		log.Fatalf("failed to decode base64 public key: %v", err)
 	}
@@ -73,16 +90,4 @@ func (c *Config) RSAPublicKey() *rsa.PublicKey {
 	}
 
 	return key
-}
-
-func MustLoad() *Config {
-	var cfg Config
-
-	if err := cleanenv.ReadConfig(".env", &cfg); err != nil {
-		if envErr := cleanenv.ReadEnv(&cfg); envErr != nil {
-			log.Fatalf("failed to load configuration: %v", envErr)
-		}
-	}
-
-	return &cfg
 }
