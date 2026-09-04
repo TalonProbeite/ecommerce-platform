@@ -1,20 +1,24 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"github.com/google/uuid"
+	"time"
+)
 
 type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*User, error)
-	Create(ctx context.Context, user *User) error
+	Create(ctx context.Context, user *User) (uuid.UUID,error)
 }
 
 type SessionRepository interface {
-	SaveToken(ctx context.Context, userID string, token string) error
-	DeleteToken(ctx context.Context, token string) error
-	GetUserID(ctx context.Context , token string) error
+	SaveEntry(ctx context.Context, key string, value string, ttl time.Duration) error
+	DeleteEntry(ctx context.Context, key string) error
+	GetValue(ctx context.Context, key string) (string, error)
 }
 
 type EventPublisher interface {
-	PublishUserRegistered(ctx context.Context, email string) error
+	PublishEvent(eventKey string, payload []byte) error
 }
 
 type TokenManager interface {
