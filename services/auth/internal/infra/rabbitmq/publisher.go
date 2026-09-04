@@ -8,16 +8,13 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const (
-	exchangeName = "events_exchange"
-	exchangeType = "direct"
-)
-
 type EventPublisher struct {
-	client *RabbitClient
+	client       *RabbitClient
+	exchangeName string
+	exchangeType string
 }
 
-func NewEventPublisher(client *RabbitClient) (*EventPublisher, error) {
+func NewEventPublisher(client *RabbitClient, exchangeName, exchangeType string) (*EventPublisher, error) {
 	pub := &EventPublisher{client: client}
 
 	if err := pub.InitExchange(); err != nil {
@@ -29,8 +26,8 @@ func NewEventPublisher(client *RabbitClient) (*EventPublisher, error) {
 
 func (ev *EventPublisher) InitExchange() error {
 	return ev.client.Chan.ExchangeDeclare(
-		exchangeName,
-		exchangeType,
+		ev.exchangeName,
+		ev.exchangeType,
 		true,
 		false,
 		false,
@@ -45,7 +42,7 @@ func (ev *EventPublisher) PublishEvent(eventKey string, payload []byte) error {
 
 	err := ev.client.Chan.PublishWithContext(
 		ctx,
-		exchangeName,
+		ev.exchangeName,
 		eventKey,
 		false,
 		false,

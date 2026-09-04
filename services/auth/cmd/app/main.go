@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/db"
@@ -22,14 +21,12 @@ import (
 	echomw "github.com/labstack/echo/v4/middleware"
 )
 
-const shutdownTimeout = 10 * time.Second
-
 func main() {
 	cfg := config.MustLoad()
 
-	log := logger.Init(cfg.Env)
+	log := logger.Init(cfg.App.Env)
 
-	pg, err := db.NewPostgresDB(cfg.PostgresDSN())
+	pg, err := db.NewPostgresDB(cfg.Postgres.DatabaseURL)
 	if err != nil {
 		log.Error("failed to connect to postgres", slog.Any("err", err))
 		os.Exit(1)
@@ -40,14 +37,14 @@ func main() {
 		}
 	}()
 
-	if cfg.AutoMigrate {
-		if err := db.RunMigrations(cfg.PostgresDSN()); err != nil {
+	if cfg.App.AutoMigrate {
+		if err := db.RunMigrations(cfg.Postgres.DatabaseURL); err != nil {
 			log.Error("failed to run migrations", slog.Any("err", err))
 			os.Exit(1)
 		}
 	}
 
-	rdb, err := db.NewRedisClient(cfg.RedisAddr(), cfg.RedisPass, cfg.RedisDB)
+	rdb, err := db.NewRedisClient(cfg.Redis.RedisURL)
 	if err != nil {
 		log.Error("failed to connect to redis", slog.Any("err", err))
 		os.Exit(1)
@@ -58,7 +55,7 @@ func main() {
 		}
 	}()
 
-	rabbit, err := rabbitmq.NewRabbitClient(cfg.RabbitURL())
+	rabbit, err := rabbitmq.NewRabbitClient(cfg.Rabbit.RabbitURL)
 	if err != nil {
 		log.Error("failed to connect to rabbitmq", slog.Any("err", err))
 		os.Exit(1)
@@ -93,8 +90,8 @@ func main() {
 	serverErrCh := make(chan error, 1)
 
 	go func() {
-		log.Info("starting http server", slog.String("port", cfg.Port))
-		if err := e.Start(":" + cfg.Port); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Info("starting http server", slog.String("port", cfg.App.Port))
+		if err := e.Start(":" + cfg.App.Port); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErrCh <- err
 			return
 		}
@@ -111,7 +108,7 @@ func main() {
 		}
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.App.ShutdownTimeout)
 	defer cancel()
 
 	if err := e.Shutdown(shutdownCtx); err != nil {
