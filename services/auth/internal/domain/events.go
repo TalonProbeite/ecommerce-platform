@@ -1,4 +1,10 @@
-package domain 
+package domain
+
+
+
+	const UserRegistredEventKey = "user.registered"
+	const UserEmailVerifiedEventKey = "user.email_verified"
+
 
 
 type  UserRegisteredEvent struct {

@@ -11,3 +11,9 @@ type User struct {
 	LastName  string `db:"last_name"`
 	Phone     string `db:"phone"`
 }
+
+
+type TokenPair struct {
+    AccessToken  string
+    RefreshToken string
+}
