@@ -9,6 +9,9 @@ import (
 type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	Create(ctx context.Context, user *User) (uuid.UUID,error)
+	SetVerified(ctx context.Context, userID string) error
+	GetStatus(ctx context.Context, userID string) (bool, error)
+	GetByID(ctx context.Context, userId string) (*User, error)
 }
 
 type SessionRepository interface {

@@ -91,3 +91,31 @@ func (r *UserRepo) GetStatus(ctx context.Context, userID string) (bool, error) {
 
 	return is_active, nil
 }
+
+
+func (r *UserRepo) SetVerified(ctx context.Context, userID string) error {
+	query := `UPDATE users SET is_email_verified=true WHERE id = $1`
+	res, err := r.pg.Exec(query,userID)
+	if err != nil {
+		return  fmt.Errorf("failed to update email confirmation field: %w", err)
+	}
+	if rows , _ := res.RowsAffected(); rows == 0 {
+		return  fmt.Errorf("user not found")
+	}
+
+	return  nil
+}
+
+
+func (r *UserRepo) GetByID(ctx context.Context, userId string) (*domain.User, error) {
+	var u domain.User
+
+	query := `SELECT id , email , password_hash, role , is_active FROM users WHERE id = $1`
+
+	err := r.pg.GetContext(ctx, &u, query, userId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &u, nil
+}
