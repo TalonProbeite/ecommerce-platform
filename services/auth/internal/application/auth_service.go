@@ -79,6 +79,7 @@ func (as *AuthService) Registration(ctx context.Context, userData *dto.RegisterR
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("access key generation error: %w", err)
 	}
+
 	refKey := fmt.Sprintf("refresh:%s", refresh)
 	acKey := fmt.Sprintf("access:%s", access)
 	verKey := fmt.Sprintf("ver:%s", userIdString)
@@ -99,4 +100,153 @@ func (as *AuthService) Registration(ctx context.Context, userData *dto.RegisterR
 	}
 
 	return domain.TokenPair{AccessToken: access, RefreshToken: refresh}, nil
+}
+
+func (as *AuthService) Login(ctx context.Context, userData *dto.LoginRequest) (domain.TokenPair, error) {
+	user, err := as.userRepo.GetByEmail(ctx, userData.Email)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error while searching for user: %w", err)
+	}
+
+	if user == nil {
+		return domain.TokenPair{}, fmt.Errorf("user not found error")
+	}
+
+	if isValid := crypto.CheckPasswordHash(userData.Password, user.Password); !isValid {
+		return domain.TokenPair{}, fmt.Errorf("incorrect password")
+	}
+
+	status, err := as.userRepo.GetStatus(ctx, user.ID)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error checking user status: %w", err)
+	}
+	if !status {
+		return domain.TokenPair{}, fmt.Errorf("the user is not active")
+	}
+
+	access, err := as.tokenMng.GenerateToken(user.ID, user.Role)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("access key generation error: %w", err)
+	}
+
+	refresh, err := crypto.GenerateRefreshToken()
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
+	}
+
+	refKey := fmt.Sprintf("refresh:%s", refresh)
+	acKey := fmt.Sprintf("access:%s", access)
+
+	err = as.sessRepo.SaveEntry(ctx, refKey, user.ID, 7*24*time.Hour)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error saving refresh token: %w", err)
+	}
+
+	err = as.sessRepo.SaveEntry(ctx, acKey, user.ID, 15*time.Minute)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error saving access token: %w", err)
+	}
+
+	return domain.TokenPair{AccessToken: access, RefreshToken: refresh}, nil
+}
+
+func (as *AuthService) VerifyEmail(ctx context.Context, userCode string, userId string) error {
+	verKey := fmt.Sprintf("ver:%s", userId)
+	code, err := as.sessRepo.GetValue(ctx, verKey)
+	if err != nil {
+		return fmt.Errorf("error when trying to get email confirmation code: %w", err)
+	}
+
+	if code != userCode {
+		return fmt.Errorf("invalid verification code")
+	}
+	if err = as.userRepo.SetVerified(ctx, userId); err != nil {
+		return fmt.Errorf("error updating email confirmation field: %w", err)
+	}
+
+	err = as.sessRepo.DeleteEntry(ctx, verKey)
+	if err != nil {
+		return fmt.Errorf("error deleting verification code from redis: %w", err)
+	}
+
+	payload, err := json.Marshal(domain.UserEmailVerifiedEvent{
+		Email: userId,
+	})
+	if err != nil {
+		return fmt.Errorf("error while creating json struct for event: %w", err)
+	}
+
+	err = as.publisher.PublishEvent(domain.UserEmailVerifiedEventKey, payload)
+	if err != nil {
+		return fmt.Errorf("error while publishing verified event: %w", err)
+	}
+
+	return nil
+}
+
+func (as *AuthService) Refresh(ctx context.Context, refresh string) (domain.TokenPair, error) {
+	refKey := fmt.Sprintf("refresh:%s", refresh)
+	userIdRedis, err := as.sessRepo.GetValue(ctx, refKey)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error searching for key: %w", err)
+	}
+
+	user, err := as.userRepo.GetByID(ctx, userIdRedis)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error searching for user: %w", err)
+	}
+
+	if user == nil {
+		return domain.TokenPair{}, fmt.Errorf("user not found error")
+	}
+
+	if !user.IsActive {
+		return domain.TokenPair{}, fmt.Errorf("the user is not active")
+	}
+
+	err = as.sessRepo.DeleteEntry(ctx, refKey)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error deleting stale session: %w", err)
+	}
+
+	refreshNew, err := crypto.GenerateRefreshToken()
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
+	}
+
+	access, err := as.tokenMng.GenerateToken(userIdRedis, user.Role)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("access key generation error: %w", err)
+	}
+
+	newRefreshKey := fmt.Sprintf("refresh:%s", refreshNew)
+	newAccesKey := fmt.Sprintf("access:%s", access)
+
+	err = as.sessRepo.SaveEntry(ctx, newRefreshKey, userIdRedis, 7*24*time.Hour)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error saving refresh token: %w", err)
+	}
+
+	err = as.sessRepo.SaveEntry(ctx, newAccesKey, userIdRedis, 15*time.Minute)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error saving access token: %w", err)
+	}
+
+	return domain.TokenPair{AccessToken: access, RefreshToken: refreshNew}, nil
+}
+
+func (as *AuthService) Logout(ctx context.Context, refresh, access string) error {
+	refreshKey := fmt.Sprintf("refresh:%s", refresh)
+	accesKey := fmt.Sprintf("access:%s", access)
+
+	err := as.sessRepo.DeleteEntry(ctx, refreshKey)
+	if err != nil {
+		return fmt.Errorf("error occurred while attempting to delete a refresh token: %w", err)
+	}
+	err = as.sessRepo.DeleteEntry(ctx, accesKey)
+	if err != nil {
+		return fmt.Errorf("error occurred while attempting to delete a access token: %w", err)
+	}
+
+	return nil
 }
