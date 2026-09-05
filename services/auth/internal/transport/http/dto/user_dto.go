@@ -1,5 +1,10 @@
 package dto
 
+import (
+	"fmt"
+	"strings"
+)
+
 type RegisterRequest struct {
 	Email     string `json:"email" validate:"required,email"`
 	Password  string `json:"password" validate:"required,min=8"`
@@ -11,4 +16,16 @@ type RegisterRequest struct {
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,min=8"`
+}
+
+type VerifyEmailRequest struct {
+	Code string `json:"code"`
+}
+
+func (r *VerifyEmailRequest) Validate() error {
+	r.Code = strings.TrimSpace(r.Code)
+	if len(r.Code) != 10 {
+		return fmt.Errorf("verification code must be exactly 10 characters long")
+	}
+	return nil
 }
