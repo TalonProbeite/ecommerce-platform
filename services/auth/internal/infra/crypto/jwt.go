@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"crypto/rsa"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -46,4 +47,34 @@ func (m *JWTManager) GenerateToken(userId string, role ...string) (string, error
 	}
 
 	return signedToken, nil
+}
+
+func (tm *JWTManager) VerifyToken(tokenString string) (string, string, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return &tm.privateKey.PublicKey, nil
+	})
+
+	if err != nil || !token.Valid {
+		return "", "", fmt.Errorf("invalid token: %w", err)
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", "", fmt.Errorf("invalid token claims")
+	}
+
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		return "", "", fmt.Errorf("userID not found in token")
+	}
+
+	role, ok := claims["role"].(string)
+	if !ok {
+		return "", "", fmt.Errorf("role not found in token")
+	}
+
+	return userID, role, nil
 }
