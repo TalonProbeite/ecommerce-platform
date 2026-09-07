@@ -10,8 +10,9 @@ import (
 
 func NewRedisClient(addr string) (*redis.Client, error) {
 	options , err := redis.ParseURL(addr)
+	options, err := redis.ParseURL(addr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to pars url for redis: %w", err)
+		return nil, fmt.Errorf("failed to parse url for redis: %w", err)
 	}
 	rdb := redis.NewClient(options)
 
