@@ -17,7 +17,11 @@ type Handlers struct {
 	ReadyzHandler *handler.ReadyzHandler
 }
 
-func NewRouter(cfg *config.Config, log *slog.Logger, h Handlers) *echo.Echo {
+type Middlewares struct {
+	AuthCheck echo.MiddlewareFunc
+}
+
+func NewRouter(cfg *config.Config, log *slog.Logger, h Handlers, m Middlewares) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -29,7 +33,7 @@ func NewRouter(cfg *config.Config, log *slog.Logger, h Handlers) *echo.Echo {
 	public := e.Group("/api")
 	private := e.Group("/api/private")
 
-	private.Use(middleware.RequireAuth(cfg.RSAPublicKey()))
+	private.Use(m.AuthCheck)
 
 	public.GET("/healthz", h.HealthHandler.Check)
 	public.GET("/readyz", h.ReadyzHandler.Check)

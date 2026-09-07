@@ -20,6 +20,9 @@ import (
 	"shop/auth/internal/infra/rabbitmq"
 	transporthttp "shop/auth/internal/transport/http"
 	"shop/auth/internal/transport/http/handler"
+	"shop/auth/internal/transport/http/middleware"
+	"shop/auth/internal/infra/crypto"
+	"shop/auth/internal/infra/repository"
 )
 
 type App struct {
@@ -59,12 +62,18 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to connect to rabbitmq: %w", err)
 	}
 
+	tokenMeneger := crypto.NewJWTManager(cfg.RSAPrivateKey())
+	sessionRepo := repository.NewSessionRepo(rdb)
+
 	handlers := transporthttp.Handlers{
 		HealthHandler: handler.NewHealthHandler(),
 		ReadyzHandler: handler.NewReadyzHandler(pg, rdb, rabbit),
 	}
+	middlewares := transporthttp.Middlewares{
+		AuthCheck: middleware.AuthCheck(*tokenMeneger,*sessionRepo),
+	}
 
-	router := transporthttp.NewRouter(cfg, log, handlers)
+	router := transporthttp.NewRouter(cfg, log, handlers, middlewares)
 
 	return &App{
 		cfg:    cfg,
