@@ -15,7 +15,11 @@ type EventPublisher struct {
 }
 
 func NewEventPublisher(client *RabbitClient, exchangeName, exchangeType string) (*EventPublisher, error) {
-	pub := &EventPublisher{client: client}
+	pub := &EventPublisher{
+		client:       client,
+		exchangeName: exchangeName,
+		exchangeType: exchangeType,
+	}
 
 	if err := pub.InitExchange(); err != nil {
 		return nil, fmt.Errorf("failed to init exchange: %w", err)

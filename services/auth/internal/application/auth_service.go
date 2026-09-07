@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type AuthService struct {
@@ -46,6 +48,10 @@ func (as *AuthService) Registration(ctx context.Context, userData *dto.RegisterR
 		Phone:           userData.Phone})
 
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain.TokenPair{}, fmt.Errorf("registration failed: %w", domain.ErrEmailAlreadyExists)
+		}
 		return domain.TokenPair{}, fmt.Errorf("error while trying to save user: %w", err)
 	}
 
