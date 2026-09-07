@@ -58,7 +58,7 @@ func (ev *EventPublisher) PublishEvent(eventKey string, payload []byte) error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to publish registration event: %w", err)
+		return fmt.Errorf("failed to publish event: %w", err)
 	}
 
 	return nil
