@@ -39,6 +39,7 @@ func NewRouter(cfg *config.Config, log *slog.Logger, h Handlers, m Middlewares) 
 	public.GET("/healthz", h.HealthHandler.Check)
 	public.GET("/readyz", h.ReadyzHandler.Check)
 	public.POST("/login", h.AuthHandler.Login)
+	public.POST("/register", h.AuthHandler.Register)
 
 	return e
 }
