@@ -63,7 +63,7 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to connect to rabbitmq: %w", err)
 	}
 
-	tokenMeneger := crypto.NewJWTManager(cfg.RSAPrivateKey())
+	tokenManager := crypto.NewJWTManager(cfg.RSAPrivateKey())
 	sessionRepo := repository.NewSessionRepo(rdb)
 	userRepo := repository.NewUserRepo(pg)
 	eventPublisher, err := rabbitmq.NewEventPublisher(rabbit, cfg.Rabbit.ExchangeName, cfg.Rabbit.ExchangeType)
@@ -73,7 +73,7 @@ func New(cfg *config.Config) (*App, error) {
 		_ = rabbit.Close()
 		return nil, fmt.Errorf("failed to init event publisher: %w", err)
 	}
-	authService := application.NewAuthService(userRepo, sessionRepo, eventPublisher, tokenMeneger)
+	authService := application.NewAuthService(userRepo, sessionRepo, eventPublisher, tokenManager)
 
 	handlers := transporthttp.Handlers{
 		HealthHandler: handler.NewHealthHandler(),
@@ -81,7 +81,7 @@ func New(cfg *config.Config) (*App, error) {
 		AuthHandler: handler.NewAuthHandler(authService,log),
 	}
 	middlewares := transporthttp.Middlewares{
-		AuthCheck: middleware.AuthCheck(*tokenMeneger,*sessionRepo),
+		AuthCheck: middleware.AuthCheck(tokenManager,sessionRepo),
 	}
 
 	router := transporthttp.NewRouter(cfg, log, handlers, middlewares)
