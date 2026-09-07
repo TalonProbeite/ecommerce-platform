@@ -1,4 +1,4 @@
-package application
+package app
 
 import (
 	"context"
@@ -23,6 +23,7 @@ import (
 	"shop/auth/internal/transport/http/middleware"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/infra/repository"
+	"shop/auth/internal/application"
 )
 
 type App struct {
@@ -64,10 +65,20 @@ func New(cfg *config.Config) (*App, error) {
 
 	tokenMeneger := crypto.NewJWTManager(cfg.RSAPrivateKey())
 	sessionRepo := repository.NewSessionRepo(rdb)
+	userRepo := repository.NewUserRepo(pg)
+	eventPublisher, err := rabbitmq.NewEventPublisher(rabbit, cfg.Rabbit.ExchangeName, cfg.Rabbit.ExchangeType)
+	if err != nil {
+		_ = pg.Close()
+		_ = rdb.Close()
+		_ = rabbit.Close()
+		return nil, fmt.Errorf("failed to init event publisher: %w", err)
+	}
+	authService := application.NewAuthService(userRepo, sessionRepo, eventPublisher, tokenMeneger)
 
 	handlers := transporthttp.Handlers{
 		HealthHandler: handler.NewHealthHandler(),
 		ReadyzHandler: handler.NewReadyzHandler(pg, rdb, rabbit),
+		AuthHandler: handler.NewAuthHandler(authService,log),
 	}
 	middlewares := transporthttp.Middlewares{
 		AuthCheck: middleware.AuthCheck(*tokenMeneger,*sessionRepo),

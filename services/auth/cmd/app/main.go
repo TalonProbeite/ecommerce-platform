@@ -3,14 +3,14 @@ package main
 import (
 	"log"
 
-	"shop/auth/internal/application"
+	"shop/auth/internal/app"
 	"shop/auth/internal/config"
 )
 
 func main() {
 	cfg := config.MustLoad()
 
-	app, err := application.New(cfg)
+	app, err := app.New(cfg)
 	if err != nil {
 		log.Fatalf("failed to initialize application: %v", err)
 	}
