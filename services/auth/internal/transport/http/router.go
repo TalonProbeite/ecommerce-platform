@@ -15,6 +15,7 @@ import (
 type Handlers struct {
 	HealthHandler *handler.HealthHandler
 	ReadyzHandler *handler.ReadyzHandler
+	AuthHandler *handler.AuthHandler
 }
 
 type Middlewares struct {
@@ -37,6 +38,7 @@ func NewRouter(cfg *config.Config, log *slog.Logger, h Handlers, m Middlewares) 
 
 	public.GET("/healthz", h.HealthHandler.Check)
 	public.GET("/readyz", h.ReadyzHandler.Check)
+	public.POST("/login", h.AuthHandler.Login)
 
 	return e
 }
