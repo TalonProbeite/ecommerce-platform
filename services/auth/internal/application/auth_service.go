@@ -102,7 +102,7 @@ func (as *AuthService) Registration(ctx context.Context, userData *dto.RegisterR
 
 	err = as.sessRepo.SaveEntry(ctx, verKey, code, 15*time.Minute)
 	if err != nil {
-		return domain.TokenPair{}, fmt.Errorf("error saving refresh token: %w", err)
+		return domain.TokenPair{}, fmt.Errorf("error saving verification code: %w", err)
 	}
 
 	return domain.TokenPair{AccessToken: access, RefreshToken: refresh}, nil
