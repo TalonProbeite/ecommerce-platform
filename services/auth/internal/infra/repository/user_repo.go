@@ -64,7 +64,16 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (UserID uuid.UUID
         INSERT INTO users (id, email, password_hash, role, is_active, is_email_verified)
         VALUES ($1, $2, $3, $4, $5, $6)
     `
-	_, err = tx.ExecContext(ctx, userQuery, u.ID, u.Email, u.Password, u.Role, u.IsActive, u.IsEmailVerified)
+	_, err = tx.ExecContext(
+				ctx, 
+				userQuery, 
+				u.ID, u.Email, 
+				u.Password, 
+				u.Role, 
+				u.IsActive, 
+				u.IsEmailVerified,
+			)
+
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert user: %w", err)
 	}
@@ -73,7 +82,15 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (UserID uuid.UUID
         INSERT INTO profiles (id, user_id, first_name, last_name, phone)
         VALUES ($1, $2, $3, $4, $5)
     `
-	_, err = tx.ExecContext(ctx, profileQuery, profileID.String(), u.ID, u.FirstName, u.LastName, u.Phone)
+	_, err = tx.ExecContext(
+				ctx, 
+				profileQuery, 
+				profileID.String(), 
+				u.ID, u.FirstName, 
+				u.LastName, 
+				u.Phone,
+			)
+			
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert profile: %w", err)
 	}
