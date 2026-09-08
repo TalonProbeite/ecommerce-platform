@@ -3,13 +3,14 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
 	"time"
+
+	json "github.com/goccy/go-json"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"

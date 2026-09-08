@@ -3,14 +3,38 @@ package http
 
 import (
 	"log/slog"
+	"net/http"
+
+	json "github.com/goccy/go-json"
+	"github.com/labstack/echo/v4"
+	echomw "github.com/labstack/echo/v4/middleware"
+
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/validator"
 	"shop/auth/internal/transport/http/handler"
 	"shop/auth/internal/transport/http/middleware"
-
-	"github.com/labstack/echo/v4"
-	echomw "github.com/labstack/echo/v4/middleware"
 )
+
+// FastJSONSerializer implements the echo.JSONSerializer interface using go-json.
+type FastJSONSerializer struct{}
+
+// Serialize converts an object to JSON and writes it to the HTTP response.
+func (s *FastJSONSerializer) Serialize(c echo.Context, i interface{}, indent string) error {
+	enc := json.NewEncoder(c.Response())
+	if indent != "" {
+		enc.SetIndent("", indent)
+	}
+	return enc.Encode(i)
+}
+
+// Deserialize reads JSON from the HTTP request body into an object.
+func (s *FastJSONSerializer) Deserialize(c echo.Context, i interface{}) error {
+	err := json.NewDecoder(c.Request().Body).Decode(i)
+	if syntaxErr, ok := err.(*json.SyntaxError); ok {
+		return echo.NewHTTPError(http.StatusBadRequest, syntaxErr.Error())
+	}
+	return err
+}
 
 // Handlers holds references to all HTTP handler instances.
 type Handlers struct {
@@ -29,6 +53,7 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+	e.JSONSerializer = &FastJSONSerializer{}
 	e.Validator = validator.New()
 
 	e.Use(echomw.Recover())
