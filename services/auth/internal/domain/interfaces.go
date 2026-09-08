@@ -12,9 +12,9 @@ import (
 type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	Create(ctx context.Context, user *User) (uuid.UUID, error)
-	SetVerified(ctx context.Context, userID string) error
-	GetStatus(ctx context.Context, userID string) (bool, error)
-	GetByID(ctx context.Context, userID string) (*User, error)
+	SetVerified(ctx context.Context, UserID string) error
+	GetStatus(ctx context.Context, UserID string) (bool, error)
+	GetByID(ctx context.Context, UserID string) (*User, error)
 }
 
 // SessionRepository defines caching/session storage operations.
@@ -31,5 +31,5 @@ type EventPublisher interface {
 
 // TokenManager defines JWT generation operations.
 type TokenManager interface {
-	GenerateToken(userID string, role ...string) (string, error)
+	GenerateToken(UserID string, role ...string) (string, error)
 }

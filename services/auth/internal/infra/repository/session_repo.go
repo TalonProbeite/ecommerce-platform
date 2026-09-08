@@ -36,10 +36,10 @@ func (s *SessionRepo) DeleteEntry(ctx context.Context, key string) error {
 
 // GetValue retrieves a string value by key from Redis.
 func (s *SessionRepo) GetValue(ctx context.Context, key string) (string, error) {
-	userID, err := s.rdb.Get(ctx, key).Result()
+	UserID, err := s.rdb.Get(ctx, key).Result()
 	if err != nil {
 		return "", err
 	}
 
-	return userID, nil
+	return UserID, nil
 }

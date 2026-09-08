@@ -41,7 +41,7 @@ func (as *AuthService) Registration(ctx context.Context, userData *dto.RegisterR
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error while hashing password: %w", err)
 	}
-	userID, err := as.userRepo.Create(ctx, &domain.User{
+	UserID, err := as.userRepo.Create(ctx, &domain.User{
 		Email:           userData.Email,
 		Password:        hashPassword,
 		Role:            "customer",
@@ -59,7 +59,7 @@ func (as *AuthService) Registration(ctx context.Context, userData *dto.RegisterR
 		return domain.TokenPair{}, fmt.Errorf("error while trying to save user: %w", err)
 	}
 
-	if userID == uuid.Nil {
+	if UserID == uuid.Nil {
 		return domain.TokenPair{}, fmt.Errorf("user repository returned empty user id")
 	}
 
@@ -84,22 +84,22 @@ func (as *AuthService) Registration(ctx context.Context, userData *dto.RegisterR
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
 	}
-	userIDString := userID.String()
-	access, err := as.tokenMng.GenerateToken(userIDString, "customer")
+	UserIDString := UserID.String()
+	access, err := as.tokenMng.GenerateToken(UserIDString, "customer")
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("access key generation error: %w", err)
 	}
 
 	refKey := fmt.Sprintf("refresh:%s", refresh)
 	acKey := fmt.Sprintf("access:%s", access)
-	verKey := fmt.Sprintf("ver:%s", userIDString)
+	verKey := fmt.Sprintf("ver:%s", UserIDString)
 
-	err = as.sessRepo.SaveEntry(ctx, refKey, userIDString, 7*24*time.Hour)
+	err = as.sessRepo.SaveEntry(ctx, refKey, UserIDString, 7*24*time.Hour)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error saving refresh token: %w", err)
 	}
 
-	err = as.sessRepo.SaveEntry(ctx, acKey, userIDString, 15*time.Minute)
+	err = as.sessRepo.SaveEntry(ctx, acKey, UserIDString, 15*time.Minute)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error saving access token: %w", err)
 	}
@@ -162,8 +162,8 @@ func (as *AuthService) Login(ctx context.Context, userData *dto.LoginRequest) (d
 }
 
 // VerifyEmail verifies the email confirmation code for a user.
-func (as *AuthService) VerifyEmail(ctx context.Context, userCode, userID string) error {
-	verKey := fmt.Sprintf("ver:%s", userID)
+func (as *AuthService) VerifyEmail(ctx context.Context, userCode, UserID string) error {
+	verKey := fmt.Sprintf("ver:%s", UserID)
 	code, err := as.sessRepo.GetValue(ctx, verKey)
 	if err != nil {
 		return fmt.Errorf("error when trying to get email confirmation code: %w", err)
@@ -172,7 +172,7 @@ func (as *AuthService) VerifyEmail(ctx context.Context, userCode, userID string)
 	if code != userCode {
 		return fmt.Errorf("invalid verification code")
 	}
-	if err = as.userRepo.SetVerified(ctx, userID); err != nil {
+	if err = as.userRepo.SetVerified(ctx, UserID); err != nil {
 		return fmt.Errorf("error updating email confirmation field: %w", err)
 	}
 
@@ -182,7 +182,7 @@ func (as *AuthService) VerifyEmail(ctx context.Context, userCode, userID string)
 	}
 
 	payload, err := json.Marshal(domain.UserEmailVerifiedEvent{
-		Email: userID,
+		Email: UserID,
 	})
 	if err != nil {
 		return fmt.Errorf("error while creating json struct for event: %w", err)
@@ -199,12 +199,12 @@ func (as *AuthService) VerifyEmail(ctx context.Context, userCode, userID string)
 // Refresh handles token rotation using a valid refresh token.
 func (as *AuthService) Refresh(ctx context.Context, refresh string) (domain.TokenPair, error) {
 	refKey := fmt.Sprintf("refresh:%s", refresh)
-	userIDRedis, err := as.sessRepo.GetValue(ctx, refKey)
+	UserIDRedis, err := as.sessRepo.GetValue(ctx, refKey)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error searching for key: %w", err)
 	}
 
-	user, err := as.userRepo.GetByID(ctx, userIDRedis)
+	user, err := as.userRepo.GetByID(ctx, UserIDRedis)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error searching for user: %w", err)
 	}
@@ -227,7 +227,7 @@ func (as *AuthService) Refresh(ctx context.Context, refresh string) (domain.Toke
 		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
 	}
 
-	access, err := as.tokenMng.GenerateToken(userIDRedis, user.Role)
+	access, err := as.tokenMng.GenerateToken(UserIDRedis, user.Role)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("access key generation error: %w", err)
 	}
@@ -235,12 +235,12 @@ func (as *AuthService) Refresh(ctx context.Context, refresh string) (domain.Toke
 	newRefreshKey := fmt.Sprintf("refresh:%s", refreshNew)
 	newAccesKey := fmt.Sprintf("access:%s", access)
 
-	err = as.sessRepo.SaveEntry(ctx, newRefreshKey, userIDRedis, 7*24*time.Hour)
+	err = as.sessRepo.SaveEntry(ctx, newRefreshKey, UserIDRedis, 7*24*time.Hour)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error saving refresh token: %w", err)
 	}
 
-	err = as.sessRepo.SaveEntry(ctx, newAccesKey, userIDRedis, 15*time.Minute)
+	err = as.sessRepo.SaveEntry(ctx, newAccesKey, UserIDRedis, 15*time.Minute)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error saving access token: %w", err)
 	}

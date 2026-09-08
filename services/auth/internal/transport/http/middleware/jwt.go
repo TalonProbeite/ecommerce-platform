@@ -19,17 +19,17 @@ func AuthCheck(tokenMng *crypto.JWTManager, sessRepo *repository.SessionRepo) ec
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "missing access token"})
 			}
 
-			userID, role, err := tokenMng.VerifyToken(cookie.Value)
+			UserID, role, err := tokenMng.VerifyToken(cookie.Value)
 			if err != nil {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token"})
 			}
 
 			acKey := fmt.Sprintf("access:%s", cookie.Value)
-			userIDStorage, err := sessRepo.GetValue(c.Request().Context(), acKey)
-			if err != nil || userIDStorage != userID {
+			UserIDStorage, err := sessRepo.GetValue(c.Request().Context(), acKey)
+			if err != nil || UserIDStorage != UserID {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "session expired"})
 			}
-			c.Set("userID", userID)
+			c.Set("UserID", UserID)
 			c.Set("role", role)
 
 			return next(c)

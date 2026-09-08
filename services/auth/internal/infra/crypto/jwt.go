@@ -29,14 +29,14 @@ type CustomClaim struct {
 }
 
 // GenerateToken creates a signed RSA256 JWT access token for a given user ID and role.
-func (m *JWTManager) GenerateToken(userID string, role ...string) (string, error) {
+func (m *JWTManager) GenerateToken(UserID string, role ...string) (string, error) {
 	currentRole := "customer"
 	if len(role) > 0 {
 		currentRole = role[0]
 	}
 
 	claims := CustomClaim{
-		UserID: userID,
+		UserID: UserID,
 		Role:   currentRole,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
@@ -72,9 +72,9 @@ func (m *JWTManager) VerifyToken(tokenString string) (string, string, error) {
 		return "", "", fmt.Errorf("invalid token claims")
 	}
 
-	userID, ok := claims["user_id"].(string)
+	UserID, ok := claims["user_id"].(string)
 	if !ok {
-		return "", "", fmt.Errorf("userID not found in token")
+		return "", "", fmt.Errorf("UserID not found in token")
 	}
 
 	role, ok := claims["role"].(string)
@@ -82,5 +82,5 @@ func (m *JWTManager) VerifyToken(tokenString string) (string, string, error) {
 		return "", "", fmt.Errorf("role not found in token")
 	}
 
-	return userID, role, nil
+	return UserID, role, nil
 }
