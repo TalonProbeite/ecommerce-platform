@@ -5,22 +5,23 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"shop/auth/internal/infra/rabbitmq"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
-
-	"shop/auth/internal/infra/rabbitmq"
 )
 
+// ReadyzHandler handles readiness probe endpoints.
 type ReadyzHandler struct {
 	pg     *sqlx.DB
 	rdb    *redis.Client
 	rabbit *rabbitmq.RabbitClient
 }
 
+// NewReadyzHandler constructs a new ReadyzHandler instance.
 func NewReadyzHandler(pg *sqlx.DB, rdb *redis.Client, rabbit *rabbitmq.RabbitClient) *ReadyzHandler {
 	return &ReadyzHandler{
 		pg:     pg,
@@ -29,6 +30,7 @@ func NewReadyzHandler(pg *sqlx.DB, rdb *redis.Client, rabbit *rabbitmq.RabbitCli
 	}
 }
 
+// Check verifies health of Postgres, Redis, and RabbitMQ dependencies.
 func (r *ReadyzHandler) Check(c echo.Context) error {
 	reqCtx := c.Request().Context()
 

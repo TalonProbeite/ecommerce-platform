@@ -8,12 +8,14 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+// EventPublisher publishes domain events to RabbitMQ exchanges.
 type EventPublisher struct {
 	client       *RabbitClient
 	exchangeName string
 	exchangeType string
 }
 
+// NewEventPublisher constructs an EventPublisher and declares the exchange.
 func NewEventPublisher(client *RabbitClient, exchangeName, exchangeType string) (*EventPublisher, error) {
 	pub := &EventPublisher{
 		client:       client,
@@ -28,6 +30,7 @@ func NewEventPublisher(client *RabbitClient, exchangeName, exchangeType string) 
 	return pub, nil
 }
 
+// InitExchange declares the target exchange in RabbitMQ.
 func (ev *EventPublisher) InitExchange() error {
 	return ev.client.Chan.ExchangeDeclare(
 		ev.exchangeName,
@@ -40,6 +43,7 @@ func (ev *EventPublisher) InitExchange() error {
 	)
 }
 
+// PublishEvent sends a JSON payload event with a routing key to RabbitMQ.
 func (ev *EventPublisher) PublishEvent(eventKey string, payload []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

@@ -8,8 +8,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// NewRedisClient parses connection URL and connects to Redis.
 func NewRedisClient(addr string) (*redis.Client, error) {
-	options , err := redis.ParseURL(addr)
 	options, err := redis.ParseURL(addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse url for redis: %w", err)
@@ -20,7 +20,9 @@ func NewRedisClient(addr string) (*redis.Client, error) {
 	defer cancel()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		_ = rdb.Close()
+		if closeErr := rdb.Close(); closeErr != nil {
+			return nil, fmt.Errorf("failed to ping redis (%w) and failed to close client (%w)", err, closeErr)
+		}
 		return nil, fmt.Errorf("failed to ping redis: %w", err)
 	}
 

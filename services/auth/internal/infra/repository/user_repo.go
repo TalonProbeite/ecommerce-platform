@@ -1,24 +1,31 @@
+// Package repository provides data persistence implementations for the auth service.
 package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"shop/auth/internal/domain"
+
 	"github.com/google/uuid"
 
 	"github.com/jmoiron/sqlx"
 )
 
+// UserRepo handles user database operations in PostgreSQL.
 type UserRepo struct {
 	pg *sqlx.DB
 }
 
+// NewUserRepo constructs a new UserRepo.
 func NewUserRepo(pg *sqlx.DB) *UserRepo {
 	repo := UserRepo{pg}
 
-	return  &repo
+	return &repo
 }
 
+// GetByEmail retrieves a user by email address.
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var u domain.User
 
@@ -32,8 +39,9 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 	return &u, nil
 }
 
-func (r *UserRepo) Create(ctx context.Context, u *domain.User) (uuid.UUID, error) {
-	userID, err := uuid.NewV7()
+// Create inserts a new user and user profile in a single transaction.
+func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID, err error) {
+	uID, err := uuid.NewV7()
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("generate user uuid v7: %w", err)
 	}
@@ -43,7 +51,7 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (uuid.UUID, error
 		return uuid.Nil, fmt.Errorf("generate profile uuid v7: %w", err)
 	}
 
-	u.ID = userID.String()
+	u.ID = uID.String()
 
 	if u.Role == "" {
 		u.Role = "user"
@@ -53,7 +61,11 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (uuid.UUID, error
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			err = errors.Join(err, fmt.Errorf("rollback error: %w", rollbackErr))
+		}
+	}()
 
 	userQuery := `
         INSERT INTO users (id, email, password_hash, role, is_active, is_email_verified)
@@ -77,42 +89,46 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (uuid.UUID, error
 		return uuid.Nil, fmt.Errorf("commit tx: %w", err)
 	}
 
-	return userID, nil
+	return uID, nil
 }
 
-
+// GetStatus retrieves the user's active status.
 func (r *UserRepo) GetStatus(ctx context.Context, userID string) (bool, error) {
 	query := `SELECT is_active FROM users WHERE id = $1`
-	var is_active bool
+	var isActive bool
 
-	if err := r.pg.GetContext(ctx, &is_active, query, userID); err != nil {
+	if err := r.pg.GetContext(ctx, &isActive, query, userID); err != nil {
 		return false, fmt.Errorf("get status by id: %w", err)
 	}
 
-	return is_active, nil
+	return isActive, nil
 }
 
-
+// SetVerified marks a user's email address as verified.
 func (r *UserRepo) SetVerified(ctx context.Context, userID string) error {
 	query := `UPDATE users SET is_email_verified=true WHERE id = $1`
-	res, err := r.pg.Exec(query,userID)
+	res, err := r.pg.ExecContext(ctx, query, userID)
 	if err != nil {
-		return  fmt.Errorf("failed to update email confirmation field: %w", err)
+		return fmt.Errorf("failed to update email confirmation field: %w", err)
 	}
-	if rows , _ := res.RowsAffected(); rows == 0 {
-		return  fmt.Errorf("user not found")
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("user not found")
 	}
 
-	return  nil
+	return nil
 }
 
-
-func (r *UserRepo) GetByID(ctx context.Context, userId string) (*domain.User, error) {
+// GetByID retrieves a user by ID.
+func (r *UserRepo) GetByID(ctx context.Context, userID string) (*domain.User, error) {
 	var u domain.User
 
 	query := `SELECT id , email , password_hash, role , is_active FROM users WHERE id = $1`
 
-	err := r.pg.GetContext(ctx, &u, query, userId)
+	err := r.pg.GetContext(ctx, &u, query, userID)
 	if err != nil {
 		return nil, err
 	}

@@ -1,3 +1,4 @@
+// Package rabbitmq provides RabbitMQ client connection management and message publishing.
 package rabbitmq
 
 import (
@@ -7,11 +8,13 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+// RabbitClient wraps an AMQP connection and channel.
 type RabbitClient struct {
 	Conn *amqp.Connection
 	Chan *amqp.Channel
 }
 
+// NewRabbitClient connects to RabbitMQ and opens a channel.
 func NewRabbitClient(url string) (*RabbitClient, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -20,7 +23,9 @@ func NewRabbitClient(url string) (*RabbitClient, error) {
 
 	ch, err := conn.Channel()
 	if err != nil {
-		_ = conn.Close()
+		if closeErr := conn.Close(); closeErr != nil {
+			return nil, fmt.Errorf("failed to open channel (%w) and failed to close connection (%w)", err, closeErr)
+		}
 		return nil, fmt.Errorf("failed to open rabbitmq channel: %w", err)
 	}
 
@@ -30,6 +35,7 @@ func NewRabbitClient(url string) (*RabbitClient, error) {
 	}, nil
 }
 
+// Close closes the AMQP channel and connection.
 func (r *RabbitClient) Close() error {
 	if r == nil {
 		return nil

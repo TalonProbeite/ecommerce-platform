@@ -1,28 +1,31 @@
+// Package http provides HTTP routing and handlers for the auth service.
 package http
 
 import (
 	"log/slog"
-
-	"github.com/labstack/echo/v4"
-	echomw "github.com/labstack/echo/v4/middleware"
-
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/validator"
 	"shop/auth/internal/transport/http/handler"
 	"shop/auth/internal/transport/http/middleware"
+
+	"github.com/labstack/echo/v4"
+	echomw "github.com/labstack/echo/v4/middleware"
 )
 
+// Handlers holds references to all HTTP handler instances.
 type Handlers struct {
 	HealthHandler *handler.HealthHandler
 	ReadyzHandler *handler.ReadyzHandler
-	AuthHandler *handler.AuthHandler
+	AuthHandler   *handler.AuthHandler
 }
 
+// Middlewares holds middleware functions used by the router.
 type Middlewares struct {
 	AuthCheck echo.MiddlewareFunc
 }
 
-func NewRouter(cfg *config.Config, log *slog.Logger, h Handlers, m Middlewares) *echo.Echo {
+// NewRouter configures and returns a new Echo HTTP router.
+func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true

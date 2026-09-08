@@ -3,15 +3,16 @@ package middleware
 import (
 	"log/slog"
 	"time"
+
 	"github.com/labstack/echo/v4"
 )
 
+// RequestLogger returns Echo middleware that logs HTTP requests with slog.
 func RequestLogger(log *slog.Logger) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			start := time.Now()
 
-		
 			err := next(c)
 			if err != nil {
 				c.Error(err)

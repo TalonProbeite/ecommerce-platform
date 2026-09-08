@@ -1,3 +1,4 @@
+// Package app provides application lifecycle management and component wiring.
 package app
 
 import (
@@ -8,24 +9,25 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"shop/auth/internal/application"
+	"shop/auth/internal/config"
+	"shop/auth/internal/infra/crypto"
+	"shop/auth/internal/infra/db"
+	"shop/auth/internal/infra/logger"
+	"shop/auth/internal/infra/rabbitmq"
+	"shop/auth/internal/infra/repository"
+	"shop/auth/internal/transport/http/handler"
+	"shop/auth/internal/transport/http/middleware"
 	"syscall"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 
-	"shop/auth/internal/config"
-	"shop/auth/internal/infra/db"
-	"shop/auth/internal/infra/logger"
-	"shop/auth/internal/infra/rabbitmq"
 	transporthttp "shop/auth/internal/transport/http"
-	"shop/auth/internal/transport/http/handler"
-	"shop/auth/internal/transport/http/middleware"
-	"shop/auth/internal/infra/crypto"
-	"shop/auth/internal/infra/repository"
-	"shop/auth/internal/application"
 )
 
+// App encapsulates dependencies and server lifecycle for the auth service.
 type App struct {
 	cfg    *config.Config
 	log    *slog.Logger
@@ -35,6 +37,7 @@ type App struct {
 	rabbit *rabbitmq.RabbitClient
 }
 
+// New initializes dependencies and constructs a new App.
 func New(cfg *config.Config) (*App, error) {
 	log := logger.Init(cfg.App.Env)
 
@@ -44,22 +47,30 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	if cfg.App.AutoMigrate {
-		if err := db.RunMigrations(cfg.Postgres.DatabaseURL); err != nil {
-			_ = pg.Close()
-			return nil, fmt.Errorf("failed to run migrations: %w", err)
+		if migErr := db.RunMigrations(cfg.Postgres.DatabaseURL); migErr != nil {
+			if closeErr := pg.Close(); closeErr != nil {
+				log.Error("failed to close postgres after migration error", slog.Any("err", closeErr))
+			}
+			return nil, fmt.Errorf("failed to run migrations: %w", migErr)
 		}
 	}
 
 	rdb, err := db.NewRedisClient(cfg.Redis.RedisURL)
 	if err != nil {
-		_ = pg.Close()
+		if closeErr := pg.Close(); closeErr != nil {
+			log.Error("failed to close postgres", slog.Any("err", closeErr))
+		}
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}
 
 	rabbit, err := rabbitmq.NewRabbitClient(cfg.Rabbit.RabbitURL)
 	if err != nil {
-		_ = pg.Close()
-		_ = rdb.Close()
+		if closeErr := pg.Close(); closeErr != nil {
+			log.Error("failed to close postgres", slog.Any("err", closeErr))
+		}
+		if closeErr := rdb.Close(); closeErr != nil {
+			log.Error("failed to close redis", slog.Any("err", closeErr))
+		}
 		return nil, fmt.Errorf("failed to connect to rabbitmq: %w", err)
 	}
 
@@ -68,9 +79,15 @@ func New(cfg *config.Config) (*App, error) {
 	userRepo := repository.NewUserRepo(pg)
 	eventPublisher, err := rabbitmq.NewEventPublisher(rabbit, cfg.Rabbit.ExchangeName, cfg.Rabbit.ExchangeType)
 	if err != nil {
-		_ = pg.Close()
-		_ = rdb.Close()
-		_ = rabbit.Close()
+		if closeErr := pg.Close(); closeErr != nil {
+			log.Error("failed to close postgres", slog.Any("err", closeErr))
+		}
+		if closeErr := rdb.Close(); closeErr != nil {
+			log.Error("failed to close redis", slog.Any("err", closeErr))
+		}
+		if closeErr := rabbit.Close(); closeErr != nil {
+			log.Error("failed to close rabbitmq", slog.Any("err", closeErr))
+		}
 		return nil, fmt.Errorf("failed to init event publisher: %w", err)
 	}
 	authService := application.NewAuthService(userRepo, sessionRepo, eventPublisher, tokenManager)
@@ -78,10 +95,10 @@ func New(cfg *config.Config) (*App, error) {
 	handlers := transporthttp.Handlers{
 		HealthHandler: handler.NewHealthHandler(),
 		ReadyzHandler: handler.NewReadyzHandler(pg, rdb, rabbit),
-		AuthHandler: handler.NewAuthHandler(authService,log),
+		AuthHandler:   handler.NewAuthHandler(authService, log),
 	}
 	middlewares := transporthttp.Middlewares{
-		AuthCheck: middleware.AuthCheck(tokenManager,sessionRepo),
+		AuthCheck: middleware.AuthCheck(tokenManager, sessionRepo),
 	}
 
 	router := transporthttp.NewRouter(cfg, log, handlers, middlewares)
@@ -96,6 +113,7 @@ func New(cfg *config.Config) (*App, error) {
 	}, nil
 }
 
+// Run starts the HTTP server and handles graceful shutdown.
 func (a *App) Run() error {
 	defer a.closeResources()
 

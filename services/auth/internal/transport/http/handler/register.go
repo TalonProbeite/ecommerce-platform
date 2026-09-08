@@ -4,14 +4,14 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"shop/auth/internal/domain"
+	"shop/auth/internal/transport/http/dto"
 	"time"
 
 	"github.com/labstack/echo/v4"
-
-	"shop/auth/internal/domain"
-	"shop/auth/internal/transport/http/dto"
 )
 
+// Register handles new user registration requests.
 func (h *AuthHandler) Register(c echo.Context) error {
 	var req dto.RegisterRequest
 

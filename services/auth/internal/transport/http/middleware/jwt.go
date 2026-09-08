@@ -1,3 +1,4 @@
+// Package middleware provides Echo middleware components.
 package middleware
 
 import (
@@ -9,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// AuthCheck returns Echo middleware to validate JWT access token cookies.
 func AuthCheck(tokenMng *crypto.JWTManager, sessRepo *repository.SessionRepo) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -21,15 +23,15 @@ func AuthCheck(tokenMng *crypto.JWTManager, sessRepo *repository.SessionRepo) ec
 			if err != nil {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid token"})
 			}
-			
+
 			acKey := fmt.Sprintf("access:%s", cookie.Value)
-			userIdStorage, err := sessRepo.GetValue(c.Request().Context(),acKey)
-			if err != nil || userIdStorage != userID {
-				return  c.JSON(http.StatusUnauthorized,map[string]string{"error": "session expired"})
+			userIDStorage, err := sessRepo.GetValue(c.Request().Context(), acKey)
+			if err != nil || userIDStorage != userID {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "session expired"})
 			}
 			c.Set("userID", userID)
 			c.Set("role", role)
-			
+
 			return next(c)
 		}
 	}

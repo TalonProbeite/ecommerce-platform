@@ -1,3 +1,4 @@
+// Package logger provides structured logging initialization using slog.
 package logger
 
 import (
@@ -5,6 +6,7 @@ import (
 	"os"
 )
 
+// Init constructs and sets up a new slog.Logger instance based on the environment.
 func Init(env string) *slog.Logger {
 	var handler slog.Handler
 

@@ -1,3 +1,4 @@
+// Package crypto provides cryptographic utilities including password hashing and JWT management.
 package crypto
 
 import (
@@ -8,30 +9,34 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// JWTManager handles JWT generation and validation using RSA keys.
 type JWTManager struct {
 	privateKey *rsa.PrivateKey
 }
 
+// NewJWTManager constructs a new JWTManager with the given RSA private key.
 func NewJWTManager(key *rsa.PrivateKey) *JWTManager {
 	return &JWTManager{
 		privateKey: key,
 	}
 }
 
+// CustomClaim represents custom claims embedded inside JWT access tokens.
 type CustomClaim struct {
-	UserId string `json:"user_id"`
+	UserID string `json:"user_id"`
 	Role   string `json:"role"`
 	jwt.RegisteredClaims
 }
 
-func (m *JWTManager) GenerateToken(userId string, role ...string) (string, error) {
+// GenerateToken creates a signed RSA256 JWT access token for a given user ID and role.
+func (m *JWTManager) GenerateToken(userID string, role ...string) (string, error) {
 	currentRole := "customer"
 	if len(role) > 0 {
 		currentRole = role[0]
 	}
 
 	claims := CustomClaim{
-		UserId: userId,
+		UserID: userID,
 		Role:   currentRole,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
@@ -49,12 +54,13 @@ func (m *JWTManager) GenerateToken(userId string, role ...string) (string, error
 	return signedToken, nil
 }
 
-func (tm *JWTManager) VerifyToken(tokenString string) (string, string, error) {
+// VerifyToken parses and validates an RSA-signed JWT token string.
+func (m *JWTManager) VerifyToken(tokenString string) (string, string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return &tm.privateKey.PublicKey, nil
+		return &m.privateKey.PublicKey, nil
 	})
 
 	if err != nil || !token.Valid {

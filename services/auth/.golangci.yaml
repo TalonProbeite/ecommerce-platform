@@ -1,0 +1,43 @@
+run:
+  timeout: 5m
+  tests: false
+
+linters-settings:
+  govet:
+    enable-all: true
+  gocyclo:
+    min-complexity: 15
+  gofumpt:
+    extra-rules: true 
+  errcheck:
+    check-type-assertions: true
+    check-blank: true 
+  exhaustive:
+    default-signifies-exhaustive: true 
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck     
+    - govet        
+    - staticcheck  
+    - gosimple     
+    - ineffassign  
+    - typecheck    
+    - exhaustive   
+    - nilerr       
+    - makezero     
+    - bodyclose    
+    
+    - gofumpt      
+    - goimports    
+    - revive       
+    - gocritic     
+    
+    
+    - gosec        
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0

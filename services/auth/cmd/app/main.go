@@ -1,8 +1,8 @@
+// Package main is the entry point for the auth service application.
 package main
 
 import (
 	"log"
-
 	"shop/auth/internal/app"
 	"shop/auth/internal/config"
 )
