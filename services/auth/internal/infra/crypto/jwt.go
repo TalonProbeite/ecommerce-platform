@@ -57,7 +57,7 @@ func (m *JWTManager) GenerateToken(userID string, role ...string) (string, error
 // VerifyToken parses and validates an RSA-signed JWT token string.
 func (m *JWTManager) VerifyToken(tokenString string) (string, string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+		if token.Method != jwt.SigningMethodRS256 {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return &m.privateKey.PublicKey, nil
