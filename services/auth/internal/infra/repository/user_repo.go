@@ -6,11 +6,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"shop/auth/internal/domain"
 
 	"github.com/google/uuid"
-
 	"github.com/jmoiron/sqlx"
+
+	"shop/auth/internal/domain"
 )
 
 // UserRepo handles user database operations in PostgreSQL.
@@ -20,16 +20,14 @@ type UserRepo struct {
 
 // NewUserRepo constructs a new UserRepo.
 func NewUserRepo(pg *sqlx.DB) *UserRepo {
-	repo := UserRepo{pg}
-
-	return &repo
+	return &UserRepo{pg: pg}
 }
 
 // GetByEmail retrieves a user by email address.
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var u domain.User
 
-	query := `SELECT id , email , password_hash, role , is_active FROM users WHERE email = $1`
+	query := `SELECT id, email, password_hash, role, is_active FROM users WHERE email = $1`
 
 	err := r.pg.GetContext(ctx, &u, query, email)
 	if err != nil {
@@ -40,12 +38,7 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 }
 
 // Create inserts a new user and user profile in a single transaction.
-func (r *UserRepo) Create(ctx context.Context, u *domain.User) (UserID uuid.UUID, err error) {
-	uID := uuid.Must(uuid.NewV7())
-	profileID := uuid.Must(uuid.NewV7())
-
-	u.ID = uID.String()
-
+func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID, err error) {
 	if u.Role == "" {
 		u.Role = domain.RoleCustomer
 	}
@@ -61,36 +54,39 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (UserID uuid.UUID
 	}()
 
 	userQuery := `
-        INSERT INTO users (id, email, password_hash, role, is_active, is_email_verified)
-        VALUES ($1, $2, $3, $4, $5, $6)
-    `
-	_, err = tx.ExecContext(
-				ctx, 
-				userQuery, 
-				u.ID, u.Email, 
-				u.Password, 
-				u.Role, 
-				u.IsActive, 
-				u.IsEmailVerified,
-			)
+		INSERT INTO users (email, password_hash, role, is_active, is_email_verified)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id
+	`
+	err = tx.QueryRowContext(
+		ctx,
+		userQuery,
+		u.Email,
+		u.Password,
+		u.Role,
+		u.IsActive,
+		u.IsEmailVerified,
+	).Scan(&userID)
 
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert user: %w", err)
 	}
 
+	u.ID = userID.String()
+
 	profileQuery := `
-        INSERT INTO profiles (id, user_id, first_name, last_name, phone)
-        VALUES ($1, $2, $3, $4, $5)
-    `
+		INSERT INTO profiles (user_id, first_name, last_name, phone)
+		VALUES ($1, $2, $3, $4)
+	`
 	_, err = tx.ExecContext(
-				ctx, 
-				profileQuery, 
-				profileID.String(), 
-				u.ID, u.FirstName, 
-				u.LastName, 
-				u.Phone,
-			)
-			
+		ctx,
+		profileQuery,
+		u.ID,
+		u.FirstName,
+		u.LastName,
+		u.Phone,
+	)
+
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert profile: %w", err)
 	}
@@ -99,15 +95,15 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (UserID uuid.UUID
 		return uuid.Nil, fmt.Errorf("commit tx: %w", err)
 	}
 
-	return uID, nil
+	return userID, nil
 }
 
 // GetStatus retrieves the user's active status.
-func (r *UserRepo) GetStatus(ctx context.Context, UserID string) (bool, error) {
+func (r *UserRepo) GetStatus(ctx context.Context, userID string) (bool, error) {
 	query := `SELECT is_active FROM users WHERE id = $1`
 	var isActive bool
 
-	if err := r.pg.GetContext(ctx, &isActive, query, UserID); err != nil {
+	if err := r.pg.GetContext(ctx, &isActive, query, userID); err != nil {
 		return false, fmt.Errorf("get status by id: %w", err)
 	}
 
@@ -115,9 +111,9 @@ func (r *UserRepo) GetStatus(ctx context.Context, UserID string) (bool, error) {
 }
 
 // SetVerified marks a user's email address as verified.
-func (r *UserRepo) SetVerified(ctx context.Context, UserID string) error {
+func (r *UserRepo) SetVerified(ctx context.Context, userID string) error {
 	query := `UPDATE users SET is_email_verified=true WHERE id = $1`
-	res, err := r.pg.ExecContext(ctx, query, UserID)
+	res, err := r.pg.ExecContext(ctx, query, userID)
 	if err != nil {
 		return fmt.Errorf("failed to update email confirmation field: %w", err)
 	}
@@ -133,12 +129,12 @@ func (r *UserRepo) SetVerified(ctx context.Context, UserID string) error {
 }
 
 // GetByID retrieves a user by ID.
-func (r *UserRepo) GetByID(ctx context.Context, UserID string) (*domain.User, error) {
+func (r *UserRepo) GetByID(ctx context.Context, userID string) (*domain.User, error) {
 	var u domain.User
 
-	query := `SELECT id , email , password_hash, role , is_active FROM users WHERE id = $1`
+	query := `SELECT id, email, password_hash, role, is_active FROM users WHERE id = $1`
 
-	err := r.pg.GetContext(ctx, &u, query, UserID)
+	err := r.pg.GetContext(ctx, &u, query, userID)
 	if err != nil {
 		return nil, err
 	}
