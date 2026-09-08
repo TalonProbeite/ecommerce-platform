@@ -47,7 +47,7 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (UserID uuid.UUID
 	u.ID = uID.String()
 
 	if u.Role == "" {
-		u.Role = "user"
+		u.Role = domain.RoleCustomer
 	}
 
 	tx, err := r.pg.BeginTxx(ctx, nil)

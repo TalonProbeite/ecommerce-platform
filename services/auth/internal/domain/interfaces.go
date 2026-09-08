@@ -31,5 +31,5 @@ type EventPublisher interface {
 
 // TokenManager defines JWT generation operations.
 type TokenManager interface {
-	GenerateToken(UserID string, role ...string) (string, error)
+	GenerateToken(UserID string, role ...Role) (string, error)
 }

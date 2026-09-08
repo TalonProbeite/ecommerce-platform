@@ -44,7 +44,7 @@ func (as *AuthService) Registration(ctx context.Context, userData *dto.RegisterR
 	UserID, err := as.userRepo.Create(ctx, &domain.User{
 		Email:           userData.Email,
 		Password:        hashPassword,
-		Role:            "customer",
+		Role:            domain.RoleCustomer,
 		IsActive:        true,
 		IsEmailVerified: false,
 		FirstName:       userData.FirstName,
@@ -85,7 +85,7 @@ func (as *AuthService) Registration(ctx context.Context, userData *dto.RegisterR
 		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
 	}
 	UserIDString := UserID.String()
-	access, err := as.tokenMng.GenerateToken(UserIDString, "customer")
+	access, err := as.tokenMng.GenerateToken(UserIDString, domain.RoleCustomer)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("access key generation error: %w", err)
 	}

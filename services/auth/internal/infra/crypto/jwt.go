@@ -4,6 +4,7 @@ package crypto
 import (
 	"crypto/rsa"
 	"fmt"
+	"shop/auth/internal/domain"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -23,14 +24,14 @@ func NewJWTManager(key *rsa.PrivateKey) *JWTManager {
 
 // CustomClaim represents custom claims embedded inside JWT access tokens.
 type CustomClaim struct {
-	UserID string `json:"user_id"`
-	Role   string `json:"role"`
+	UserID string      `json:"user_id"`
+	Role   domain.Role `json:"role"`
 	jwt.RegisteredClaims
 }
 
 // GenerateToken creates a signed RSA256 JWT access token for a given user ID and role.
-func (m *JWTManager) GenerateToken(UserID string, role ...string) (string, error) {
-	currentRole := "customer"
+func (m *JWTManager) GenerateToken(UserID string, role ...domain.Role) (string, error) {
+	currentRole := domain.RoleCustomer
 	if len(role) > 0 {
 		currentRole = role[0]
 	}
@@ -55,7 +56,7 @@ func (m *JWTManager) GenerateToken(UserID string, role ...string) (string, error
 }
 
 // VerifyToken parses and validates an RSA-signed JWT token string.
-func (m *JWTManager) VerifyToken(tokenString string) (string, string, error) {
+func (m *JWTManager) VerifyToken(tokenString string) (string, domain.Role, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if token.Method != jwt.SigningMethodRS256 {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -82,5 +83,5 @@ func (m *JWTManager) VerifyToken(tokenString string) (string, string, error) {
 		return "", "", fmt.Errorf("role not found in token")
 	}
 
-	return UserID, role, nil
+	return UserID, domain.Role(role), nil
 }
