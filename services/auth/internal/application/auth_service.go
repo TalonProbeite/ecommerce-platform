@@ -10,7 +10,7 @@ import (
 	"shop/auth/internal/transport/http/dto"
 	"time"
 
-	json "github.com/goccy/go-json"
+	"encoding/json/v2"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"

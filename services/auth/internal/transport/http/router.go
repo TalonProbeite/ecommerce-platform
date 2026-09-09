@@ -2,10 +2,12 @@
 package http
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
 
-	json "github.com/goccy/go-json"
+	json "encoding/json/v2"
+
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 
@@ -15,25 +17,31 @@ import (
 	"shop/auth/internal/transport/http/middleware"
 )
 
-// FastJSONSerializer implements the echo.JSONSerializer interface using go-json.
-type FastJSONSerializer struct{}
+// JSONV2Serializer implements the echo.JSONSerializer interface using encoding/json/v2.
+type JSONV2Serializer struct{}
 
 // Serialize converts an object to JSON and writes it to the HTTP response.
-func (s *FastJSONSerializer) Serialize(c echo.Context, i interface{}, indent string) error {
-	enc := json.NewEncoder(c.Response())
-	if indent != "" {
-		enc.SetIndent("", indent)
+func (s *JSONV2Serializer) Serialize(c echo.Context, i interface{}, indent string) error {
+	b, err := json.Marshal(i)
+	if err != nil {
+		return err
 	}
-	return enc.Encode(i)
+	_, err = c.Response().Write(b)
+	return err
 }
 
 // Deserialize reads JSON from the HTTP request body into an object.
-func (s *FastJSONSerializer) Deserialize(c echo.Context, i interface{}) error {
-	err := json.NewDecoder(c.Request().Body).Decode(i)
-	if syntaxErr, ok := err.(*json.SyntaxError); ok {
-		return echo.NewHTTPError(http.StatusBadRequest, syntaxErr.Error())
+func (s *JSONV2Serializer) Deserialize(c echo.Context, i interface{}) error {
+	b, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		return err
 	}
-	return err
+
+	err = json.Unmarshal(b, i)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	return nil
 }
 
 // Handlers holds references to all HTTP handler instances.
@@ -53,7 +61,7 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
-	e.JSONSerializer = &FastJSONSerializer{}
+	e.JSONSerializer = &JSONV2Serializer{}
 	e.Validator = validator.New()
 
 	e.Use(echomw.Recover())
