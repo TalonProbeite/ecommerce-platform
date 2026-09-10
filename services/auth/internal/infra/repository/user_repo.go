@@ -104,9 +104,10 @@ func (r *UserRepo) GetStatus(ctx context.Context, userID string) (bool, error) {
 	return isActive, nil
 }
 
-func (r *UserRepo) SetVerified(ctx context.Context, userID string) (string, string, error) {
-	var email, firstName string
-
+func (r *UserRepo) SetVerified(
+	ctx context.Context,
+	userID string,
+) (email, firstName string, err error) {
 	query := `
 		UPDATE users u
 		SET is_email_verified = true
@@ -115,7 +116,7 @@ func (r *UserRepo) SetVerified(ctx context.Context, userID string) (string, stri
 		RETURNING u.email, p.first_name
 	`
 
-	err := r.pg.QueryRowContext(ctx, query, userID).Scan(&email, &firstName)
+	err = r.pg.QueryRowContext(ctx, query, userID).Scan(&email, &firstName)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", "", domain.ErrUserNotFound

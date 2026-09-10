@@ -28,6 +28,8 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
 	})
 
 	c.SetCookie(&http.Cookie{
@@ -36,6 +38,8 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 		Path:     "/api/auth/refresh",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
 	})
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "successfully logged out"})

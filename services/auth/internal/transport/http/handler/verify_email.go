@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-
 	"shop/auth/internal/transport/http/dto"
 
 	"github.com/labstack/echo/v4"

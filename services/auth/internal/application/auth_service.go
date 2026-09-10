@@ -5,11 +5,10 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
-	"time"
-
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -157,8 +156,8 @@ func (as *AuthService) Login(ctx context.Context, userData *dto.LoginRequest) (d
 	return domain.TokenPair{AccessToken: access, RefreshToken: refresh}, nil
 }
 
-func (as *AuthService) VerifyEmail(ctx context.Context, userCode, UserID string) error {
-	verKey := fmt.Sprintf("ver:%s", UserID)
+func (as *AuthService) VerifyEmail(ctx context.Context, userCode, userID string) error {
+	verKey := fmt.Sprintf("ver:%s", userID)
 	code, err := as.sessRepo.GetValue(ctx, verKey)
 	if err != nil {
 		return fmt.Errorf("error when trying to get email confirmation code: %w", err)
@@ -168,7 +167,7 @@ func (as *AuthService) VerifyEmail(ctx context.Context, userCode, UserID string)
 		return fmt.Errorf("invalid verification code")
 	}
 
-	email, name, err := as.userRepo.SetVerified(ctx, UserID)
+	email, name, err := as.userRepo.SetVerified(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("error updating email confirmation field: %w", err)
 	}

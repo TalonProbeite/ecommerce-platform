@@ -4,7 +4,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/validator"
 	"shop/auth/internal/transport/http/handler"
