@@ -20,7 +20,9 @@ func NewRabbitClient(url string) (*RabbitClient, error) {
 
 	ch, err := conn.Channel()
 	if err != nil {
-		_ = conn.Close()
+		if closeErr := conn.Close(); closeErr != nil {
+			return nil, fmt.Errorf("failed to open channel (%w) and failed to close connection (%w)", err, closeErr)
+		}
 		return nil, fmt.Errorf("failed to open rabbitmq channel: %w", err)
 	}
 

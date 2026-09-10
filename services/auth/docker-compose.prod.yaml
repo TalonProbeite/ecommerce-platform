@@ -47,36 +47,31 @@ services:
     env_file:
       - .env
     environment:
-      ENV: production
+      APP_ENV: ${APP_ENV:-production}
       APP_PORT: ${APP_PORT:-8080}
-      DB_HOST: ${DB_HOST:-auth-db}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASS: ${DB_PASS:-postgres}
-      DB_NAME: ${DB_NAME:-shop_auth}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
       AUTO_MIGRATE: ${AUTO_MIGRATE:-false}
+      DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASS:-postgres}@auth-db:5432/${DB_NAME:-shop_auth}?sslmode=disable
+      REDIS_URL: redis://auth-redis:6379/${REDIS_DB:-0}
+      
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
+      EXCHANGE_NAME: ${EXCHANGE_NAME:-events_exchange}
+      EXCHANGE_TYPE: ${EXCHANGE_TYPE:-direct}
+
       JWT_PRIVATE_KEY_BASE64: ${JWT_PRIVATE_KEY_BASE64}
       JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
-      REDIS_HOST: ${REDIS_HOST:-auth-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      REDIS_DB: ${REDIS_DB:-0}
-      RABBITMQ_HOST: ${RABBITMQ_HOST:-global-rabbitmq}
-      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
-      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
-      RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
     depends_on:
       auth-db:
         condition: service_healthy
       auth-redis:
         condition: service_healthy
-      global-rabbitmq:
+      rabbitmq:
         condition: service_healthy
     networks:
       - shop_global
       - auth_internal
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/healthz"]
       interval: 10s
       timeout: 5s
       retries: 3

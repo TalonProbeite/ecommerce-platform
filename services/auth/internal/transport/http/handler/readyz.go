@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"shop/auth/internal/infra/rabbitmq"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
-
-	"shop/auth/internal/infra/rabbitmq"
 )
 
 type ReadyzHandler struct {
