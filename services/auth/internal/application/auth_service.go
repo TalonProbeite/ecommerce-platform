@@ -3,14 +3,14 @@ package application
 
 import (
 	"context"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"time"
+
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
-	"time"
-
-	"encoding/json/v2"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -173,7 +173,9 @@ func (as *AuthService) VerifyEmail(ctx context.Context, userCode, UserID string)
 	if code != userCode {
 		return fmt.Errorf("invalid verification code")
 	}
-	if err = as.userRepo.SetVerified(ctx, UserID); err != nil {
+
+	email, name, err := as.userRepo.SetVerified(ctx, UserID)
+	if err != nil {
 		return fmt.Errorf("error updating email confirmation field: %w", err)
 	}
 
@@ -183,7 +185,8 @@ func (as *AuthService) VerifyEmail(ctx context.Context, userCode, UserID string)
 	}
 
 	payload, err := json.Marshal(domain.UserEmailVerifiedEvent{
-		Email: UserID,
+		Email: email,
+		Name:  name,
 	})
 	if err != nil {
 		return fmt.Errorf("error while creating json struct for event: %w", err)
