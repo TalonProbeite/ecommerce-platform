@@ -31,6 +31,9 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 
 	err := r.pg.GetContext(ctx, &u, query, email)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
 		return nil, err
 	}
 
@@ -67,7 +70,6 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID
 		u.IsActive,
 		u.IsEmailVerified,
 	).Scan(&userID)
-
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert user: %w", err)
 	}
@@ -86,7 +88,6 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID
 		u.LastName,
 		u.Phone,
 	)
-
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert profile: %w", err)
 	}
@@ -110,22 +111,27 @@ func (r *UserRepo) GetStatus(ctx context.Context, userID string) (bool, error) {
 	return isActive, nil
 }
 
-// SetVerified marks a user's email address as verified.
-func (r *UserRepo) SetVerified(ctx context.Context, userID string) error {
-	query := `UPDATE users SET is_email_verified=true WHERE id = $1`
-	res, err := r.pg.ExecContext(ctx, query, userID)
+// SetVerified marks a user's email address as verified and returns their email and first name.
+func (r *UserRepo) SetVerified(ctx context.Context, userID string) (string, string, error) {
+	var email, firstName string
+
+	query := `
+		UPDATE users u
+		SET is_email_verified = true
+		FROM profiles p
+		WHERE u.id = $1 AND p.user_id = u.id
+		RETURNING u.email, p.first_name
+	`
+
+	err := r.pg.QueryRowContext(ctx, query, userID).Scan(&email, &firstName)
 	if err != nil {
-		return fmt.Errorf("failed to update email confirmation field: %w", err)
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("get rows affected: %w", err)
-	}
-	if rows == 0 {
-		return fmt.Errorf("user not found")
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", "", domain.ErrUserNotFound
+		}
+		return "", "", fmt.Errorf("failed to update email confirmation field: %w", err)
 	}
 
-	return nil
+	return email, firstName, nil
 }
 
 // GetByID retrieves a user by ID.
@@ -136,6 +142,9 @@ func (r *UserRepo) GetByID(ctx context.Context, userID string) (*domain.User, er
 
 	err := r.pg.GetContext(ctx, &u, query, userID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
 		return nil, err
 	}
 

@@ -12,7 +12,7 @@ import (
 type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	Create(ctx context.Context, user *User) (uuid.UUID, error)
-	SetVerified(ctx context.Context, UserID string) error
+	SetVerified(ctx context.Context, UserID string) (string, string, error)
 	GetStatus(ctx context.Context, UserID string) (bool, error)
 	GetByID(ctx context.Context, UserID string) (*User, error)
 }
