@@ -1,4 +1,3 @@
-// Package application provides business logic services for authentication and account operations.
 package application
 
 import (
@@ -6,17 +5,15 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
-	"time"
-
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// AuthService handles authentication logic, tokens, and registration.
 type AuthService struct {
 	userRepo  domain.UserRepository
 	sessRepo  domain.SessionRepository
@@ -24,7 +21,6 @@ type AuthService struct {
 	tokenMng  domain.TokenManager
 }
 
-// NewAuthService constructs a new AuthService instance.
 func NewAuthService(
 	ur domain.UserRepository,
 	sr domain.SessionRepository,
@@ -36,7 +32,6 @@ func NewAuthService(
 	}
 }
 
-// Registration handles user creation, event publishing, and initial session generation.
 func (as *AuthService) Registration(ctx context.Context, userData *dto.RegisterRequest) (domain.TokenPair, error) {
 	hashPassword, err := crypto.HashPassword(userData.Password)
 	if err != nil {
@@ -113,7 +108,6 @@ func (as *AuthService) Registration(ctx context.Context, userData *dto.RegisterR
 	return domain.TokenPair{AccessToken: access, RefreshToken: refresh}, nil
 }
 
-// Login authenticates user credentials and issues tokens.
 func (as *AuthService) Login(ctx context.Context, userData *dto.LoginRequest) (domain.TokenPair, error) {
 	user, err := as.userRepo.GetByEmail(ctx, userData.Email)
 	if err != nil {
@@ -162,7 +156,6 @@ func (as *AuthService) Login(ctx context.Context, userData *dto.LoginRequest) (d
 	return domain.TokenPair{AccessToken: access, RefreshToken: refresh}, nil
 }
 
-// VerifyEmail verifies the email confirmation code for a user.
 func (as *AuthService) VerifyEmail(ctx context.Context, userCode, UserID string) error {
 	verKey := fmt.Sprintf("ver:%s", UserID)
 	code, err := as.sessRepo.GetValue(ctx, verKey)
@@ -200,7 +193,6 @@ func (as *AuthService) VerifyEmail(ctx context.Context, userCode, UserID string)
 	return nil
 }
 
-// Refresh handles token rotation using a valid refresh token.
 func (as *AuthService) Refresh(ctx context.Context, refresh string) (domain.TokenPair, error) {
 	refKey := fmt.Sprintf("refresh:%s", refresh)
 	UserIDRedis, err := as.sessRepo.GetValue(ctx, refKey)
@@ -252,7 +244,6 @@ func (as *AuthService) Refresh(ctx context.Context, refresh string) (domain.Toke
 	return domain.TokenPair{AccessToken: access, RefreshToken: refreshNew}, nil
 }
 
-// Logout revokes access and refresh token sessions.
 func (as *AuthService) Logout(ctx context.Context, refresh, access string) error {
 	refreshKey := fmt.Sprintf("refresh:%s", refresh)
 	accesKey := fmt.Sprintf("access:%s", access)

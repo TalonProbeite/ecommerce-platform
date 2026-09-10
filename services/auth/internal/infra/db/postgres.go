@@ -1,4 +1,3 @@
-// Package db provides database initialization and migration utilities.
 package db
 
 import (
@@ -15,7 +14,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// NewPostgresDB connects to PostgreSQL using the provided DSN and verifies connection.
 func NewPostgresDB(dsn string) (*sqlx.DB, error) {
 	db, err := sqlx.Open("pgx", dsn)
 	if err != nil {
@@ -39,7 +37,6 @@ func NewPostgresDB(dsn string) (*sqlx.DB, error) {
 	return db, nil
 }
 
-// RunMigrations executes embedded SQL migrations against the target database DSN.
 func RunMigrations(dsn string) (err error) {
 	driver, err := iofs.New(migrations.FS, ".")
 	if err != nil {

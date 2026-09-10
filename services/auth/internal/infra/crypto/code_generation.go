@@ -7,7 +7,6 @@ import (
 
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
-// GenerateCode creates a random alphanumeric verification code of the specified length.
 func GenerateCode(length int) (string, error) {
 	code := make([]byte, length)
 

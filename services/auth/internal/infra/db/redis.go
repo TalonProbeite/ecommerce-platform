@@ -8,7 +8,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// NewRedisClient parses connection URL and connects to Redis.
 func NewRedisClient(addr string) (*redis.Client, error) {
 	options, err := redis.ParseURL(addr)
 	if err != nil {

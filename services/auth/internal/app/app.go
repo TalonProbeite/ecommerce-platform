@@ -1,4 +1,3 @@
-// Package app provides application lifecycle management and component wiring.
 package app
 
 import (
@@ -27,7 +26,6 @@ import (
 	transporthttp "shop/auth/internal/transport/http"
 )
 
-// App encapsulates dependencies and server lifecycle for the auth service.
 type App struct {
 	cfg    *config.Config
 	log    *slog.Logger
@@ -37,7 +35,6 @@ type App struct {
 	rabbit *rabbitmq.RabbitClient
 }
 
-// New initializes dependencies and constructs a new App.
 func New(cfg *config.Config) (*App, error) {
 	log := logger.Init(cfg.App.Env)
 
@@ -113,7 +110,6 @@ func New(cfg *config.Config) (*App, error) {
 	}, nil
 }
 
-// Run starts the HTTP server and handles graceful shutdown.
 func (a *App) Run() error {
 	defer a.closeResources()
 

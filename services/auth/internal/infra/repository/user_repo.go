@@ -1,4 +1,3 @@
-// Package repository provides data persistence implementations for the auth service.
 package repository
 
 import (
@@ -6,24 +5,20 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"shop/auth/internal/domain"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-
-	"shop/auth/internal/domain"
 )
 
-// UserRepo handles user database operations in PostgreSQL.
 type UserRepo struct {
 	pg *sqlx.DB
 }
 
-// NewUserRepo constructs a new UserRepo.
 func NewUserRepo(pg *sqlx.DB) *UserRepo {
 	return &UserRepo{pg: pg}
 }
 
-// GetByEmail retrieves a user by email address.
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var u domain.User
 
@@ -40,7 +35,6 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 	return &u, nil
 }
 
-// Create inserts a new user and user profile in a single transaction.
 func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID, err error) {
 	if u.Role == "" {
 		u.Role = domain.RoleCustomer
@@ -99,7 +93,6 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID
 	return userID, nil
 }
 
-// GetStatus retrieves the user's active status.
 func (r *UserRepo) GetStatus(ctx context.Context, userID string) (bool, error) {
 	query := `SELECT is_active FROM users WHERE id = $1`
 	var isActive bool
@@ -111,7 +104,6 @@ func (r *UserRepo) GetStatus(ctx context.Context, userID string) (bool, error) {
 	return isActive, nil
 }
 
-// SetVerified marks a user's email address as verified and returns their email and first name.
 func (r *UserRepo) SetVerified(ctx context.Context, userID string) (string, string, error) {
 	var email, firstName string
 
@@ -134,7 +126,6 @@ func (r *UserRepo) SetVerified(ctx context.Context, userID string) (string, stri
 	return email, firstName, nil
 }
 
-// GetByID retrieves a user by ID.
 func (r *UserRepo) GetByID(ctx context.Context, userID string) (*domain.User, error) {
 	var u domain.User
 

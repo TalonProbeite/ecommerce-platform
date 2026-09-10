@@ -1,6 +1,5 @@
 package domain
 
-// User represents the domain model for a user entity.
 type User struct {
 	ID              string `db:"id"`
 	Email           string `db:"email"`
@@ -12,8 +11,6 @@ type User struct {
 	IsActive        bool   `db:"is_active"`
 	IsEmailVerified bool   `db:"is_email_verified"`
 }
-
-// TokenPair represents a pair of access and refresh tokens.
 type TokenPair struct {
 	AccessToken  string
 	RefreshToken string

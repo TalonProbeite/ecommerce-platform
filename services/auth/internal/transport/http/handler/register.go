@@ -11,7 +11,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Register handles new user registration requests.
 func (h *AuthHandler) Register(c echo.Context) error {
 	var req dto.RegisterRequest
 

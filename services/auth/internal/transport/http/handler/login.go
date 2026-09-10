@@ -4,22 +4,19 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"time"
-
 	"shop/auth/internal/application"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/transport/http/dto"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
 
-// AuthHandler handles user authentication request endpoints.
 type AuthHandler struct {
 	authService *application.AuthService
 	log         *slog.Logger
 }
 
-// NewAuthHandler constructs a new AuthHandler instance.
 func NewAuthHandler(authService *application.AuthService, log *slog.Logger) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
@@ -27,7 +24,6 @@ func NewAuthHandler(authService *application.AuthService, log *slog.Logger) *Aut
 	}
 }
 
-// Login processes user credentials and sets authorization cookies.
 func (h *AuthHandler) Login(c echo.Context) error {
 	var req dto.LoginRequest
 

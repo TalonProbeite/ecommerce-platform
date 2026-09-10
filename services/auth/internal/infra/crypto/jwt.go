@@ -1,4 +1,3 @@
-// Package crypto provides cryptographic utilities including password hashing and JWT management.
 package crypto
 
 import (
@@ -10,26 +9,22 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// JWTManager handles JWT generation and validation using RSA keys.
 type JWTManager struct {
 	privateKey *rsa.PrivateKey
 }
 
-// NewJWTManager constructs a new JWTManager with the given RSA private key.
 func NewJWTManager(key *rsa.PrivateKey) *JWTManager {
 	return &JWTManager{
 		privateKey: key,
 	}
 }
 
-// CustomClaim represents custom claims embedded inside JWT access tokens.
 type CustomClaim struct {
 	UserID string      `json:"user_id"`
 	Role   domain.Role `json:"role"`
 	jwt.RegisteredClaims
 }
 
-// GenerateToken creates a signed RSA256 JWT access token for a given user ID and role.
 func (m *JWTManager) GenerateToken(UserID string, role ...domain.Role) (string, error) {
 	currentRole := domain.RoleCustomer
 	if len(role) > 0 {
@@ -55,7 +50,6 @@ func (m *JWTManager) GenerateToken(UserID string, role ...domain.Role) (string, 
 	return signedToken, nil
 }
 
-// VerifyToken parses and validates an RSA-signed JWT token string.
 func (m *JWTManager) VerifyToken(tokenString string) (string, domain.Role, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if token.Method != jwt.SigningMethodRS256 {

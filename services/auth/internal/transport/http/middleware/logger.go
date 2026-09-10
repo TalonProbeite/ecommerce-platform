@@ -7,7 +7,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// RequestLogger returns Echo middleware that logs HTTP requests with slog.
 func RequestLogger(log *slog.Logger) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -21,7 +20,8 @@ func RequestLogger(log *slog.Logger) echo.MiddlewareFunc {
 			req := c.Request()
 			res := c.Response()
 
-			log.Info("HTTP Request",
+			log.Info(
+				"HTTP Request",
 				slog.String("method", req.Method),
 				slog.String("uri", req.RequestURI),
 				slog.Int("status", res.Status),

@@ -1,4 +1,3 @@
-// Package middleware provides Echo middleware components.
 package middleware
 
 import (
@@ -10,7 +9,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// AuthCheck returns Echo middleware to validate JWT access token cookies.
 func AuthCheck(tokenMng *crypto.JWTManager, sessRepo *repository.SessionRepo) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
