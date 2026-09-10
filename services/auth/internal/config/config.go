@@ -39,7 +39,6 @@ type RabbitConfig struct {
 type JWTConfig struct {
 	JwtPrivateKeyBase64 string `env:"JWT_PRIVATE_KEY_BASE64" env-required:"true"`
 	JwtPublicKeyBase64  string `env:"JWT_PUBLIC_KEY_BASE64" env-required:"true"`
-	Algorithm           string `env:"ALGORITHM_JWT" env-default:"RS256"`
 }
 
 // Config aggregates all application configuration sections.
@@ -57,7 +56,7 @@ func MustLoad() *Config {
 
 	if err := cleanenv.ReadConfig(".env", &cfg); err != nil {
 		if envErr := cleanenv.ReadEnv(&cfg); envErr != nil {
-			panic(err)
+			panic(envErr)
 		}
 	}
 

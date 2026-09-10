@@ -82,7 +82,6 @@ services:
       
       JWT_PRIVATE_KEY_BASE64: ${JWT_PRIVATE_KEY_BASE64}
       JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
-      ALGORITHM_JWT: ${ALGORITHM_JWT:-RS256}
     depends_on:
       auth-db:
         condition: service_healthy
