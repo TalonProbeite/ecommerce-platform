@@ -32,7 +32,8 @@ func (s *JSONV2Serializer) Serialize(c echo.Context, i interface{}, indent strin
 
 // Deserialize reads JSON from the HTTP request body into an object.
 func (s *JSONV2Serializer) Deserialize(c echo.Context, i interface{}) error {
-	b, err := io.ReadAll(c.Request().Body)
+	limitedBody := io.LimitReader(c.Request().Body, 1<<20)
+	b, err := io.ReadAll(limitedBody)
 	if err != nil {
 		return err
 	}
