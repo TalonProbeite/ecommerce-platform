@@ -4,6 +4,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/validator"
 	"shop/auth/internal/transport/http/handler"
@@ -69,5 +70,6 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 	public.POST("/login", h.AuthHandler.Login)
 	public.POST("/register", h.AuthHandler.Register)
 	public.POST("/logout", h.AuthHandler.Logout)
+	public.POST("/refresh", h.AuthHandler.Refresh)
 	return e
 }
