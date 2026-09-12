@@ -1,9 +1,7 @@
 package domain
 
 const (
-	// UserRegistredEventKey is the routing key for user registration events.
 	UserRegistredEventKey = "user.registered"
-	// UserEmailVerifiedEventKey is the routing key for email verification events.
 	UserEmailVerifiedEventKey = "user.email_verified"
 )
 
