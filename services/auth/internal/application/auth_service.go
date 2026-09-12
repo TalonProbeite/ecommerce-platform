@@ -5,20 +5,22 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"time"
+
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type AuthService struct {
-	userRepo  domain.UserRepository
-	sessRepo  domain.SessionRepository
-	publisher domain.EventPublisher
-	tokenMng  domain.TokenManager
+	userRepo    domain.UserRepository
+	sessRepo    domain.SessionRepository
+	publisher   domain.EventPublisher
+	tokenMng    domain.TokenManager
+	oauthClient domain.GoogleClient
 }
 
 func NewAuthService(
@@ -26,9 +28,10 @@ func NewAuthService(
 	sr domain.SessionRepository,
 	ep domain.EventPublisher,
 	tm domain.TokenManager,
+	oa domain.GoogleClient,
 ) *AuthService {
 	return &AuthService{
-		userRepo: ur, sessRepo: sr, publisher: ep, tokenMng: tm,
+		userRepo: ur, sessRepo: sr, publisher: ep, tokenMng: tm, oauthClient: oa,
 	}
 }
 
@@ -76,7 +79,7 @@ func (as *AuthService) Registration(ctx context.Context, userData *dto.RegisterR
 		return domain.TokenPair{}, fmt.Errorf("error while publishing event: %w", err)
 	}
 
-	refresh, err := crypto.GenerateRefreshToken()
+	refresh, err := crypto.GenerateRandomToken(32)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
 	}
@@ -135,7 +138,7 @@ func (as *AuthService) Login(ctx context.Context, userData *dto.LoginRequest) (d
 		return domain.TokenPair{}, fmt.Errorf("access key generation error: %w", err)
 	}
 
-	refresh, err := crypto.GenerateRefreshToken()
+	refresh, err := crypto.GenerateRandomToken(32)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
 	}
@@ -218,7 +221,7 @@ func (as *AuthService) Refresh(ctx context.Context, refresh string) (domain.Toke
 		return domain.TokenPair{}, fmt.Errorf("error deleting stale session: %w", err)
 	}
 
-	refreshNew, err := crypto.GenerateRefreshToken()
+	refreshNew, err := crypto.GenerateRandomToken(32)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
 	}
@@ -258,4 +261,35 @@ func (as *AuthService) Logout(ctx context.Context, refresh, access string) error
 	}
 
 	return nil
+}
+
+func (as *AuthService) Google(ctx context.Context) (string, error) {
+	state, err := crypto.GenerateRandomToken(32)
+	if err != nil {
+		return "", fmt.Errorf("state generation error: %w", err)
+	}
+	stateKey := fmt.Sprintf("state:%s", state)
+	err = as.sessRepo.SaveEntry(ctx, stateKey, "", 15*time.Minute)
+	if err != nil {
+		return "", fmt.Errorf("error when saving state: %w", err)
+	}
+
+	url := as.oauthClient.AuthURL(state)
+
+	return url, nil
+}
+
+func (as *AuthService) GoogleCallback(ctx context.Context, state, code string) (*domain.GoogleProfile, error) {
+	stateKey := fmt.Sprintf("state:%s", state)
+	_, err := as.sessRepo.GetValue(ctx, stateKey)
+	if err != nil {
+		return &domain.GoogleProfile{}, fmt.Errorf("error when searching for state: %w", err)
+	}
+
+	prof, err := as.oauthClient.GetProfile(ctx, code)
+	if err != nil {
+		return &domain.GoogleProfile{}, fmt.Errorf("error when retrieving profile: %w", err)
+	}
+
+	return prof, nil
 }
