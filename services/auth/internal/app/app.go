@@ -8,16 +8,18 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
+
 	"shop/auth/internal/application"
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/infra/db"
 	"shop/auth/internal/infra/logger"
+	"shop/auth/internal/infra/oauth"
 	"shop/auth/internal/infra/rabbitmq"
 	"shop/auth/internal/infra/repository"
 	"shop/auth/internal/transport/http/handler"
 	"shop/auth/internal/transport/http/middleware"
-	"syscall"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -74,6 +76,7 @@ func New(cfg *config.Config) (*App, error) {
 	tokenManager := crypto.NewJWTManager(cfg.RSAPrivateKey())
 	sessionRepo := repository.NewSessionRepo(rdb)
 	userRepo := repository.NewUserRepo(pg)
+	oauthClient := oauth.NewGoogleClient(cfg.OAuthStateGoogl())
 	eventPublisher, err := rabbitmq.NewEventPublisher(rabbit, cfg.Rabbit.ExchangeName, cfg.Rabbit.ExchangeType)
 	if err != nil {
 		if closeErr := pg.Close(); closeErr != nil {
@@ -87,7 +90,7 @@ func New(cfg *config.Config) (*App, error) {
 		}
 		return nil, fmt.Errorf("failed to init event publisher: %w", err)
 	}
-	authService := application.NewAuthService(userRepo, sessionRepo, eventPublisher, tokenManager)
+	authService := application.NewAuthService(userRepo, sessionRepo, eventPublisher, tokenManager, oauthClient)
 
 	handlers := transporthttp.Handlers{
 		HealthHandler: handler.NewHealthHandler(),
