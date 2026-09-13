@@ -14,6 +14,10 @@ type GoogleClient struct {
 	conf *oauth2.Config
 }
 
+func NewGoogleClient(conf *oauth2.Config) *GoogleClient {
+	return &GoogleClient{conf}
+}
+
 func (gc *GoogleClient) AuthURL(state string) string {
 	url := gc.conf.AuthCodeURL(state)
 	return url
