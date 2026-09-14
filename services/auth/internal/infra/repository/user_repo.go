@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	"shop/auth/internal/domain"
 
 	"github.com/google/uuid"
@@ -40,6 +41,9 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID
 		u.Role = domain.RoleCustomer
 	}
 
+	userID = uuid.Must(uuid.NewV7())
+	u.ID = userID.String()
+
 	tx, err := r.pg.BeginTxx(ctx, nil)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("begin tx: %w", err)
@@ -51,24 +55,22 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID
 	}()
 
 	userQuery := `
-		INSERT INTO users (email, password_hash, role, is_active, is_email_verified)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id
+		INSERT INTO users (id, email, password_hash, role, is_active, is_email_verified)
+		VALUES ($1, $2, $3, $4, $5, $6)
 	`
-	err = tx.QueryRowContext(
+	_, err = tx.ExecContext(
 		ctx,
 		userQuery,
+		userID,
 		u.Email,
 		u.Password,
 		u.Role,
 		u.IsActive,
 		u.IsEmailVerified,
-	).Scan(&userID)
+	)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert user: %w", err)
 	}
-
-	u.ID = userID.String()
 
 	profileQuery := `
 		INSERT INTO profiles (user_id, first_name, last_name, phone)
@@ -104,9 +106,7 @@ func (r *UserRepo) GetStatus(ctx context.Context, userID string) (bool, error) {
 	return isActive, nil
 }
 
-func (r *UserRepo) SetVerified(ctx context.Context, userID string) (string, string, error) {
-	var email, firstName string
-
+func (r *UserRepo) SetVerified(ctx context.Context, userID string) (email string, firstName string, err error) {
 	query := `
 		UPDATE users u
 		SET is_email_verified = true
@@ -115,7 +115,7 @@ func (r *UserRepo) SetVerified(ctx context.Context, userID string) (string, stri
 		RETURNING u.email, p.first_name
 	`
 
-	err := r.pg.QueryRowContext(ctx, query, userID).Scan(&email, &firstName)
+	err = r.pg.QueryRowContext(ctx, query, userID).Scan(&email, &firstName)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", "", domain.ErrUserNotFound
