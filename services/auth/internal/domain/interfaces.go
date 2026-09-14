@@ -13,6 +13,8 @@ type UserRepository interface {
 	SetVerified(ctx context.Context, UserID string) (string, string, error)
 	GetStatus(ctx context.Context, UserID string) (bool, error)
 	GetByID(ctx context.Context, UserID string) (*User, error)
+	GetByOAuth(ctx context.Context, provider, providerUserID string) (*User, error)
+	CreateWithOauth(ctx context.Context, u *User) (userID uuid.UUID, err error)
 }
 type SessionRepository interface {
 	SaveEntry(ctx context.Context, key, value string, ttl time.Duration) error

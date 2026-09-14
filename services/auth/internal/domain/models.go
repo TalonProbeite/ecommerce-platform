@@ -18,9 +18,12 @@ type TokenPair struct {
 	RefreshToken string
 }
 type GoogleProfile struct {
-	ID            string `json:"sub"`
-	Email         string `json:"email"`
-	FirstName     string `json:"given_name"`
-	LastName      string `json:"family_name"`
-	EmailVerified bool   `json:"email_verified"`
+	ID        string `json:"sub"`
+	Email     string `json:"email"`
+	FirstName string `json:"given_name"`
+	LastName  string `json:"family_name"`
+}
+type OAuthResult struct {
+	Tokens          *TokenPair
+	RegistrationKey string
 }

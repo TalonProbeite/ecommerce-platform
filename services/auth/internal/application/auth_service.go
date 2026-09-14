@@ -278,17 +278,135 @@ func (as *AuthService) Google(ctx context.Context) (string, error) {
 	return url, nil
 }
 
-func (as *AuthService) GoogleCallback(ctx context.Context, state, code string) (*domain.GoogleProfile, error) {
+func (as *AuthService) GoogleCallback(
+	ctx context.Context,
+	state, code string,
+) (domain.OAuthResult, error) {
 	stateKey := fmt.Sprintf("state:%s", state)
+
 	_, err := as.sessRepo.GetValue(ctx, stateKey)
 	if err != nil {
-		return &domain.GoogleProfile{}, fmt.Errorf("error when searching for state: %w", err)
+		return domain.OAuthResult{}, fmt.Errorf(
+			"error when searching for state: %w",
+			err,
+		)
+	}
+
+	if err = as.sessRepo.DeleteEntry(ctx, stateKey); err != nil {
+		return domain.OAuthResult{}, fmt.Errorf(
+			"error deleting used state: %w",
+			err,
+		)
 	}
 
 	prof, err := as.oauthClient.GetProfile(ctx, code)
 	if err != nil {
-		return &domain.GoogleProfile{}, fmt.Errorf("error when retrieving profile: %w", err)
+		return domain.OAuthResult{}, fmt.Errorf(
+			"error when retrieving profile: %w",
+			err,
+		)
 	}
 
-	return prof, nil
+	user, err := as.userRepo.GetByOAuth(
+		ctx,
+		domain.ProviderGoogle.String(),
+		prof.ID,
+	)
+	if err != nil && !errors.Is(err, domain.ErrUserNotFound) {
+		return domain.OAuthResult{}, fmt.Errorf(
+			"error verifying user: %w",
+			err,
+		)
+	}
+
+	if user != nil {
+		var refresh, access string
+
+		refresh, err = crypto.GenerateRandomToken(32)
+		if err != nil {
+			return domain.OAuthResult{}, fmt.Errorf(
+				"error creating refresh token: %w",
+				err,
+			)
+		}
+
+		access, err = as.tokenMng.GenerateToken(
+			user.ID,
+			user.Role,
+		)
+		if err != nil {
+			return domain.OAuthResult{}, fmt.Errorf(
+				"access key generation error: %w",
+				err,
+			)
+		}
+
+		refKey := fmt.Sprintf("refresh:%s", refresh)
+		acKey := fmt.Sprintf("access:%s", access)
+
+		if err = as.sessRepo.SaveEntry(
+			ctx,
+			refKey,
+			user.ID,
+			7*24*time.Hour,
+		); err != nil {
+			return domain.OAuthResult{}, fmt.Errorf(
+				"error saving refresh token: %w",
+				err,
+			)
+		}
+
+		if err = as.sessRepo.SaveEntry(
+			ctx,
+			acKey,
+			user.ID,
+			15*time.Minute,
+		); err != nil {
+			return domain.OAuthResult{}, fmt.Errorf(
+				"error saving access token: %w",
+				err,
+			)
+		}
+
+		return domain.OAuthResult{
+			Tokens: &domain.TokenPair{
+				AccessToken:  access,
+				RefreshToken: refresh,
+			},
+		}, nil
+	}
+
+	secret, err := crypto.GenerateRandomToken(32)
+	if err != nil {
+		return domain.OAuthResult{}, fmt.Errorf(
+			"error generating key for profile: %w",
+			err,
+		)
+	}
+
+	profKey := fmt.Sprintf("oauth:pending:%s", secret)
+
+	profJSON, err := json.Marshal(prof)
+	if err != nil {
+		return domain.OAuthResult{}, fmt.Errorf(
+			"user profile serialization error: %w",
+			err,
+		)
+	}
+
+	if err := as.sessRepo.SaveEntry(
+		ctx,
+		profKey,
+		string(profJSON),
+		15*time.Minute,
+	); err != nil {
+		return domain.OAuthResult{}, fmt.Errorf(
+			"profile save error: %w",
+			err,
+		)
+	}
+
+	return domain.OAuthResult{
+		RegistrationKey: profKey,
+	}, nil
 }
