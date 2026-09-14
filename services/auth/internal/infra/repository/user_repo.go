@@ -146,3 +146,78 @@ func (r *UserRepo) GetByID(ctx context.Context, userID string) (*domain.User, er
 
 	return &u, nil
 }
+
+func (r *UserRepo) CreateWithOauth(ctx context.Context, u *domain.User) (userID uuid.UUID, err error) {
+	if u.Role == "" {
+		u.Role = domain.RoleCustomer
+	}
+
+	userID = uuid.Must(uuid.NewV7())
+	profileID := uuid.Must(uuid.NewV7())
+	oauthAccountsID := uuid.Must(uuid.NewV7())
+	u.ID = userID.String()
+
+	tx, err := r.pg.BeginTxx(ctx, nil)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			err = errors.Join(err, fmt.Errorf("rollback error: %w", rollbackErr))
+		}
+	}()
+
+	userQuery := `
+		INSERT INTO users (id, email, role, is_active, is_email_verified)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	_, err = tx.ExecContext(
+		ctx,
+		userQuery,
+		userID,
+		u.Email,
+		u.Role,
+		u.IsActive,
+		u.IsEmailVerified,
+	)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("insert user: %w", err)
+	}
+
+	profileQuery := `
+		INSERT INTO profiles (id, user_id, first_name, last_name, phone)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	_, err = tx.ExecContext(
+		ctx,
+		profileQuery,
+		profileID,
+		u.ID,
+		u.FirstName,
+		u.LastName,
+		u.Phone,
+	)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("insert profile: %w", err)
+	}
+
+	oauthAccountsQuery := `
+	INSERT INTO oauth_accounts (id , user_id, provider, provider_user_id)
+	VALUES ($1, $2, $3, $4)
+	`
+
+	_, err = tx.ExecContext(
+		ctx,
+		oauthAccountsQuery,
+		oauthAccountsID,
+		userID,
+		u.Provider,
+		u.ProviderUserID,
+	)
+
+	if err := tx.Commit(); err != nil {
+		return uuid.Nil, fmt.Errorf("commit tx: %w", err)
+	}
+
+	return userID, nil
+}
