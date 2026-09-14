@@ -3,7 +3,6 @@ package oauth
 import (
 	"context"
 	"errors"
-
 	"shop/auth/internal/domain"
 
 	"github.com/coreos/go-oidc/v3/oidc"

@@ -40,11 +40,11 @@ type OAuthConfig struct {
 
 type Config struct {
 	Rabbit   RabbitConfig
+	OAuth    OAuthConfig
 	JWT      JWTConfig
 	Postgres PostgresConfig
 	Redis    RedisConfig
 	App      AppConfig
-	OAuth    OAuthConfig
 }
 
 func MustLoad() *Config {

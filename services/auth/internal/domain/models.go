@@ -8,10 +8,10 @@ type User struct {
 	FirstName       string   `db:"first_name"`
 	LastName        string   `db:"last_name"`
 	Phone           string   `db:"phone"`
-	IsActive        bool     `db:"is_active"`
-	IsEmailVerified bool     `db:"is_email_verified"`
 	Provider        Provider `db:"provider"`
 	ProviderUserID  string   `db:"provider_user_id"`
+	IsActive        bool     `db:"is_active"`
+	IsEmailVerified bool     `db:"is_email_verified"`
 }
 type TokenPair struct {
 	AccessToken  string
@@ -20,7 +20,7 @@ type TokenPair struct {
 type GoogleProfile struct {
 	ID            string `json:"sub"`
 	Email         string `json:"email"`
-	EmailVerified bool   `json:"email_verified"`
 	FirstName     string `json:"given_name"`
 	LastName      string `json:"family_name"`
+	EmailVerified bool   `json:"email_verified"`
 }

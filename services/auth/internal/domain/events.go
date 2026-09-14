@@ -1,7 +1,7 @@
 package domain
 
 const (
-	UserRegistredEventKey = "user.registered"
+	UserRegistredEventKey     = "user.registered"
 	UserEmailVerifiedEventKey = "user.email_verified"
 )
 

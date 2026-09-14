@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-
 	"shop/auth/internal/domain"
 
 	"github.com/google/uuid"
