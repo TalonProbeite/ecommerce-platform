@@ -220,3 +220,35 @@ func (r *UserRepo) CreateWithOauth(ctx context.Context, u *domain.User) (userID 
 
 	return userID, nil
 }
+
+func (r *UserRepo) GetByOAuth(
+	ctx context.Context,
+	provider string,
+	providerUserID string,
+) (*domain.User, error) {
+	var u domain.User
+
+	const query = `
+        SELECT
+            u.id,
+            u.email,
+            u.password_hash,
+            u.role,
+            u.is_active
+        FROM users u
+        JOIN oauth_accounts o ON o.user_id = u.id
+        WHERE o.provider = $1
+          AND o.provider_user_id = $2
+    `
+
+	err := r.pg.GetContext(ctx, &u, query, provider, providerUserID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+
+		return nil, err
+	}
+
+	return &u, nil
+}
