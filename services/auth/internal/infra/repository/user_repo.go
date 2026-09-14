@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	"shop/auth/internal/domain"
 
 	"github.com/google/uuid"
@@ -40,6 +41,10 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID
 		u.Role = domain.RoleCustomer
 	}
 
+	userID = uuid.Must(uuid.NewV7())
+	profileID := uuid.Must(uuid.NewV7())
+	u.ID = userID.String()
+
 	tx, err := r.pg.BeginTxx(ctx, nil)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("begin tx: %w", err)
@@ -51,32 +56,31 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID
 	}()
 
 	userQuery := `
-		INSERT INTO users (email, password_hash, role, is_active, is_email_verified)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id
+		INSERT INTO users (id, email, password_hash, role, is_active, is_email_verified)
+		VALUES ($1, $2, $3, $4, $5, $6)
 	`
-	err = tx.QueryRowContext(
+	_, err = tx.ExecContext(
 		ctx,
 		userQuery,
+		userID,
 		u.Email,
 		u.Password,
 		u.Role,
 		u.IsActive,
 		u.IsEmailVerified,
-	).Scan(&userID)
+	)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert user: %w", err)
 	}
 
-	u.ID = userID.String()
-
 	profileQuery := `
-		INSERT INTO profiles (user_id, first_name, last_name, phone)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO profiles (id, user_id, first_name, last_name, phone)
+		VALUES ($1, $2, $3, $4, $5)
 	`
 	_, err = tx.ExecContext(
 		ctx,
 		profileQuery,
+		profileID,
 		u.ID,
 		u.FirstName,
 		u.LastName,
