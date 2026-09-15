@@ -119,7 +119,9 @@ func (as *AuthService) Login(ctx context.Context, userData *dto.LoginRequest) (d
 	if user == nil {
 		return domain.TokenPair{}, fmt.Errorf("user not found error")
 	}
-
+	if user.Password == "" {
+		return domain.TokenPair{}, fmt.Errorf("user registered via oauth")
+	}
 	if isValid := crypto.CheckPasswordHash(userData.Password, user.Password); !isValid {
 		return domain.TokenPair{}, fmt.Errorf("incorrect password")
 	}
@@ -310,7 +312,7 @@ func (as *AuthService) GoogleCallback(
 	user, err := as.userRepo.GetByOAuth(
 		ctx,
 		domain.ProviderGoogle.String(),
-		prof.ID,
+		prof.ProviderUserID,
 	)
 	if err != nil && !errors.Is(err, domain.ErrUserNotFound) {
 		return domain.OAuthResult{}, fmt.Errorf(
@@ -407,6 +409,64 @@ func (as *AuthService) GoogleCallback(
 	}
 
 	return domain.OAuthResult{
-		RegistrationKey: profKey,
+		RegistrationKey: secret,
 	}, nil
+}
+
+func (as *AuthService) CompleteOAuthRegistration(ctx context.Context, userData dto.CompleteReq) (domain.TokenPair, error) {
+	profKey := fmt.Sprintf("oauth:pending:%s", userData.Key)
+	profileJSON, err := as.sessRepo.GetValue(ctx, profKey)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("when completing the profile: %w", err)
+	}
+	var profile domain.OAuthProfile
+
+	if err = json.Unmarshal([]byte(profileJSON), &profile); err != nil {
+		return domain.TokenPair{}, fmt.Errorf("deserialization error: %w", err)
+	}
+
+	if userData.FirstName != "" {
+		profile.FirstName = userData.FirstName
+	}
+	if userData.LastName != "" {
+		profile.LastName = userData.LastName
+	}
+
+	userID, err := as.userRepo.CreateWithOauth(ctx,
+		&domain.User{
+			Email:          profile.Email,
+			FirstName:      profile.FirstName,
+			LastName:       profile.LastName,
+			Phone:          userData.Phone,
+			Provider:       profile.Provider,
+			ProviderUserID: profile.ProviderUserID,
+		})
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error creating oauth user: %w", err)
+	}
+	//nolint:errcheck // pending entry has TTL, deletion failure is non-critical
+	as.sessRepo.DeleteEntry(ctx, profKey)
+	refresh, err := crypto.GenerateRandomToken(32)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
+	}
+	access, err := as.tokenMng.GenerateToken(userID.String(), domain.RoleCustomer)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("access key generation error: %w", err)
+	}
+
+	refKey := fmt.Sprintf("refresh:%s", refresh)
+	acKey := fmt.Sprintf("access:%s", access)
+
+	err = as.sessRepo.SaveEntry(ctx, refKey, userID.String(), 7*24*time.Hour)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error saving refresh token: %w", err)
+	}
+
+	err = as.sessRepo.SaveEntry(ctx, acKey, userID.String(), 15*time.Minute)
+	if err != nil {
+		return domain.TokenPair{}, fmt.Errorf("error saving access token: %w", err)
+	}
+
+	return domain.TokenPair{AccessToken: access, RefreshToken: refresh}, nil
 }
