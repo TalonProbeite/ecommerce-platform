@@ -17,11 +17,12 @@ type TokenPair struct {
 	AccessToken  string
 	RefreshToken string
 }
-type GoogleProfile struct {
-	ID        string `json:"sub"`
-	Email     string `json:"email"`
-	FirstName string `json:"given_name"`
-	LastName  string `json:"family_name"`
+type OAuthProfile struct {
+	Provider       Provider `json:"provider"`
+	ProviderUserID string   `json:"sub"`
+	Email          string   `json:"email"`
+	FirstName      string   `json:"given_name"`
+	LastName       string   `json:"family_name"`
 }
 type OAuthResult struct {
 	Tokens          *TokenPair
