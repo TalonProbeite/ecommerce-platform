@@ -25,15 +25,15 @@ func (gc *GoogleClient) AuthURL(state string) string {
 func (gc *GoogleClient) GetProfile(
 	ctx context.Context,
 	code string,
-) (*domain.GoogleProfile, error) {
+) (*domain.OAuthProfile, error) {
 	token, err := gc.conf.Exchange(ctx, code)
 	if err != nil {
-		return &domain.GoogleProfile{}, err
+		return &domain.OAuthProfile{}, err
 	}
 
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
-		return &domain.GoogleProfile{}, errors.New("id_token not found")
+		return &domain.OAuthProfile{}, errors.New("id_token not found")
 	}
 
 	provider, err := oidc.NewProvider(
@@ -41,7 +41,7 @@ func (gc *GoogleClient) GetProfile(
 		"https://accounts.google.com",
 	)
 	if err != nil {
-		return &domain.GoogleProfile{}, err
+		return &domain.OAuthProfile{}, err
 	}
 
 	verifier := provider.Verifier(&oidc.Config{
@@ -50,14 +50,14 @@ func (gc *GoogleClient) GetProfile(
 
 	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		return &domain.GoogleProfile{}, err
+		return &domain.OAuthProfile{}, err
 	}
 
-	var profile domain.GoogleProfile
+	var profile domain.OAuthProfile
 
 	if err := idToken.Claims(&profile); err != nil {
-		return &domain.GoogleProfile{}, err
+		return &domain.OAuthProfile{}, err
 	}
-
+	profile.Provider = domain.ProviderGoogle
 	return &profile, nil
 }

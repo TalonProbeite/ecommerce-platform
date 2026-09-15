@@ -29,5 +29,5 @@ type TokenManager interface {
 }
 type GoogleClient interface {
 	AuthURL(state string) string
-	GetProfile(ctx context.Context, code string) (*GoogleProfile, error)
+	GetProfile(ctx context.Context, code string) (*OAuthProfile, error)
 }
