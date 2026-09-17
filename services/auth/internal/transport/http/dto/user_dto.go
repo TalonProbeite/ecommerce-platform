@@ -29,7 +29,6 @@ func (r *VerifyEmailRequest) Validate() error {
 }
 
 type CompleteReq struct {
-	Key       string `json:"key" validate:"required,min=8"`
 	FirstName string `json:"given_name"`
 	LastName  string `json:"family_name"`
 	Phone     string `json:"phone" validate:"required"`
