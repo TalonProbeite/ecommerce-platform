@@ -413,7 +413,7 @@ func (as *AuthService) GoogleCallback(
 	}, nil
 }
 
-func (as *AuthService) CompleteOAuthRegistration(ctx context.Context, userData dto.CompleteReq) (domain.TokenPair, error) {
+func (as *AuthService) CompleteOAuthRegistration(ctx context.Context, userData domain.OAuthRegistrationData) (domain.TokenPair, error) {
 	profKey := fmt.Sprintf("oauth:pending:%s", userData.Key)
 	profileJSON, err := as.sessRepo.GetValue(ctx, profKey)
 	if err != nil {

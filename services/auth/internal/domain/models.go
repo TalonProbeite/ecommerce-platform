@@ -28,3 +28,9 @@ type OAuthResult struct {
 	Tokens          *TokenPair
 	RegistrationKey string
 }
+type OAuthRegistrationData struct {
+	Key       string
+	FirstName string
+	LastName  string
+	Phone     string
+}

@@ -45,6 +45,7 @@ type Handlers struct {
 	ReadyzHandler *handler.ReadyzHandler
 	AuthHandler   *handler.AuthHandler
 }
+
 type Middlewares struct {
 	AuthCheck echo.MiddlewareFunc
 }
@@ -70,5 +71,9 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 	public.POST("/register", h.AuthHandler.Register)
 	public.POST("/logout", h.AuthHandler.Logout)
 	public.POST("/refresh", h.AuthHandler.Refresh)
+	public.GET("/oauth/google", h.AuthHandler.GoogleAuth)
+	public.GET("/oauth/google/callback", h.AuthHandler.GoogleCallback)
+	public.POST("/oauth/complete", h.AuthHandler.CompleteOAuthRegistration)
+
 	return e
 }
