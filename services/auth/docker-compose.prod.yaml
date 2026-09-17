@@ -16,7 +16,7 @@ services:
     networks:
       - auth_internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-shop_auth}"]
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-shop_auth}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -32,7 +32,7 @@ services:
     networks:
       - auth_internal
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -53,13 +53,16 @@ services:
       AUTO_MIGRATE: ${AUTO_MIGRATE:-false}
       DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASS:-postgres}@auth-db:5432/${DB_NAME:-shop_auth}?sslmode=disable
       REDIS_URL: redis://auth-redis:6379/${REDIS_DB:-0}
-      
+
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
       EXCHANGE_NAME: ${EXCHANGE_NAME:-events_exchange}
       EXCHANGE_TYPE: ${EXCHANGE_TYPE:-direct}
 
       JWT_PRIVATE_KEY_BASE64: ${JWT_PRIVATE_KEY_BASE64}
       JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
+      CLIENT_ID: ${CLIENT_ID}
+      CLIENT_SECRETE: ${CLIENT_SECRETE}
+      REDIRECT_URL: ${REDIRECT_URL:-https://localhost/auth/api/oauth/google/callback}
     depends_on:
       auth-db:
         condition: service_healthy
@@ -71,7 +74,7 @@ services:
       - shop_global
       - auth_internal
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/healthz"]
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080/api/healthz" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -91,7 +94,7 @@ services:
       - shop_global
       - auth_internal
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-check-certificate -q --spider https://127.0.0.1:443/ || exit 1"]
+      test: [ "CMD-SHELL", "wget --no-check-certificate -q --spider https://127.0.0.1:443/ || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
