@@ -252,3 +252,24 @@ func (r *UserRepo) GetByOAuth(
 
 	return &u, nil
 }
+
+func (r *UserRepo) GetEmailByUserID(
+	ctx context.Context,
+	userID string,
+) (string, error) {
+	const query = `SELECT email FROM users WHERE id = $1`
+
+	var email string
+
+	err := r.pg.GetContext(
+		ctx,
+		&email,
+		query,
+		userID,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to receive email: %w", err)
+	}
+
+	return email, nil
+}

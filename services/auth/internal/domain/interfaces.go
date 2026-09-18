@@ -15,6 +15,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, UserID string) (*User, error)
 	GetByOAuth(ctx context.Context, provider, providerUserID string) (*User, error)
 	CreateWithOauth(ctx context.Context, u *User) (userID uuid.UUID, err error)
+	GetEmailByUserID(ctx context.Context, userID string) (string, error)
 }
 type SessionRepository interface {
 	SaveEntry(ctx context.Context, key, value string, ttl time.Duration) error

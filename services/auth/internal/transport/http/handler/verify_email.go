@@ -20,7 +20,10 @@ func (h *AuthHandler) VerifyEmail(c echo.Context) error {
 
 	userID, ok := c.Get("UserID").(string)
 	if !ok || userID == "" {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized request"})
+		return c.JSON(
+			http.StatusUnauthorized,
+			map[string]string{"error": "unauthorized request"},
+		)
 	}
 
 	if err := h.authService.VerifyEmail(c.Request().Context(), req.Code, userID); err != nil {
@@ -28,4 +31,20 @@ func (h *AuthHandler) VerifyEmail(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "email verification was successful"})
+}
+
+func (h *AuthHandler) ResendCode(c echo.Context) error {
+	userID, ok := c.Get("UserID").(string)
+	if !ok || userID == "" {
+		return c.JSON(
+			http.StatusUnauthorized,
+			map[string]string{"error": "unauthorized request"},
+		)
+	}
+
+	if err := h.authService.ResendVerCode(c.Request().Context(), userID); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "failed to resend code"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "code was resend successfully"})
 }

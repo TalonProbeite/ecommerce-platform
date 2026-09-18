@@ -64,6 +64,8 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 	private := e.Group("/api/private")
 
 	private.Use(m.AuthCheck)
+	private.POST("/email/verify", h.AuthHandler.VerifyEmail)
+	private.POST("/email/resend", h.AuthHandler.ResendCode)
 
 	public.GET("/healthz", h.HealthHandler.Check)
 	public.GET("/readyz", h.ReadyzHandler.Check)

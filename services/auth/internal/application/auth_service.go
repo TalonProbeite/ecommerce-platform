@@ -470,3 +470,37 @@ func (as *AuthService) CompleteOAuthRegistration(ctx context.Context, userData d
 
 	return domain.TokenPair{AccessToken: access, RefreshToken: refresh}, nil
 }
+
+func (as *AuthService) ResendVerCode(ctx context.Context, userID string) error {
+	key := fmt.Sprintf("ver:%s", userID)
+
+	code, err := crypto.GenerateCode(10)
+	if err != nil {
+		return fmt.Errorf("failed to generate code: %w", err)
+	}
+
+	err = as.sessRepo.SaveEntry(ctx, key, code, 15*time.Minute)
+	if err != nil {
+		return fmt.Errorf("failed to save code: %w", err)
+	}
+
+	email, err := as.userRepo.GetEmailByUserID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to receive email: %w", err)
+	}
+
+	payload, err := json.Marshal(domain.UserRegisteredEvent{
+		Email: email,
+		Code:  code,
+	})
+	if err != nil {
+		return fmt.Errorf("error while creating json struct for event: %w", err)
+	}
+
+	err = as.publisher.PublishEvent(domain.UserRegistredEventKey, payload)
+	if err != nil {
+		return fmt.Errorf("error while publishing event: %w", err)
+	}
+
+	return nil
+}
