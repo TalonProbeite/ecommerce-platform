@@ -4,11 +4,10 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"time"
-
 	"shop/auth/internal/application"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/transport/http/dto"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
