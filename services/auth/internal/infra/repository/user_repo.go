@@ -273,3 +273,23 @@ func (r *UserRepo) GetEmailByUserID(
 
 	return email, nil
 }
+
+func (r *UserRepo) GetByIDProfile(ctx context.Context, userID string) (*domain.User, error) {
+	var u domain.User
+
+	const query = `SELECT
+						email ,
+						is_active ,
+						first_name,
+						last_name,
+						phone
+					FROM users u
+					JOIN profiles p ON u.id = p.user_id
+					WHERE u.id = $1`
+	err := r.pg.GetContext(ctx, &u, query, userID)
+	if err != nil {
+		return &domain.User{}, err
+	}
+
+	return &u, nil
+}
