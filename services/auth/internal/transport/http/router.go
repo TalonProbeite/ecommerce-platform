@@ -41,9 +41,10 @@ func (s *JSONV2Serializer) Deserialize(c echo.Context, i interface{}) error {
 }
 
 type Handlers struct {
-	HealthHandler *handler.HealthHandler
-	ReadyzHandler *handler.ReadyzHandler
-	AuthHandler   *handler.AuthHandler
+	HealthHandler  *handler.HealthHandler
+	ReadyzHandler  *handler.ReadyzHandler
+	AuthHandler    *handler.AuthHandler
+	ProfileHandler *handler.ProfileHandler
 }
 
 type Middlewares struct {
@@ -66,6 +67,7 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 	private.Use(m.AuthCheck)
 	private.POST("/email/verify", handler.WithUserID(h.AuthHandler.VerifyEmail))
 	private.POST("/email/resend", handler.WithUserID(h.AuthHandler.ResendCode))
+	private.GET("/profile", handler.WithUserID(h.ProfileHandler.GetUserProfile))
 
 	public.GET("/healthz", h.HealthHandler.Check)
 	public.GET("/readyz", h.ReadyzHandler.Check)
