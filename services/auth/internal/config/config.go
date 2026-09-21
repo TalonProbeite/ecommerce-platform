@@ -87,7 +87,7 @@ func (c *Config) RSAPublicKey() *rsa.PublicKey {
 	return key
 }
 
-func (c *Config) OAuthStateGoogl() *oauth2.Config {
+func (c *Config) OAuthStateGoogle() *oauth2.Config {
 	googleConfig := oauth2.Config{
 		ClientID:     c.OAuth.ClientID,
 		ClientSecret: c.OAuth.ClientSecret,

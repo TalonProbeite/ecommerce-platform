@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
+
 	"shop/auth/internal/application"
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/crypto"
@@ -18,7 +20,6 @@ import (
 	"shop/auth/internal/infra/repository"
 	"shop/auth/internal/transport/http/handler"
 	"shop/auth/internal/transport/http/middleware"
-	"syscall"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -75,7 +76,7 @@ func New(cfg *config.Config) (*App, error) {
 	tokenManager := crypto.NewJWTManager(cfg.RSAPrivateKey())
 	sessionRepo := repository.NewSessionRepo(rdb)
 	userRepo := repository.NewUserRepo(pg)
-	oauthClient := oauth.NewGoogleClient(cfg.OAuthStateGoogl())
+	oauthClient := oauth.NewGoogleClient(cfg.OAuthStateGoogle())
 	eventPublisher, err := rabbitmq.NewEventPublisher(rabbit, cfg.Rabbit.ExchangeName, cfg.Rabbit.ExchangeType)
 	if err != nil {
 		if closeErr := pg.Close(); closeErr != nil {
