@@ -5,17 +5,18 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"time"
+
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type AuthService struct {
-	userRepo    domain.UserRepository
+	userRepo    domain.AuthUserRepository
 	sessRepo    domain.SessionRepository
 	publisher   domain.EventPublisher
 	tokenMng    domain.TokenManager
@@ -23,7 +24,7 @@ type AuthService struct {
 }
 
 func NewAuthService(
-	ur domain.UserRepository,
+	ur domain.AuthUserRepository,
 	sr domain.SessionRepository,
 	ep domain.EventPublisher,
 	tm domain.TokenManager,
