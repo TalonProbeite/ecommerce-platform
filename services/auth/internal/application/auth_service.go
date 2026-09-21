@@ -5,10 +5,11 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"time"
+
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -123,7 +124,10 @@ func (as *AuthService) Login(ctx context.Context, userData *dto.LoginRequest) (d
 		return domain.TokenPair{}, fmt.Errorf("user registered via oauth")
 	}
 	if isValid := crypto.CheckPasswordHash(userData.Password, user.Password); !isValid {
-		return domain.TokenPair{}, fmt.Errorf("incorrect password")
+		return domain.TokenPair{}, fmt.Errorf(
+			"incorrect password: %w",
+			domain.ErrInvalidCredentials,
+		)
 	}
 
 	status, err := as.userRepo.GetStatus(ctx, user.ID)

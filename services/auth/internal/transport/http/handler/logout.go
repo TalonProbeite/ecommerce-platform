@@ -35,7 +35,7 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 	c.SetCookie(&http.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
-		Path:     "/auth/api/auth/refresh",
+		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   true,

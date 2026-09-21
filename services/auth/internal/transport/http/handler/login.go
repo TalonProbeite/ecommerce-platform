@@ -4,10 +4,11 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
+
 	"shop/auth/internal/application"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/transport/http/dto"
-	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -64,7 +65,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	c.SetCookie(&http.Cookie{
 		Name:     "refresh_token",
 		Value:    tokens.RefreshToken,
-		Path:     "/auth/api/auth/refresh",
+		Path:     "/",
 		Expires:  time.Now().Add(7 * 24 * time.Hour),
 		HttpOnly: true,
 		Secure:   true,
