@@ -7,44 +7,47 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (h *AuthHandler) VerifyEmail(c echo.Context) error {
+func (h *AuthHandler) VerifyEmail(c echo.Context, userID string) error {
 	var req dto.VerifyEmailRequest
 
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid code format"})
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid code format",
+		})
 	}
 
 	if err := req.Validate(); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid code format"})
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid code format",
+		})
 	}
 
-	userID, ok := c.Get("UserID").(string)
-	if !ok || userID == "" {
-		return c.JSON(
-			http.StatusUnauthorized,
-			map[string]string{"error": "unauthorized request"},
-		)
+	if err := h.authService.VerifyEmail(
+		c.Request().Context(),
+		req.Code,
+		userID,
+	); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{
+			"error": "invalid confirmation code",
+		})
 	}
 
-	if err := h.authService.VerifyEmail(c.Request().Context(), req.Code, userID); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "invalid confirmation code"})
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"message": "email verification was successful"})
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "email verification was successful",
+	})
 }
 
-func (h *AuthHandler) ResendCode(c echo.Context) error {
-	userID, ok := c.Get("UserID").(string)
-	if !ok || userID == "" {
-		return c.JSON(
-			http.StatusUnauthorized,
-			map[string]string{"error": "unauthorized request"},
-		)
+func (h *AuthHandler) ResendCode(c echo.Context, userID string) error {
+	if err := h.authService.ResendVerCode(
+		c.Request().Context(),
+		userID,
+	); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{
+			"error": "failed to resend code",
+		})
 	}
 
-	if err := h.authService.ResendVerCode(c.Request().Context(), userID); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "failed to resend code"})
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"message": "code was resend successfully"})
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "code was resend successfully",
+	})
 }
