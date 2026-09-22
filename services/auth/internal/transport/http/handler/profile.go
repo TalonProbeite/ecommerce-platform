@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"shop/auth/internal/application"
 	"shop/auth/internal/domain"
+	"shop/auth/internal/transport/http/dto"
 
 	"github.com/labstack/echo/v4"
 )
@@ -39,4 +40,49 @@ func (ph *ProfileHandler) GetUserProfile(c echo.Context, userID string) error {
 	}
 
 	return c.JSON(http.StatusOK, user)
+}
+
+func (ph *ProfileHandler) PatchUserProfile(c echo.Context, userID string) error {
+	var req dto.PatchUser
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid request format",
+		})
+	}
+
+	if err := req.Validate(); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": err.Error(),
+		})
+	}
+
+	if err := ph.profileService.PatchUserProfile(
+		c.Request().Context(),
+		userID,
+		&req,
+	); err != nil {
+		switch {
+		case errors.Is(err, domain.ErrEmailLockedByOAuth):
+			return c.JSON(http.StatusForbidden, map[string]string{
+				"error": "email cannot be changed for oauth account",
+			})
+		case errors.Is(err, domain.ErrUserNotFound):
+			return c.JSON(http.StatusUnauthorized, map[string]string{
+				"error": "invalid user ID",
+			})
+		default:
+			ph.log.Error(
+				"failed to patch user profile",
+				slog.String("err", err.Error()),
+			)
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "internal server error",
+			})
+		}
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "profile updated successfully",
+	})
 }

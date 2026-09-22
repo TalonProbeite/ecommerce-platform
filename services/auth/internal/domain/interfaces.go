@@ -20,7 +20,7 @@ type AuthUserRepository interface {
 
 type ProfileUserRepository interface {
 	GetByIDProfile(ctx context.Context, userID string) (*User, error)
-	// Update(ctx context.Context, user *User) error
+	UpdateProfile(ctx context.Context, userID, email, firstName, lastName, phone string) error
 	// UpdatePassword(ctx context.Context, userID, newHash string) error
 	// GetEmailByUserID(ctx context.Context, userID string) (string, error)
 }

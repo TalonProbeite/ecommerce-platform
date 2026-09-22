@@ -29,7 +29,37 @@ func (r *VerifyEmailRequest) Validate() error {
 }
 
 type CompleteReq struct {
-	FirstName string `json:"given_name"`
-	LastName  string `json:"family_name"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 	Phone     string `json:"phone" validate:"required"`
+}
+type PatchUser struct {
+	Email     *string `json:"email" validate:"omitempty,email"`
+	FirstName *string `json:"first_name" validate:"omitempty,max=100"`
+	LastName  *string `json:"last_name" validate:"omitempty,max=100"`
+	Phone     *string `json:"phone" validate:"omitempty,min=10,max=30"`
+}
+
+func (p *PatchUser) Validate() error {
+	if p.Email == nil && p.FirstName == nil && p.LastName == nil && p.Phone == nil {
+		return fmt.Errorf("invalid data, all fields are empty")
+	}
+
+	if p.Email != nil && *p.Email == "" {
+		return fmt.Errorf("email cannot be empty")
+	}
+
+	if p.FirstName != nil && *p.FirstName == "" {
+		return fmt.Errorf("first name cannot be empty")
+	}
+
+	if p.LastName != nil && *p.LastName == "" {
+		return fmt.Errorf("last name cannot be empty")
+	}
+
+	if p.Phone != nil && *p.Phone == "" {
+		return fmt.Errorf("phone cannot be empty")
+	}
+
+	return nil
 }

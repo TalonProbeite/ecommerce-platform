@@ -68,6 +68,7 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 	private.POST("/email/verify", handler.WithUserID(h.AuthHandler.VerifyEmail))
 	private.POST("/email/resend", handler.WithUserID(h.AuthHandler.ResendCode))
 	private.GET("/profile", handler.WithUserID(h.ProfileHandler.GetUserProfile))
+	private.PATCH("/profile", handler.WithUserID(h.ProfileHandler.PatchUserProfile))
 
 	public.GET("/healthz", h.HealthHandler.Check)
 	public.GET("/readyz", h.ReadyzHandler.Check)
