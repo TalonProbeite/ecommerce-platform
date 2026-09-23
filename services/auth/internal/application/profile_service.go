@@ -4,11 +4,10 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
-	"time"
-
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
+	"time"
 )
 
 type ProfileService struct {

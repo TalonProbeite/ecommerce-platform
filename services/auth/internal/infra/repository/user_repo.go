@@ -5,9 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
-
 	"shop/auth/internal/domain"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"

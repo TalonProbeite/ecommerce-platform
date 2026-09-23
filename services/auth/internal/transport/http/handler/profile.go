@@ -86,3 +86,58 @@ func (ph *ProfileHandler) PatchUserProfile(c echo.Context, userID string) error 
 		"message": "profile updated successfully",
 	})
 }
+
+func (ph *ProfileHandler) ResetPassword(c echo.Context, userID string) error {
+	var req dto.ResetPass
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid request format",
+		})
+	}
+
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
+	}
+
+	var access, refresh string
+	if accessCookie, err := c.Cookie("access_token"); err == nil {
+		access = accessCookie.Value
+	}
+	if refreshCookie, err := c.Cookie("refresh_token"); err == nil {
+		refresh = refreshCookie.Value
+	}
+
+	err := ph.profileService.ResetPassword(c.Request().Context(), userID, req.OldPass, req.NewPass, refresh, access)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidCredentials) {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid old password"})
+		}
+		ph.log.Error("failed to reset password", slog.String("err", err.Error()))
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	}
+
+	c.SetCookie(&http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	c.SetCookie(&http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "password has been successfully reset",
+	})
+}

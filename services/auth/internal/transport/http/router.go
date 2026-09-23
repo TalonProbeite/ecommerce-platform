@@ -4,6 +4,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/validator"
 	"shop/auth/internal/transport/http/handler"
@@ -69,6 +70,7 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 	private.POST("/email/resend", handler.WithUserID(h.AuthHandler.ResendCode))
 	private.GET("/profile", handler.WithUserID(h.ProfileHandler.GetUserProfile))
 	private.PATCH("/profile", handler.WithUserID(h.ProfileHandler.PatchUserProfile))
+	private.PUT("/profile/password", handler.WithUserID(h.ProfileHandler.ResetPassword))
 
 	public.GET("/healthz", h.HealthHandler.Check)
 	public.GET("/readyz", h.ReadyzHandler.Check)

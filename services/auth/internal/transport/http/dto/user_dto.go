@@ -63,3 +63,8 @@ func (p *PatchUser) Validate() error {
 
 	return nil
 }
+
+type ResetPass struct {
+	NewPass string `json:"new_pass" validate:"required,min=8"`
+	OldPass string `json:"old_pass" validate:"required,min=8"`
+}
