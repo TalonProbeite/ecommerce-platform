@@ -2,8 +2,12 @@ package application
 
 import (
 	"context"
+	"encoding/json/v2"
+	"fmt"
 	"shop/auth/internal/domain"
+	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
+	"time"
 )
 
 type ProfileService struct {
@@ -58,7 +62,7 @@ func (ps *ProfileService) PatchUserProfile(
 		phone = *userData.Phone
 	}
 
-	return ps.userRepo.UpdateProfile(
+	err := ps.userRepo.UpdateProfile(
 		ctx,
 		userID,
 		email,
@@ -66,4 +70,35 @@ func (ps *ProfileService) PatchUserProfile(
 		lastName,
 		phone,
 	)
+	if err != nil {
+		return fmt.Errorf("error updating profile: %w", err)
+	}
+
+	if email != "" {
+		code, err := crypto.GenerateCode(10)
+		if err != nil {
+			return fmt.Errorf("error generating confirmation code: %w", err)
+		}
+
+		verKey := fmt.Sprintf("ver:%s", userID)
+		err = ps.sessRepo.SaveEntry(ctx, verKey, code, 15*time.Minute)
+		if err != nil {
+			return fmt.Errorf("error saving verification code: %w", err)
+		}
+
+		payload, err := json.Marshal(domain.UserRegisteredEvent{
+			Email: email,
+			Code:  code,
+		})
+		if err != nil {
+			return fmt.Errorf("error while creating json struct for event: %w", err)
+		}
+
+		err = ps.publisher.PublishEvent(domain.UserRegistredEventKey, payload)
+		if err != nil {
+			return fmt.Errorf("error while publishing event: %w", err)
+		}
+	}
+
+	return nil
 }

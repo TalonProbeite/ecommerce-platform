@@ -295,42 +295,63 @@ func (r *UserRepo) GetByIDProfile(ctx context.Context, userID string) (*domain.U
 	return &u, nil
 }
 
-func updateProfileFields(
+func (r *UserRepo) UpdateProfile(
 	ctx context.Context,
-	tx *sqlx.Tx,
-	userID, firstName, lastName, phone string,
+	userID, email, firstName, lastName, phone string,
 ) error {
-	setParts := make([]string, 0, 3)
-	args := []any{userID}
-	argPos := 2
+	if email != "" {
+		var hasOAuth bool
+
+		const checkQuery = `
+			SELECT EXISTS(
+				SELECT 1
+				FROM oauth_accounts
+				WHERE user_id = $1
+			)
+		`
+
+		if err := r.pg.GetContext(ctx, &hasOAuth, checkQuery, userID); err != nil {
+			return fmt.Errorf("failed to check oauth account: %w", err)
+		}
+
+		if hasOAuth {
+			return domain.ErrEmailLockedByOAuth
+		}
+	}
+
+	setParts := make([]string, 0, 5)
+	args := make([]any, 0, 6)
+
+	if email != "" {
+		setParts = append(setParts, "email = ?", "is_email_verified = ?")
+		args = append(args, email, false)
+	}
 
 	if firstName != "" {
-		setParts = append(setParts, fmt.Sprintf("first_name = $%d", argPos))
+		setParts = append(setParts, "first_name = ?")
 		args = append(args, firstName)
-		argPos++
 	}
 
 	if lastName != "" {
-		setParts = append(setParts, fmt.Sprintf("last_name = $%d", argPos))
+		setParts = append(setParts, "last_name = ?")
 		args = append(args, lastName)
-		argPos++
 	}
 
 	if phone != "" {
-		setParts = append(setParts, fmt.Sprintf("phone = $%d", argPos))
+		setParts = append(setParts, "phone = ?")
 		args = append(args, phone)
 	}
 
-	if len(setParts) == 0 {
-		return nil
-	}
-
 	query := fmt.Sprintf(
-		"UPDATE profiles SET %s WHERE user_id = $1",
+		"UPDATE users SET %s WHERE id = ?",
 		strings.Join(setParts, ", "),
 	)
 
-	result, err := tx.ExecContext(ctx, query, args...)
+	args = append(args, userID)
+
+	query = r.pg.Rebind(query)
+
+	result, err := r.pg.ExecContext(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to update profile: %w", err)
 	}
@@ -342,70 +363,6 @@ func updateProfileFields(
 
 	if rows == 0 {
 		return domain.ErrUserNotFound
-	}
-
-	return nil
-}
-
-func (r *UserRepo) UpdateProfile(
-	ctx context.Context,
-	userID, email, firstName, lastName, phone string,
-) error {
-	var hasOAuth bool
-
-	const checkQuery = `
-		SELECT EXISTS(
-			SELECT 1
-			FROM oauth_accounts
-			WHERE user_id = $1
-		)
-	`
-
-	if err := r.pg.GetContext(ctx, &hasOAuth, checkQuery, userID); err != nil {
-		return fmt.Errorf("failed to check oauth account: %w", err)
-	}
-
-	if hasOAuth && email != "" {
-		return domain.ErrEmailLockedByOAuth
-	}
-
-	tx, err := r.pg.BeginTxx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-
-	defer func() {
-		_ = tx.Rollback()
-	}()
-
-	if err := updateProfileFields(ctx, tx, userID, firstName, lastName, phone); err != nil {
-		return err
-	}
-
-	if email != "" {
-		const query = `
-			UPDATE users
-			SET email = $1
-			WHERE id = $2
-		`
-
-		result, err := tx.ExecContext(ctx, query, email, userID)
-		if err != nil {
-			return fmt.Errorf("failed to update email: %w", err)
-		}
-
-		rows, err := result.RowsAffected()
-		if err != nil {
-			return fmt.Errorf("failed to get affected rows: %w", err)
-		}
-
-		if rows == 0 {
-			return domain.ErrUserNotFound
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
