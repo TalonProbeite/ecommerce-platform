@@ -28,8 +28,7 @@ type ProfileUserRepository interface {
 type AdminUserRepository interface {
 	GetByID(ctx context.Context, userID string) (*User, error)
 	UpdateRole(ctx context.Context, userID string, role Role) error
-	UpdateStatus(ctx context.Context, userID string, isActive bool) error
-	ListUsers(ctx context.Context, limit, offset int) ([]*User, error)
+	UpdateBanStatus(ctx context.Context, userID string, isActive bool) error
 }
 
 type SessionRepository interface {

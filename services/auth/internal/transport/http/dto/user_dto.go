@@ -68,3 +68,10 @@ type ResetPass struct {
 	NewPass string `json:"new_pass" validate:"required,min=8"`
 	OldPass string `json:"old_pass" validate:"required,min=8"`
 }
+type UpdateRoleReq struct {
+	Role string `json:"role" validate:"required,oneof=admin customer analyst"`
+}
+
+type BanUserReq struct {
+	IsBanned *bool `json:"is_banned" validate:"required"`
+}

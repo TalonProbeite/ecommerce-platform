@@ -429,3 +429,45 @@ func (r *UserRepo) GetPassByUserID(ctx context.Context, userID string) (string, 
 
 	return pass, nil
 }
+
+func (r *UserRepo) UpdateRole(ctx context.Context, userID string, role domain.Role) error {
+	const query = `UPDATE users SET role = $1 WHERE id = $2`
+
+	result, err := r.pg.ExecContext(ctx, query, role, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update profile role: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows for profiles: %w", err)
+	}
+
+	if rows == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
+}
+
+func (r *UserRepo) UpdateBanStatus(ctx context.Context, userID string, isBanned bool) error {
+	const query = `UPDATE users SET is_active = $1 WHERE id = $2`
+
+	isActive := !isBanned
+
+	result, err := r.pg.ExecContext(ctx, query, isActive, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update profile ban status: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows for profiles: %w", err)
+	}
+
+	if rows == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
+}
