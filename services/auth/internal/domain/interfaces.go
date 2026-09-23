@@ -21,6 +21,8 @@ type AuthUserRepository interface {
 type ProfileUserRepository interface {
 	GetByIDProfile(ctx context.Context, userID string) (*User, error)
 	UpdateProfile(ctx context.Context, userID, email, firstName, lastName, phone string) error
+	GetPassByUserID(ctx context.Context, userID string) (string, error)
+	ResetPassword(ctx context.Context, userID, pass string) error
 }
 
 type AdminUserRepository interface {

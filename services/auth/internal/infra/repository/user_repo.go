@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"shop/auth/internal/domain"
 	"strings"
+
+	"shop/auth/internal/domain"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -298,7 +299,7 @@ func (r *UserRepo) GetByIDProfile(ctx context.Context, userID string) (*domain.U
 func (r *UserRepo) UpdateProfile(
 	ctx context.Context,
 	userID, email, firstName, lastName, phone string,
-) error {
+) (err error) {
 	if email != "" {
 		var hasOAuth bool
 
@@ -319,41 +320,88 @@ func (r *UserRepo) UpdateProfile(
 		}
 	}
 
-	setParts := make([]string, 0, 5)
-	args := make([]any, 0, 6)
+	tx, err := r.pg.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			err = errors.Join(err, fmt.Errorf("rollback error: %w", rollbackErr))
+		}
+	}()
 
 	if email != "" {
-		setParts = append(setParts, "email = ?", "is_email_verified = ?")
-		args = append(args, email, false)
+		const userQuery = `UPDATE users SET email = $1, is_email_verified = $2 WHERE id = $3`
+
+		result, err := tx.ExecContext(ctx, userQuery, email, false, userID)
+		if err != nil {
+			return fmt.Errorf("failed to update user email: %w", err)
+		}
+
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("failed to get affected rows for users: %w", err)
+		}
+		if rows == 0 {
+			return domain.ErrUserNotFound
+		}
 	}
 
-	if firstName != "" {
-		setParts = append(setParts, "first_name = ?")
-		args = append(args, firstName)
+	if firstName != "" || lastName != "" || phone != "" {
+		setParts := make([]string, 0, 3)
+		args := make([]any, 0, 4)
+
+		if firstName != "" {
+			setParts = append(setParts, "first_name = ?")
+			args = append(args, firstName)
+		}
+
+		if lastName != "" {
+			setParts = append(setParts, "last_name = ?")
+			args = append(args, lastName)
+		}
+
+		if phone != "" {
+			setParts = append(setParts, "phone = ?")
+			args = append(args, phone)
+		}
+
+		query := fmt.Sprintf(
+			"UPDATE profiles SET %s WHERE user_id = ?",
+			strings.Join(setParts, ", "),
+		)
+
+		args = append(args, userID)
+		query = r.pg.Rebind(query)
+
+		result, err := tx.ExecContext(ctx, query, args...)
+		if err != nil {
+			return fmt.Errorf("failed to update profile: %w", err)
+		}
+
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("failed to get affected rows for profiles: %w", err)
+		}
+
+		if rows == 0 && email == "" {
+			return domain.ErrUserNotFound
+		}
 	}
 
-	if lastName != "" {
-		setParts = append(setParts, "last_name = ?")
-		args = append(args, lastName)
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
 	}
 
-	if phone != "" {
-		setParts = append(setParts, "phone = ?")
-		args = append(args, phone)
-	}
+	return nil
+}
 
-	query := fmt.Sprintf(
-		"UPDATE users SET %s WHERE id = ?",
-		strings.Join(setParts, ", "),
-	)
+func (r *UserRepo) ResetPassword(ctx context.Context, userID, pass string) error {
+	const query = `UPDATE users SET password_hash = $1 WHERE id = $2`
 
-	args = append(args, userID)
-
-	query = r.pg.Rebind(query)
-
-	result, err := r.pg.ExecContext(ctx, query, args...)
+	result, err := r.pg.ExecContext(ctx, query, pass, userID)
 	if err != nil {
-		return fmt.Errorf("failed to update profile: %w", err)
+		return fmt.Errorf("failed to reset password: %w", err)
 	}
 
 	rows, err := result.RowsAffected()
@@ -366,4 +414,19 @@ func (r *UserRepo) UpdateProfile(
 	}
 
 	return nil
+}
+
+func (r *UserRepo) GetPassByUserID(ctx context.Context, userID string) (string, error) {
+	var pass string
+	const query = `SELECT password_hash FROM users WHERE id = $1`
+
+	err := r.pg.GetContext(ctx, &pass, query, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", domain.ErrUserNotFound
+		}
+		return "", err
+	}
+
+	return pass, nil
 }
