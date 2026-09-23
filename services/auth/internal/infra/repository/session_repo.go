@@ -2,6 +2,9 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"shop/auth/internal/domain"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -12,29 +15,182 @@ type SessionRepo struct {
 }
 
 func NewSessionRepo(rdb *redis.Client) *SessionRepo {
-	repo := SessionRepo{rdb: rdb}
-	return &repo
-}
-
-func (s *SessionRepo) SaveEntry(ctx context.Context, key, value string, ttl time.Duration) error {
-	if err := s.rdb.Set(ctx, key, value, ttl).Err(); err != nil {
-		return err
+	return &SessionRepo{
+		rdb: rdb,
 	}
-	return nil
 }
 
-func (s *SessionRepo) DeleteEntry(ctx context.Context, key string) error {
-	if err := s.rdb.Del(ctx, key).Err(); err != nil {
-		return err
-	}
-	return nil
+func (s *SessionRepo) SaveEntry(
+	ctx context.Context,
+	key, value string,
+	ttl time.Duration,
+) error {
+	return s.rdb.Set(ctx, key, value, ttl).Err()
 }
 
-func (s *SessionRepo) GetValue(ctx context.Context, key string) (string, error) {
-	UserID, err := s.rdb.Get(ctx, key).Result()
+func (s *SessionRepo) DeleteEntry(
+	ctx context.Context,
+	key string,
+) error {
+	return s.rdb.Del(ctx, key).Err()
+}
+
+func (s *SessionRepo) GetValue(
+	ctx context.Context,
+	key string,
+) (string, error) {
+	return s.rdb.Get(ctx, key).Result()
+}
+
+func (s *SessionRepo) CreateSession(
+	ctx context.Context,
+	session *domain.Session,
+	accessTTL,
+	refreshTTL time.Duration,
+) error {
+	sessionKey := fmt.Sprintf("session:%s", session.ID)
+	accessKey := fmt.Sprintf("access:%s", session.AccessToken)
+	refreshKey := fmt.Sprintf("refresh:%s", session.RefreshToken)
+	userSessionsKey := fmt.Sprintf("user:sessions:%s", session.UserID)
+
+	data, err := json.Marshal(session)
 	if err != nil {
-		return "", err
+		return fmt.Errorf("failed to marshal session: %w", err)
 	}
 
-	return UserID, nil
+	pipe := s.rdb.TxPipeline()
+
+	pipe.Set(ctx, accessKey, session.UserID, accessTTL)
+
+	pipe.Set(ctx, refreshKey, session.ID, refreshTTL)
+
+	pipe.Set(ctx, sessionKey, data, refreshTTL)
+
+	pipe.SAdd(ctx, userSessionsKey, session.ID)
+
+	if _, err := pipe.Exec(ctx); err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
+	}
+
+	return nil
+}
+
+func (s *SessionRepo) GetSessionByRefreshToken(
+	ctx context.Context,
+	refreshToken string,
+) (*domain.Session, error) {
+	refreshKey := fmt.Sprintf("refresh:%s", refreshToken)
+
+	sessionID, err := s.rdb.Get(ctx, refreshKey).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	sessionKey := fmt.Sprintf("session:%s", sessionID)
+
+	data, err := s.rdb.Get(ctx, sessionKey).Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	var session domain.Session
+	if err := json.Unmarshal(data, &session); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal session: %w", err)
+	}
+
+	return &session, nil
+}
+
+func (s *SessionRepo) UpdateSessionTokens(
+	ctx context.Context,
+	session *domain.Session,
+	oldAccessToken string,
+	oldRefreshToken string,
+	accessTTL time.Duration,
+	refreshTTL time.Duration,
+) error {
+	data, err := json.Marshal(session)
+	if err != nil {
+		return err
+	}
+
+	accessKey := fmt.Sprintf("access:%s", oldAccessToken)
+	refreshKey := fmt.Sprintf("refresh:%s", oldRefreshToken)
+	newAccessKey := fmt.Sprintf("access:%s", session.AccessToken)
+	newRefreshKey := fmt.Sprintf("refresh:%s", session.RefreshToken)
+	sessionKey := fmt.Sprintf("session:%s", session.ID)
+
+	pipe := s.rdb.Pipeline()
+
+	pipe.Del(ctx, accessKey)
+	pipe.Del(ctx, refreshKey)
+	pipe.Set(ctx, newAccessKey, session.UserID, accessTTL)
+	pipe.Set(ctx, newRefreshKey, session.ID, refreshTTL)
+	pipe.Set(ctx, sessionKey, data, refreshTTL)
+
+	_, err = pipe.Exec(ctx)
+	return err
+}
+
+func (s *SessionRepo) DeleteSession(
+	ctx context.Context,
+	session *domain.Session,
+) error {
+	sessionKey := fmt.Sprintf("session:%s", session.ID)
+	accessKey := fmt.Sprintf("access:%s", session.AccessToken)
+	refreshKey := fmt.Sprintf("refresh:%s", session.RefreshToken)
+	userSessionsKey := fmt.Sprintf("user:sessions:%s", session.UserID)
+
+	pipe := s.rdb.TxPipeline()
+
+	pipe.Del(ctx, sessionKey)
+	pipe.Del(ctx, accessKey)
+	pipe.Del(ctx, refreshKey)
+	pipe.SRem(ctx, userSessionsKey, session.ID)
+
+	if _, err := pipe.Exec(ctx); err != nil {
+		return fmt.Errorf("failed to delete session: %w", err)
+	}
+
+	return nil
+}
+
+func (s *SessionRepo) RevokeAllSessions(
+	ctx context.Context,
+	userID string,
+) error {
+	userSessionsKey := fmt.Sprintf("user:sessions:%s", userID)
+
+	sessionIDs, err := s.rdb.SMembers(ctx, userSessionsKey).Result()
+	if err != nil {
+		return fmt.Errorf("failed to get user sessions: %w", err)
+	}
+
+	pipe := s.rdb.TxPipeline()
+
+	for _, sessionID := range sessionIDs {
+		sessionKey := fmt.Sprintf("session:%s", sessionID)
+
+		data, err := s.rdb.Get(ctx, sessionKey).Bytes()
+		if err != nil {
+			continue
+		}
+
+		var session domain.Session
+		if err := json.Unmarshal(data, &session); err != nil {
+			return fmt.Errorf("failed to unmarshal session %s: %w", sessionID, err)
+		}
+
+		pipe.Del(ctx, sessionKey)
+		pipe.Del(ctx, fmt.Sprintf("access:%s", session.AccessToken))
+		pipe.Del(ctx, fmt.Sprintf("refresh:%s", session.RefreshToken))
+	}
+
+	pipe.Del(ctx, userSessionsKey)
+
+	if _, err := pipe.Exec(ctx); err != nil {
+		return fmt.Errorf("failed to revoke user sessions: %w", err)
+	}
+
+	return nil
 }

@@ -21,21 +21,50 @@ type AuthUserRepository interface {
 type ProfileUserRepository interface {
 	GetByIDProfile(ctx context.Context, userID string) (*User, error)
 	UpdateProfile(ctx context.Context, userID, email, firstName, lastName, phone string) error
-	// UpdatePassword(ctx context.Context, userID, newHash string) error
-	// GetEmailByUserID(ctx context.Context, userID string) (string, error)
 }
 
 type AdminUserRepository interface {
 	GetByID(ctx context.Context, userID string) (*User, error)
 	UpdateRole(ctx context.Context, userID string, role Role) error
 	UpdateStatus(ctx context.Context, userID string, isActive bool) error
-	ListUsers(ctx context.Context, limit, offset int) ([]User, error)
+	ListUsers(ctx context.Context, limit, offset int) ([]*User, error)
 }
 
 type SessionRepository interface {
 	SaveEntry(ctx context.Context, key, value string, ttl time.Duration) error
 	DeleteEntry(ctx context.Context, key string) error
 	GetValue(ctx context.Context, key string) (string, error)
+
+	CreateSession(
+		ctx context.Context,
+		session *Session,
+		accessTTL time.Duration,
+		refreshTTL time.Duration,
+	) error
+
+	GetSessionByRefreshToken(
+		ctx context.Context,
+		refreshToken string,
+	) (*Session, error)
+
+	UpdateSessionTokens(
+		ctx context.Context,
+		session *Session,
+		oldAccessToken string,
+		oldRefreshToken string,
+		accessTTL time.Duration,
+		refreshTTL time.Duration,
+	) error
+
+	DeleteSession(
+		ctx context.Context,
+		session *Session,
+	) error
+
+	RevokeAllSessions(
+		ctx context.Context,
+		userID string,
+	) error
 }
 
 type EventPublisher interface {
