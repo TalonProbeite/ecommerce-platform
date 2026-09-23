@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
+	"time"
+
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
-	"time"
 )
 
 type ProfileService struct {
@@ -98,6 +99,51 @@ func (ps *ProfileService) PatchUserProfile(
 		if err != nil {
 			return fmt.Errorf("error while publishing event: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func (ps *ProfileService) ResetPassword(ctx context.Context, userID, oldPass, newPass, refresh, access string) error {
+	pass, err := ps.userRepo.GetPassByUserID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("error while searching for the password: %w", err)
+	}
+
+	if !crypto.CheckPasswordHash(oldPass, pass) {
+		return domain.ErrInvalidCredentials
+	}
+
+	hashedNewPass, err := crypto.HashPassword(newPass)
+	if err != nil {
+		return fmt.Errorf("error while hashing new password: %w", err)
+	}
+
+	err = ps.userRepo.ResetPassword(ctx, userID, hashedNewPass)
+	if err != nil {
+		return fmt.Errorf("failed to change password: %w", err)
+	}
+
+	session, err := ps.sessRepo.GetSessionByRefreshToken(
+		ctx,
+		refresh,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"error searching for session: %w",
+			err,
+		)
+	}
+
+	if session.AccessToken != access {
+		return fmt.Errorf("access token does not belong to session")
+	}
+
+	if err := ps.sessRepo.RevokeAllSessions(ctx, userID); err != nil {
+		return fmt.Errorf(
+			"error occurred while revoking all auth sessions: %w",
+			err,
+		)
 	}
 
 	return nil

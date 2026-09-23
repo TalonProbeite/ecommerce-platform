@@ -5,10 +5,11 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"time"
+
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -32,48 +33,6 @@ func NewAuthService(
 	return &AuthService{
 		userRepo: ur, sessRepo: sr, publisher: ep, tokenMng: tm, oauthClient: oa,
 	}
-}
-
-func (as *AuthService) createSession(
-	ctx context.Context,
-	userID string,
-	role domain.Role,
-) (domain.TokenPair, error) {
-	sessionID, err := crypto.GenerateRandomToken(32)
-	if err != nil {
-		return domain.TokenPair{}, fmt.Errorf("error creating session id: %w", err)
-	}
-
-	refresh, err := crypto.GenerateRandomToken(32)
-	if err != nil {
-		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
-	}
-
-	access, err := as.tokenMng.GenerateToken(userID, role)
-	if err != nil {
-		return domain.TokenPair{}, fmt.Errorf("access key generation error: %w", err)
-	}
-
-	session := &domain.Session{
-		ID:           sessionID,
-		UserID:       userID,
-		AccessToken:  access,
-		RefreshToken: refresh,
-	}
-
-	if err := as.sessRepo.CreateSession(
-		ctx,
-		session,
-		15*time.Minute,
-		7*24*time.Hour,
-	); err != nil {
-		return domain.TokenPair{}, fmt.Errorf("error saving auth session: %w", err)
-	}
-
-	return domain.TokenPair{
-		AccessToken:  access,
-		RefreshToken: refresh,
-	}, nil
 }
 
 func (as *AuthService) Registration(
@@ -142,7 +101,7 @@ func (as *AuthService) Registration(
 
 	userID := UserID.String()
 
-	tokens, err := as.createSession(
+	tokens, err := as.CreateSession(
 		ctx,
 		userID,
 		domain.RoleCustomer,
@@ -211,7 +170,7 @@ func (as *AuthService) Login(
 		return domain.TokenPair{}, fmt.Errorf("the user is not active")
 	}
 
-	return as.createSession(
+	return as.CreateSession(
 		ctx,
 		user.ID,
 		user.Role,
@@ -453,7 +412,7 @@ func (as *AuthService) GoogleCallback(
 	if user != nil {
 		var tokens domain.TokenPair
 
-		tokens, err := as.createSession(
+		tokens, err := as.CreateSession(
 			ctx,
 			user.ID,
 			user.Role,
@@ -564,7 +523,7 @@ func (as *AuthService) CompleteOAuthRegistration(
 		return domain.TokenPair{}, err
 	}
 
-	return as.createSession(
+	return as.CreateSession(
 		ctx,
 		userID.String(),
 		domain.RoleCustomer,
