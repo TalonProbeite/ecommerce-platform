@@ -25,14 +25,14 @@ type CustomClaim struct {
 	jwt.RegisteredClaims
 }
 
-func (m *JWTManager) GenerateToken(UserID string, role ...domain.Role) (string, error) {
+func (m *JWTManager) GenerateToken(userID string, role ...domain.Role) (string, error) {
 	currentRole := domain.RoleCustomer
 	if len(role) > 0 {
 		currentRole = role[0]
 	}
 
 	claims := CustomClaim{
-		UserID: UserID,
+		UserID: userID,
 		Role:   currentRole,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),

@@ -45,6 +45,7 @@ type Handlers struct {
 	ReadyzHandler *handler.ReadyzHandler
 	AuthHandler   *handler.AuthHandler
 }
+
 type Middlewares struct {
 	AuthCheck echo.MiddlewareFunc
 }
@@ -63,11 +64,18 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 	private := e.Group("/api/private")
 
 	private.Use(m.AuthCheck)
+	private.POST("/email/verify", handler.WithUserID(h.AuthHandler.VerifyEmail))
+	private.POST("/email/resend", handler.WithUserID(h.AuthHandler.ResendCode))
 
 	public.GET("/healthz", h.HealthHandler.Check)
 	public.GET("/readyz", h.ReadyzHandler.Check)
 	public.POST("/login", h.AuthHandler.Login)
 	public.POST("/register", h.AuthHandler.Register)
+	public.POST("/logout", h.AuthHandler.Logout)
+	public.POST("/refresh", h.AuthHandler.Refresh)
+	public.GET("/oauth/google", h.AuthHandler.GoogleAuth)
+	public.GET("/oauth/google/callback", h.AuthHandler.GoogleCallback)
+	public.POST("/oauth/complete", h.AuthHandler.CompleteOAuthRegistration)
 
 	return e
 }

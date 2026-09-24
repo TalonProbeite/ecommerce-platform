@@ -7,6 +7,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/ilyakaznacheev/cleanenv"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
 type AppConfig struct {
@@ -30,8 +32,15 @@ type JWTConfig struct {
 	JwtPrivateKeyBase64 string `env:"JWT_PRIVATE_KEY_BASE64" env-required:"true"`
 	JwtPublicKeyBase64  string `env:"JWT_PUBLIC_KEY_BASE64" env-required:"true"`
 }
+type OAuthConfig struct {
+	ClientID     string `env:"CLIENT_ID" env-required:"true"`
+	ClientSecret string `env:"CLIENT_SECRETE" env-required:"true"`
+	RedirectURL  string `env:"REDIRECT_URL" env-required:"true"`
+}
+
 type Config struct {
 	Rabbit   RabbitConfig
+	OAuth    OAuthConfig
 	JWT      JWTConfig
 	Postgres PostgresConfig
 	Redis    RedisConfig
@@ -76,4 +85,20 @@ func (c *Config) RSAPublicKey() *rsa.PublicKey {
 	}
 
 	return key
+}
+
+func (c *Config) OAuthStateGoogle() *oauth2.Config {
+	googleConfig := oauth2.Config{
+		ClientID:     c.OAuth.ClientID,
+		ClientSecret: c.OAuth.ClientSecret,
+		RedirectURL:  c.OAuth.RedirectURL,
+		Endpoint:     google.Endpoint,
+		Scopes: []string{
+			"openid",
+			"email",
+			"profile",
+		},
+	}
+
+	return &googleConfig
 }

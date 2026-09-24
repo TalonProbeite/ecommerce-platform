@@ -27,3 +27,9 @@ func (r *VerifyEmailRequest) Validate() error {
 	}
 	return nil
 }
+
+type CompleteReq struct {
+	FirstName string `json:"given_name"`
+	LastName  string `json:"family_name"`
+	Phone     string `json:"phone" validate:"required"`
+}

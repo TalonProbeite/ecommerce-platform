@@ -48,7 +48,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 	c.SetCookie(&http.Cookie{
 		Name:     "refresh_token",
 		Value:    tokens.RefreshToken,
-		Path:     "/api/auth/refresh",
+		Path:     "/auth/api/auth/refresh",
 		Expires:  time.Now().Add(7 * 24 * time.Hour),
 		HttpOnly: true,
 		Secure:   true,
