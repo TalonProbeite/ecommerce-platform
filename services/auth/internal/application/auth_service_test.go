@@ -1,1463 +1,647 @@
 package application
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"log/slog"
-	"os"
-	"strings"
+	"slices"
 	"testing"
-	"time"
 
 	"shop/auth/internal/domain"
-	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-func newTestLogger() *slog.Logger {
-	return slog.New(
-		slog.NewTextHandler(
-			os.Stdout,
-			&slog.HandlerOptions{
-				Level: slog.LevelDebug,
-			},
-		),
-	)
-}
-
-func newAuthServiceForTest(
-	userRepo *MockUserRepo,
-	sessRepo *MockSessionRepo,
-	publisher *MockPublisher,
-	tokenMng *MockTokenManager,
-	oauth *MockGoogleClient,
-) *AuthService {
-	return NewAuthService(
-		userRepo,
-		sessRepo,
-		publisher,
-		tokenMng,
-		oauth,
-	)
-}
-
-func testContext() context.Context {
-	return context.Background()
-}
-
-func testUser() *domain.User {
-	return &domain.User{
-		ID:       "user-123",
-		Email:    "john@example.com",
-		Password: "password-hash",
-		Role:     domain.RoleCustomer,
-		IsActive: true,
-	}
-}
-
-func testUserWithHash(hash string) *domain.User {
-	user := testUser()
-	user.Password = hash
-	return user
-}
-
-func mustUUID() uuid.UUID {
-	id, err := uuid.Parse("11111111-1111-1111-1111-111111111111")
-	if err != nil {
-		panic(err)
-	}
-	return id
-}
-
-func duplicateEmailError() error {
-	return &pgconn.PgError{
-		Code:    "23505",
-		Message: "duplicate key value violates unique constraint",
-	}
-}
-
-func assertErrorContains(t *testing.T, err error, want string) {
-	t.Helper()
-
-	if err == nil {
-		t.Fatalf("expected error containing %q, got nil", want)
-	}
-
-	if !strings.Contains(err.Error(), want) {
-		t.Fatalf("expected error containing %q, got %q", want, err.Error())
-	}
-}
-
 func TestAuthService_Registration(t *testing.T) {
-	logger := newTestLogger()
-	userID := mustUUID()
+	req := &dto.RegisterRequest{
+		Email:     testEmail,
+		Password:  testPassword,
+		FirstName: "John",
+		LastName:  "Doe",
+		Phone:     "+123456789",
+	}
+	verKey := "ver:" + testUserID
 
 	tests := []struct {
-		name          string
-		createErr     error
-		returnNilID   bool
-		publishErr    error
-		tokenErr      error
-		saveErrOn     int
-		expectError   bool
-		expectWrapped error
-		expectMessage string
+		name      string
+		setup     func(*fixture)
+		notCalled []string
+		errCase
 	}{
+		{name: "success"},
 		{
-			name: "success",
+			name: "duplicate email",
+			errCase: errCase{
+				failAt:  "users.Create",
+				failErr: &pgconn.PgError{Code: "23505"},
+				wantIs:  domain.ErrEmailAlreadyExists,
+			},
+			notCalled: []string{"pub.PublishEvent", "sess.CreateSession", "sess.SaveEntry"},
 		},
 		{
-			name:          "duplicate email",
-			createErr:     duplicateEmailError(),
-			expectError:   true,
-			expectWrapped: domain.ErrEmailAlreadyExists,
+			name:      "repository error",
+			errCase:   errCase{failAt: "users.Create", wantMsg: "error while trying to save user"},
+			notCalled: []string{"pub.PublishEvent", "sess.CreateSession", "sess.SaveEntry"},
 		},
 		{
-			name:          "repository error",
-			createErr:     errors.New("database is unavailable"),
-			expectError:   true,
-			expectMessage: "error while trying to save user",
+			name:      "repository returned nil uuid",
+			setup:     func(f *fixture) { f.newUserID = uuid.Nil },
+			errCase:   errCase{wantMsg: "empty user id"},
+			notCalled: []string{"pub.PublishEvent", "sess.CreateSession", "sess.SaveEntry"},
 		},
 		{
-			name:        "repository returned nil uuid",
-			returnNilID: true,
-			expectError: true,
+			name:    "publisher error",
+			errCase: errCase{failAt: "pub.PublishEvent", wantMsg: "error while publishing event"},
 		},
 		{
-			name:          "publisher error",
-			publishErr:    errors.New("rabbitmq unavailable"),
-			expectError:   true,
-			expectMessage: "error while publishing event",
+			name:    "session creation error",
+			errCase: errCase{failAt: "sess.CreateSession", wantMsg: "error saving auth session"},
 		},
 		{
-			name:          "token generation error",
-			tokenErr:      errors.New("jwt failure"),
-			expectError:   true,
-			expectMessage: "access key generation error",
-		},
-		{
-			name:          "save refresh session error",
-			saveErrOn:     1,
-			expectError:   true,
-			expectMessage: "error saving refresh token",
-		},
-		{
-			name:          "save access session error",
-			saveErrOn:     2,
-			expectError:   true,
-			expectMessage: "error saving access token",
-		},
-		{
-			name:          "save verification code error",
-			saveErrOn:     3,
-			expectError:   true,
-			expectMessage: "error saving verification code",
+			name:    "verification code save error",
+			errCase: errCase{failAt: "sess.SaveEntry", wantMsg: "error saving verification code"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Logf("starting registration scenario=%s", tt.name)
-
-			saveCalls := 0
-			var savedKeys []string
-			var savedValues []string
-			var publishedEvent string
-			var publishedPayload []byte
-
-			userRepo := &MockUserRepo{
-				Log: logger,
-				CreateFunc: func(_ context.Context, user *domain.User) (uuid.UUID, error) {
-					t.Logf(
-						"Create email=%s role=%s active=%t verified=%t",
-						user.Email,
-						user.Role,
-						user.IsActive,
-						user.IsEmailVerified,
-					)
-
-					if tt.returnNilID {
-						return uuid.Nil, nil
-					}
-					return userID, tt.createErr
-				},
+			f := newFixture(t)
+			tt.arm(f)
+			if tt.setup != nil {
+				tt.setup(f)
 			}
 
-			sessRepo := &MockSessionRepo{
-				Log: logger,
-				SaveEntryFunc: func(
-					_ context.Context,
-					key, value string,
-					ttl time.Duration,
-				) error {
-					saveCalls++
-					savedKeys = append(savedKeys, key)
-					savedValues = append(savedValues, value)
-
-					t.Logf(
-						"SaveEntry #%d key=%s value=%s ttl=%s",
-						saveCalls,
-						key,
-						value,
-						ttl,
-					)
-
-					if saveCalls == tt.saveErrOn {
-						return errors.New("redis save failed")
-					}
-					return nil
-				},
+			tokens, err := f.svc.Registration(testCtx(), req)
+			if tt.check(t, err) {
+				assertNotCalled(t, f, tt.notCalled...)
+				return
 			}
 
-			publisher := &MockPublisher{
-				Log: logger,
-				PublishEventFunc: func(eventKey string, payload []byte) error {
-					publishedEvent = eventKey
-					publishedPayload = append([]byte(nil), payload...)
-					t.Logf("PublishEvent key=%s payload=%s", eventKey, string(payload))
-					return tt.publishErr
-				},
+			assertTokenPair(t, f, tokens, testUserID, domain.RoleCustomer)
+
+			u := f.createdUser
+			if u.Email != req.Email || u.FirstName != req.FirstName ||
+				u.LastName != req.LastName || u.Phone != req.Phone {
+				t.Errorf("unexpected created user: %+v", u)
+			}
+			if u.Role != domain.RoleCustomer || !u.IsActive || u.IsEmailVerified {
+				t.Errorf("wrong defaults: role=%s active=%t verified=%t", u.Role, u.IsActive, u.IsEmailVerified)
+			}
+			if u.Password == "" || u.Password == req.Password {
+				t.Error("password must be stored hashed")
 			}
 
-			tokenMng := &MockTokenManager{
-				Log: logger,
-				GenerateTokenFunc: func(
-					userID string,
-					role ...domain.Role,
-				) (string, error) {
-					t.Logf("GenerateToken user_id=%s role=%v", userID, role)
-					if tt.tokenErr != nil {
-						return "", tt.tokenErr
-					}
-					return "access-token", nil
-				},
+			ver, ok := f.saved[verKey]
+			if !ok || ver.value == "" || ver.ttl != verificationCodeTTL {
+				t.Errorf("verification entry = %+v (found=%t), want non-empty code with ttl %s", ver, ok, verificationCodeTTL)
 			}
 
-			service := newAuthServiceForTest(
-				userRepo,
-				sessRepo,
-				publisher,
-				tokenMng,
-				nil,
-			)
-
-			result, err := service.Registration(
-				testContext(),
-				&dto.RegisterRequest{
-					Email:     "john@example.com",
-					Password:  "Password123!",
-					FirstName: "John",
-					LastName:  "Doe",
-					Phone:     "+123456789",
-				},
-			)
-
-			if !tt.expectError {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
-				if result.AccessToken != "access-token" {
-					t.Fatalf("unexpected access token: %q", result.AccessToken)
-				}
-				if result.RefreshToken == "" {
-					t.Fatal("expected non-empty refresh token")
-				}
-				if saveCalls != 3 {
-					t.Fatalf("expected 3 redis saves, got %d", saveCalls)
-				}
-				if publishedEvent != domain.UserRegistredEventKey {
-					t.Fatalf("unexpected event key: %q", publishedEvent)
-				}
-				if len(publishedPayload) == 0 {
-					t.Fatal("expected non-empty event payload")
-				}
-				if !strings.HasPrefix(savedKeys[0], "refresh:") {
-					t.Fatalf("unexpected refresh key: %q", savedKeys[0])
-				}
-				if savedKeys[1] != "access:access-token" {
-					t.Fatalf("unexpected access key: %q", savedKeys[1])
-				}
-				if savedKeys[2] != "ver:"+userID.String() {
-					t.Fatalf("unexpected verification key: %q", savedKeys[2])
-				}
-				if savedValues[0] != userID.String() || savedValues[1] != userID.String() {
-					t.Fatalf("unexpected session values: %#v", savedValues[:2])
-				}
-				if savedValues[2] == "" {
-					t.Fatal("expected verification code")
-				}
-			} else {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if tt.expectWrapped != nil && !errors.Is(err, tt.expectWrapped) {
-					t.Fatalf("expected wrapped error %v, got %v", tt.expectWrapped, err)
-				}
-				if tt.expectMessage != "" && !strings.Contains(err.Error(), tt.expectMessage) {
-					t.Fatalf("expected error containing %q, got %q", tt.expectMessage, err.Error())
-				}
+			ev := decode[domain.UserRegisteredEvent](t, f.eventPayload(t, domain.UserRegistredEventKey))
+			if ev.Email != req.Email || ev.Code != ver.value {
+				t.Errorf("event %+v does not match email/saved code %q", ev, ver.value)
 			}
-
-			t.Logf("finished registration scenario=%s err=%v", tt.name, err)
 		})
 	}
 }
 
 func TestAuthService_Login(t *testing.T) {
-	logger := newTestLogger()
-
-	hash, err := crypto.HashPassword("Password123!")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	tests := []struct {
-		name        string
-		user        *domain.User
-		getErr      error
-		status      bool
-		statusErr   error
-		tokenErr    error
-		saveErrOn   int
-		password    string
-		expectError bool
-		expectMsg   string
+		name      string
+		password  string
+		setup     func(*fixture)
+		notCalled []string
+		errCase
 	}{
 		{
 			name:     "success",
-			user:     testUserWithHash(hash),
-			status:   true,
-			password: "Password123!",
+			password: testPassword,
+			setup:    func(f *fixture) { f.user.Role = domain.RoleAdmin }, // role must reach the token
 		},
 		{
-			name:        "repository error",
-			getErr:      errors.New("postgres unavailable"),
-			password:    "Password123!",
-			expectError: true,
-			expectMsg:   "error while searching for user",
+			name:     "repository error",
+			password: testPassword,
+			errCase:  errCase{failAt: "users.GetByEmail", wantMsg: "error while searching for user"},
 		},
 		{
-			name:        "user not found",
-			user:        nil,
-			password:    "Password123!",
-			expectError: true,
-			expectMsg:   "user not found error",
+			name:      "user not found",
+			password:  testPassword,
+			setup:     func(f *fixture) { f.user = nil },
+			errCase:   errCase{wantMsg: "user not found"},
+			notCalled: []string{"users.GetStatus", "sess.CreateSession"},
 		},
 		{
-			name: "oauth user",
-			user: &domain.User{
-				ID:       "oauth-user",
-				Email:    "oauth@example.com",
-				Password: "",
-				Role:     domain.RoleCustomer,
-				IsActive: true,
-			},
-			password:    "Password123!",
-			expectError: true,
-			expectMsg:   "user registered via oauth",
+			name:      "oauth user has no password",
+			password:  testPassword,
+			setup:     func(f *fixture) { f.user.Password = "" },
+			errCase:   errCase{wantMsg: "oauth"},
+			notCalled: []string{"users.GetStatus", "sess.CreateSession"},
 		},
 		{
-			name:        "incorrect password",
-			user:        testUserWithHash(hash),
-			status:      true,
-			password:    "WrongPassword!",
-			expectError: true,
-			expectMsg:   "incorrect password",
+			name:      "incorrect password",
+			password:  "WrongPassword1!",
+			errCase:   errCase{wantIs: domain.ErrInvalidCredentials},
+			notCalled: []string{"users.GetStatus", "sess.CreateSession"},
 		},
 		{
-			name:        "status repository error",
-			user:        testUserWithHash(hash),
-			status:      true,
-			statusErr:   errors.New("status query failed"),
-			password:    "Password123!",
-			expectError: true,
-			expectMsg:   "error checking user status",
+			name:     "status repository error",
+			password: testPassword,
+			errCase:  errCase{failAt: "users.GetStatus", wantMsg: "error checking user status"},
 		},
 		{
-			name:        "inactive user",
-			user:        testUserWithHash(hash),
-			status:      false,
-			password:    "Password123!",
-			expectError: true,
-			expectMsg:   "the user is not active",
+			name:      "inactive user",
+			password:  testPassword,
+			setup:     func(f *fixture) { f.userActive = false },
+			errCase:   errCase{wantMsg: "not active"},
+			notCalled: []string{"sess.CreateSession", "tokens.GenerateToken"},
 		},
 		{
-			name:        "token generation error",
-			user:        testUserWithHash(hash),
-			status:      true,
-			tokenErr:    errors.New("jwt failure"),
-			password:    "Password123!",
-			expectError: true,
-			expectMsg:   "access key generation error",
-		},
-		{
-			name:        "refresh save error",
-			user:        testUserWithHash(hash),
-			status:      true,
-			saveErrOn:   1,
-			password:    "Password123!",
-			expectError: true,
-			expectMsg:   "error saving refresh token",
-		},
-		{
-			name:        "access save error",
-			user:        testUserWithHash(hash),
-			status:      true,
-			saveErrOn:   2,
-			password:    "Password123!",
-			expectError: true,
-			expectMsg:   "error saving access token",
+			name:     "session creation error",
+			password: testPassword,
+			errCase:  errCase{failAt: "sess.CreateSession", wantMsg: "error saving auth session"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Logf("starting login scenario=%s", tt.name)
-
-			saveCalls := 0
-			userStatusCalls := 0
-
-			userRepo := &MockUserRepo{
-				Log: logger,
-				GetByEmailFunc: func(_ context.Context, _ string) (*domain.User, error) {
-					return tt.user, tt.getErr
-				},
-				GetStatusFunc: func(_ context.Context, _ string) (bool, error) {
-					userStatusCalls++
-					return tt.status, tt.statusErr
-				},
+			f := newFixture(t)
+			tt.arm(f)
+			if tt.setup != nil {
+				tt.setup(f)
 			}
 
-			sessRepo := &MockSessionRepo{
-				Log: logger,
-				SaveEntryFunc: func(
-					_ context.Context,
-					key, value string,
-					ttl time.Duration,
-				) error {
-					saveCalls++
-					t.Logf("SaveEntry #%d key=%s value=%s ttl=%s", saveCalls, key, value, ttl)
-					if saveCalls == tt.saveErrOn {
-						return errors.New("redis save failed")
-					}
-					return nil
-				},
+			tokens, err := f.svc.Login(testCtx(), &dto.LoginRequest{Email: testEmail, Password: tt.password})
+			if tt.check(t, err) {
+				assertNotCalled(t, f, tt.notCalled...)
+				return
 			}
 
-			tokenMng := &MockTokenManager{
-				Log: logger,
-				GenerateTokenFunc: func(_ string, _ ...domain.Role) (string, error) {
-					if tt.tokenErr != nil {
-						return "", tt.tokenErr
-					}
-					return "access-token", nil
-				},
-			}
-
-			service := newAuthServiceForTest(
-				userRepo,
-				sessRepo,
-				&MockPublisher{
-					Log: logger,
-					PublishEventFunc: func(string, []byte) error {
-						return nil
-					},
-				},
-				tokenMng,
-				nil,
-			)
-
-			result, err := service.Login(
-				testContext(),
-				&dto.LoginRequest{
-					Email:    "john@example.com",
-					Password: tt.password,
-				},
-			)
-
-			if !tt.expectError {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
-				if result.AccessToken != "access-token" {
-					t.Fatalf("unexpected access token: %q", result.AccessToken)
-				}
-				if result.RefreshToken == "" {
-					t.Fatal("expected non-empty refresh token")
-				}
-				if userStatusCalls != 1 {
-					t.Fatalf("expected 1 status call, got %d", userStatusCalls)
-				}
-				if saveCalls != 2 {
-					t.Fatalf("expected 2 redis saves, got %d", saveCalls)
-				}
-			} else {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if tt.expectMsg != "" && !strings.Contains(err.Error(), tt.expectMsg) {
-					t.Fatalf("expected error containing %q, got %q", tt.expectMsg, err.Error())
-				}
-			}
-
-			t.Logf("finished login scenario=%s err=%v", tt.name, err)
+			assertTokenPair(t, f, tokens, testUserID, domain.RoleAdmin)
 		})
 	}
 }
 
 func TestAuthService_VerifyEmail(t *testing.T) {
-	logger := newTestLogger()
+	verKey := "ver:" + testUserID
 
 	tests := []struct {
-		name        string
-		code        string
-		redisCode   string
-		getErr      error
-		setErr      error
-		deleteErr   error
-		publishErr  error
-		expectError bool
-		expectMsg   string
+		name      string
+		code      string
+		notCalled []string
+		errCase
 	}{
+		{name: "success", code: "123456"},
 		{
-			name:      "success",
-			code:      "1234567890",
-			redisCode: "1234567890",
+			name:      "code lookup error",
+			code:      "123456",
+			errCase:   errCase{failAt: "sess.GetValue", wantMsg: "error when trying to get email confirmation code"},
+			notCalled: []string{"users.SetVerified", "pub.PublishEvent"},
 		},
 		{
-			name:        "redis get error",
-			code:        "1234567890",
-			getErr:      errors.New("redis unavailable"),
-			expectError: true,
-			expectMsg:   "email confirmation code",
+			name:      "invalid code",
+			code:      "000000",
+			errCase:   errCase{wantMsg: "invalid verification code"},
+			notCalled: []string{"users.SetVerified", "sess.DeleteEntry", "pub.PublishEvent"},
 		},
 		{
-			name:        "invalid code",
-			code:        "1111111111",
-			redisCode:   "1234567890",
-			expectError: true,
-			expectMsg:   "invalid verification code",
+			name:      "set verified error",
+			code:      "123456",
+			errCase:   errCase{failAt: "users.SetVerified", wantMsg: "error updating email confirmation field"},
+			notCalled: []string{"sess.DeleteEntry", "pub.PublishEvent"},
 		},
 		{
-			name:        "set verified error",
-			code:        "1234567890",
-			redisCode:   "1234567890",
-			setErr:      errors.New("postgres update failed"),
-			expectError: true,
-			expectMsg:   "error updating email confirmation field",
+			name:      "code delete error",
+			code:      "123456",
+			errCase:   errCase{failAt: "sess.DeleteEntry", wantMsg: "error deleting verification code"},
+			notCalled: []string{"pub.PublishEvent"},
 		},
 		{
-			name:        "delete code error",
-			code:        "1234567890",
-			redisCode:   "1234567890",
-			deleteErr:   errors.New("redis delete failed"),
-			expectError: true,
-			expectMsg:   "error deleting verification code",
-		},
-		{
-			name:        "publish error",
-			code:        "1234567890",
-			redisCode:   "1234567890",
-			publishErr:  errors.New("rabbit unavailable"),
-			expectError: true,
-			expectMsg:   "error while publishing verified event",
+			name:    "publisher error",
+			code:    "123456",
+			errCase: errCase{failAt: "pub.PublishEvent", wantMsg: "error while publishing verified event"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			getCalls := 0
-			setCalls := 0
-			deleteCalls := 0
-			publishCalls := 0
+			f := newFixture(t)
+			f.store[verKey] = "123456"
+			tt.arm(f)
 
-			userRepo := &MockUserRepo{
-				Log: logger,
-				SetVerifiedFunc: func(_ context.Context, _ string) (string, string, error) {
-					setCalls++
-					return "john@example.com", "John", tt.setErr
-				},
+			err := f.svc.VerifyEmail(testCtx(), tt.code, testUserID)
+			if tt.check(t, err) {
+				assertNotCalled(t, f, tt.notCalled...)
+				return
 			}
 
-			sessRepo := &MockSessionRepo{
-				Log: logger,
-				GetValueFunc: func(_ context.Context, key string) (string, error) {
-					getCalls++
-					t.Logf("GetValue key=%s", key)
-					return tt.redisCode, tt.getErr
-				},
-				DeleteEntryFunc: func(_ context.Context, key string) error {
-					deleteCalls++
-					t.Logf("DeleteEntry key=%s", key)
-					return tt.deleteErr
-				},
+			if !slices.Contains(f.deleted, verKey) {
+				t.Errorf("verification code %q must be deleted; deleted: %v", verKey, f.deleted)
 			}
-
-			publisher := &MockPublisher{
-				Log: logger,
-				PublishEventFunc: func(eventKey string, payload []byte) error {
-					publishCalls++
-					t.Logf("PublishEvent key=%s payload=%s", eventKey, string(payload))
-					return tt.publishErr
-				},
+			ev := decode[domain.UserEmailVerifiedEvent](t, f.eventPayload(t, domain.UserEmailVerifiedEventKey))
+			if ev.Email != testEmail || ev.Name != "John" {
+				t.Errorf("unexpected event: %+v", ev)
 			}
-
-			service := newAuthServiceForTest(
-				userRepo,
-				sessRepo,
-				publisher,
-				nil,
-				nil,
-			)
-
-			err := service.VerifyEmail(
-				testContext(),
-				tt.code,
-				"user-123",
-			)
-
-			if !tt.expectError {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
-				if getCalls != 1 || setCalls != 1 || deleteCalls != 1 || publishCalls != 1 {
-					t.Fatalf(
-						"unexpected call counts get=%d set=%d delete=%d publish=%d",
-						getCalls,
-						setCalls,
-						deleteCalls,
-						publishCalls,
-					)
-				}
-			} else {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if tt.expectMsg != "" && !strings.Contains(err.Error(), tt.expectMsg) {
-					t.Fatalf("expected error containing %q, got %q", tt.expectMsg, err.Error())
-				}
-			}
-
-			if tt.name == "invalid code" && setCalls != 0 {
-				t.Fatalf("SetVerified must not be called, got %d calls", setCalls)
-			}
-
-			t.Logf("finished verify scenario=%s err=%v", tt.name, err)
 		})
 	}
 }
 
 func TestAuthService_Refresh(t *testing.T) {
-	logger := newTestLogger()
-
 	tests := []struct {
-		name        string
-		redisErr    error
-		user        *domain.User
-		userErr     error
-		deleteErr   error
-		tokenErr    error
-		saveErrOn   int
-		expectError bool
-		expectMsg   string
+		name      string
+		setup     func(*fixture)
+		notCalled []string
+		errCase
 	}{
 		{
-			name: "success",
-			user: testUser(),
+			name:  "success",
+			setup: func(f *fixture) { f.user.Role = domain.RoleAdmin }, // role comes from the user, not the session
 		},
 		{
-			name:        "redis refresh key error",
-			redisErr:    errors.New("redis unavailable"),
-			expectError: true,
-			expectMsg:   "error searching for key",
+			name:      "session not found",
+			errCase:   errCase{failAt: "sess.GetSessionByRefreshToken", wantMsg: "error searching for refresh session"},
+			notCalled: []string{"users.GetByID", "sess.UpdateSessionTokens"},
 		},
 		{
-			name:        "repository error",
-			userErr:     errors.New("postgres unavailable"),
-			expectError: true,
-			expectMsg:   "error searching for user",
+			name:      "user repository error",
+			errCase:   errCase{failAt: "users.GetByID", wantMsg: "error searching for user"},
+			notCalled: []string{"sess.UpdateSessionTokens"},
 		},
 		{
-			name:        "user not found",
-			user:        nil,
-			expectError: true,
-			expectMsg:   "user not found error",
+			name:      "user not found",
+			setup:     func(f *fixture) { f.user = nil },
+			errCase:   errCase{wantMsg: "user not found"},
+			notCalled: []string{"sess.UpdateSessionTokens"},
 		},
 		{
-			name:        "inactive user",
-			user:        &domain.User{ID: "user-123", Role: domain.RoleCustomer, IsActive: false},
-			expectError: true,
-			expectMsg:   "the user is not active",
+			name:      "inactive user",
+			setup:     func(f *fixture) { f.user.IsActive = false },
+			errCase:   errCase{wantMsg: "not active"},
+			notCalled: []string{"tokens.GenerateToken", "sess.UpdateSessionTokens"},
 		},
 		{
-			name:        "delete old refresh error",
-			user:        testUser(),
-			deleteErr:   errors.New("redis delete failed"),
-			expectError: true,
-			expectMsg:   "error deleting stale session",
+			name:      "token generation error",
+			errCase:   errCase{failAt: "tokens.GenerateToken", wantMsg: "access key generation error"},
+			notCalled: []string{"sess.UpdateSessionTokens"},
 		},
 		{
-			name:        "token generation error",
-			user:        testUser(),
-			tokenErr:    errors.New("jwt failure"),
-			expectError: true,
-			expectMsg:   "access key generation error",
-		},
-		{
-			name:        "save refresh error",
-			user:        testUser(),
-			saveErrOn:   1,
-			expectError: true,
-			expectMsg:   "error saving refresh token",
-		},
-		{
-			name:        "save access error",
-			user:        testUser(),
-			saveErrOn:   2,
-			expectError: true,
-			expectMsg:   "error saving access token",
+			name:    "session update error",
+			errCase: errCase{failAt: "sess.UpdateSessionTokens", wantMsg: "error updating auth session"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			getCalls := 0
-			deleteCalls := 0
-			saveCalls := 0
-
-			userRepo := &MockUserRepo{
-				Log: logger,
-				GetByIDFunc: func(_ context.Context, userID string) (*domain.User, error) {
-					t.Logf("GetByID user_id=%s", userID)
-					return tt.user, tt.userErr
-				},
+			f := newFixture(t)
+			tt.arm(f)
+			if tt.setup != nil {
+				tt.setup(f)
 			}
 
-			sessRepo := &MockSessionRepo{
-				Log: logger,
-				GetValueFunc: func(_ context.Context, key string) (string, error) {
-					getCalls++
-					t.Logf("GetValue key=%s", key)
-					return "user-123", tt.redisErr
-				},
-				DeleteEntryFunc: func(_ context.Context, key string) error {
-					deleteCalls++
-					t.Logf("DeleteEntry key=%s", key)
-					return tt.deleteErr
-				},
-				SaveEntryFunc: func(_ context.Context, key, value string, ttl time.Duration) error {
-					saveCalls++
-					t.Logf("SaveEntry #%d key=%s value=%s ttl=%s", saveCalls, key, value, ttl)
-					if saveCalls == tt.saveErrOn {
-						return errors.New("redis save failed")
-					}
-					return nil
-				},
+			tokens, err := f.svc.Refresh(testCtx(), "old-refresh")
+			if tt.check(t, err) {
+				assertNotCalled(t, f, tt.notCalled...)
+				return
 			}
 
-			tokenMng := &MockTokenManager{
-				Log: logger,
-				GenerateTokenFunc: func(userID string, role ...domain.Role) (string, error) {
-					t.Logf("GenerateToken user_id=%s role=%v", userID, role)
-					if tt.tokenErr != nil {
-						return "", tt.tokenErr
-					}
-					return "access-token", nil
-				},
+			if tokens.AccessToken != testAccessToken {
+				t.Errorf("access token = %q, want %q", tokens.AccessToken, testAccessToken)
+			}
+			if tokens.RefreshToken == "" || tokens.RefreshToken == "old-refresh" {
+				t.Errorf("refresh token must be new and non-empty, got %q", tokens.RefreshToken)
 			}
 
-			service := newAuthServiceForTest(
-				userRepo,
-				sessRepo,
-				nil,
-				tokenMng,
-				nil,
-			)
-
-			result, err := service.Refresh(testContext(), "old-refresh-token")
-
-			if !tt.expectError {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
-				if result.AccessToken != "access-token" || result.RefreshToken == "" {
-					t.Fatalf("unexpected token pair: %#v", result)
-				}
-				if getCalls != 1 || deleteCalls != 1 || saveCalls != 2 {
-					t.Fatalf("unexpected calls get=%d delete=%d save=%d", getCalls, deleteCalls, saveCalls)
-				}
-			} else {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if tt.expectMsg != "" && !strings.Contains(err.Error(), tt.expectMsg) {
-					t.Fatalf("expected error containing %q, got %q", tt.expectMsg, err.Error())
-				}
+			u := f.updated
+			if u == nil {
+				t.Fatal("session tokens were not updated")
 			}
-
-			t.Logf("finished refresh scenario=%s err=%v", tt.name, err)
+			if u.oldAccess != "old-access" || u.oldRefresh != "old-refresh" {
+				t.Errorf("old tokens passed to repo = %q/%q", u.oldAccess, u.oldRefresh)
+			}
+			if u.session.ID != "sess-1" || u.session.UserID != testUserID {
+				t.Errorf("session identity changed: %+v", u.session)
+			}
+			if u.session.AccessToken != tokens.AccessToken || u.session.RefreshToken != tokens.RefreshToken {
+				t.Errorf("stored tokens differ from the returned pair: %+v vs %+v", u.session, tokens)
+			}
+			if u.accessTTL != accessTokenTTL || u.refreshTTL != refreshTokenTTL {
+				t.Errorf("TTLs = %s/%s, want %s/%s", u.accessTTL, u.refreshTTL, accessTokenTTL, refreshTokenTTL)
+			}
+			assertLastTokenRequest(t, f, testUserID, domain.RoleAdmin)
 		})
 	}
 }
 
 func TestAuthService_Logout(t *testing.T) {
-	logger := newTestLogger()
-
 	tests := []struct {
-		name        string
-		deleteOn    int
-		expectError bool
-		expectMsg   string
+		name      string
+		access    string
+		notCalled []string
+		errCase
 	}{
-		{name: "success"},
+		{name: "success", access: "old-access"},
 		{
-			name:        "refresh delete error",
-			deleteOn:    1,
-			expectError: true,
-			expectMsg:   "refresh token",
+			name:      "session not found",
+			access:    "old-access",
+			errCase:   errCase{failAt: "sess.GetSessionByRefreshToken", wantMsg: "error searching for session"},
+			notCalled: []string{"sess.DeleteSession"},
 		},
 		{
-			name:        "access delete error",
-			deleteOn:    2,
-			expectError: true,
-			expectMsg:   "access token",
+			name:      "access token belongs to another session",
+			access:    "someone-elses-access",
+			errCase:   errCase{wantMsg: "does not belong to session"},
+			notCalled: []string{"sess.DeleteSession"},
+		},
+		{
+			name:    "session delete error",
+			access:  "old-access",
+			errCase: errCase{failAt: "sess.DeleteSession", wantMsg: "error occurred while deleting auth session"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			deleteCalls := 0
+			f := newFixture(t)
+			tt.arm(f)
 
-			sessRepo := &MockSessionRepo{
-				Log: logger,
-				DeleteEntryFunc: func(_ context.Context, key string) error {
-					deleteCalls++
-					t.Logf("DeleteEntry #%d key=%s", deleteCalls, key)
-					if deleteCalls == tt.deleteOn {
-						return errors.New("redis delete failed")
-					}
-					return nil
-				},
+			err := f.svc.Logout(testCtx(), "old-refresh", tt.access)
+			if tt.check(t, err) {
+				assertNotCalled(t, f, tt.notCalled...)
+				return
 			}
 
-			service := newAuthServiceForTest(nil, sessRepo, nil, nil, nil)
-
-			err := service.Logout(
-				testContext(),
-				"refresh-token",
-				"access-token",
-			)
-
-			if !tt.expectError {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
-				if deleteCalls != 2 {
-					t.Fatalf("expected 2 delete calls, got %d", deleteCalls)
-				}
-			} else {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if !strings.Contains(err.Error(), tt.expectMsg) {
-					t.Fatalf("expected error containing %q, got %q", tt.expectMsg, err.Error())
-				}
+			if f.deletedSession == nil || f.deletedSession.ID != "sess-1" {
+				t.Errorf("expected session sess-1 to be deleted, got %+v", f.deletedSession)
 			}
 		})
 	}
 }
 
 func TestAuthService_Google(t *testing.T) {
-	logger := newTestLogger()
-
 	tests := []struct {
-		name        string
-		saveErr     error
-		expectError bool
-		expectMsg   string
+		name      string
+		notCalled []string
+		errCase
 	}{
 		{name: "success"},
 		{
-			name:        "state save error",
-			saveErr:     errors.New("redis unavailable"),
-			expectError: true,
-			expectMsg:   "error when saving state",
+			name:      "state save error",
+			errCase:   errCase{failAt: "sess.SaveEntry", wantMsg: "error when saving state"},
+			notCalled: []string{"google.AuthURL"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sessRepo := &MockSessionRepo{
-				Log: newTestLogger(),
-				SaveEntryFunc: func(_ context.Context, key, value string, ttl time.Duration) error {
-					t.Logf("SaveEntry key=%s value=%s ttl=%s", key, value, ttl)
-					return tt.saveErr
-				},
+			f := newFixture(t)
+			tt.arm(f)
+
+			url, err := f.svc.Google(testCtx())
+			if tt.check(t, err) {
+				assertNotCalled(t, f, tt.notCalled...)
+				return
 			}
 
-			oauth := &MockGoogleClient{
-				Log: logger,
-				AuthURLFunc: func(state string) string {
-					t.Logf("AuthURL state=%s", state)
-					return "https://google.example/auth?state=" + state
-				},
+			if f.authState == "" {
+				t.Fatal("state passed to AuthURL is empty")
 			}
-
-			service := newAuthServiceForTest(nil, sessRepo, nil, nil, oauth)
-
-			url, err := service.Google(testContext())
-
-			if !tt.expectError {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
-				if !strings.HasPrefix(url, "https://google.example/auth?state=") {
-					t.Fatalf("unexpected oauth url: %q", url)
-				}
-			} else {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if tt.expectMsg != "" && !strings.Contains(err.Error(), tt.expectMsg) {
-					t.Fatalf("expected error containing %q, got %q", tt.expectMsg, err.Error())
-				}
+			if want := "https://accounts.example/auth?state=" + f.authState; url != want {
+				t.Errorf("url = %q, want %q", url, want)
+			}
+			if e, ok := f.saved["state:"+f.authState]; !ok || e.ttl != oauthStateTTL {
+				t.Errorf("state entry = %+v (found=%t), want ttl %s", e, ok, oauthStateTTL)
 			}
 		})
 	}
 }
 
 func TestAuthService_GoogleCallback(t *testing.T) {
-	logger := newTestLogger()
-	profile := &domain.OAuthProfile{
-		Provider:       domain.ProviderGoogle,
-		ProviderUserID: "google-123",
-		Email:          "john@example.com",
-		FirstName:      "John",
-		LastName:       "Doe",
-	}
-
-	existingUser := &domain.User{
-		ID:       "user-123",
-		Email:    "john@example.com",
-		Role:     domain.RoleCustomer,
-		IsActive: true,
-	}
+	const state = "st"
+	stateKey := "state:" + state
 
 	tests := []struct {
-		name               string
-		stateGetErr        error
-		stateDeleteErr     error
-		profileErr         error
-		getOAuthErr        error
-		existingUser       *domain.User
-		tokenErr           error
-		saveErrOn          int
-		expectError        bool
-		expectMsg          string
-		expectRegistration bool
+		name        string
+		setup       func(*fixture)
+		wantNewUser bool
+		notCalled   []string
+		errCase
 	}{
+		{name: "existing user gets tokens"},
 		{
-			name:        "state not found",
-			stateGetErr: errors.New("state expired"),
-			expectError: true,
-			expectMsg:   "error when searching for state",
+			name:        "unknown user gets pending registration",
+			setup:       func(f *fixture) { f.oauthMissing = true },
+			wantNewUser: true,
 		},
 		{
-			name:           "state delete error",
-			stateDeleteErr: errors.New("redis delete failed"),
-			expectError:    true,
-			expectMsg:      "error deleting used state",
+			name:      "state not found",
+			setup:     func(f *fixture) { delete(f.store, stateKey) },
+			errCase:   errCase{wantMsg: "error when searching for state"},
+			notCalled: []string{"google.GetProfile"},
 		},
 		{
-			name:        "google profile error",
-			profileErr:  errors.New("google exchange failed"),
-			expectError: true,
-			expectMsg:   "error when retrieving profile",
+			name:      "state delete error",
+			errCase:   errCase{failAt: "sess.DeleteEntry", wantMsg: "error deleting used state"},
+			notCalled: []string{"google.GetProfile"},
 		},
 		{
-			name:        "oauth lookup error",
-			getOAuthErr: errors.New("postgres unavailable"),
-			expectError: true,
-			expectMsg:   "error verifying user",
+			name:      "google profile error",
+			errCase:   errCase{failAt: "google.GetProfile", wantMsg: "error when retrieving profile"},
+			notCalled: []string{"users.GetByOAuth"},
 		},
 		{
-			name:         "existing oauth user success",
-			existingUser: existingUser,
+			name:      "oauth lookup error",
+			errCase:   errCase{failAt: "users.GetByOAuth", wantMsg: "error verifying user"},
+			notCalled: []string{"sess.CreateSession", "sess.SaveEntry"},
 		},
 		{
-			name:         "existing oauth token error",
-			existingUser: existingUser,
-			tokenErr:     errors.New("jwt failure"),
-			expectError:  true,
-			expectMsg:    "access key generation error",
+			name:    "existing user session error",
+			errCase: errCase{failAt: "sess.CreateSession", wantMsg: "error saving auth session"},
 		},
 		{
-			name:         "existing oauth refresh save error",
-			existingUser: existingUser,
-			saveErrOn:    1,
-			expectError:  true,
-			expectMsg:    "error saving refresh token",
-		},
-		{
-			name:         "existing oauth access save error",
-			existingUser: existingUser,
-			saveErrOn:    2,
-			expectError:  true,
-			expectMsg:    "error saving access token",
-		},
-		{
-			name:               "new oauth profile save error",
-			getOAuthErr:        domain.ErrUserNotFound,
-			saveErrOn:          1,
-			expectError:        true,
-			expectMsg:          "profile save error",
-			expectRegistration: false,
-		},
-		{
-			name:               "new oauth registration pending",
-			getOAuthErr:        domain.ErrUserNotFound,
-			expectRegistration: true,
+			name:    "pending profile save error",
+			setup:   func(f *fixture) { f.oauthMissing = true },
+			errCase: errCase{failAt: "sess.SaveEntry", wantMsg: "profile save error"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stateDeleteCalls := 0
-			saveCalls := 0
-			var savedKey string
-			var savedValue string
-
-			sessRepo := &MockSessionRepo{
-				Log: logger,
-				GetValueFunc: func(_ context.Context, key string) (string, error) {
-					t.Logf("GetValue key=%s", key)
-					return "", tt.stateGetErr
-				},
-				DeleteEntryFunc: func(_ context.Context, key string) error {
-					stateDeleteCalls++
-					t.Logf("DeleteEntry #%d key=%s", stateDeleteCalls, key)
-					return tt.stateDeleteErr
-				},
-				SaveEntryFunc: func(_ context.Context, key, value string, ttl time.Duration) error {
-					saveCalls++
-					savedKey = key
-					savedValue = value
-					t.Logf("SaveEntry #%d key=%s value=%s ttl=%s", saveCalls, key, value, ttl)
-					if saveCalls == tt.saveErrOn {
-						return errors.New("redis save failed")
-					}
-					return nil
-				},
+			f := newFixture(t)
+			f.store[stateKey] = ""
+			f.user.Role = domain.RoleAnalyst
+			tt.arm(f)
+			if tt.setup != nil {
+				tt.setup(f)
 			}
 
-			oauth := &MockGoogleClient{
-				Log: logger,
-				GetProfileFunc: func(_ context.Context, code string) (*domain.OAuthProfile, error) {
-					t.Logf("GetProfile code=%s", code)
-					return profile, tt.profileErr
-				},
+			res, err := f.svc.GoogleCallback(testCtx(), state, "auth-code")
+			if tt.check(t, err) {
+				assertNotCalled(t, f, tt.notCalled...)
+				return
 			}
 
-			userRepo := &MockUserRepo{
-				Log: logger,
-				GetByOAuthFunc: func(
-					_ context.Context,
-					provider string,
-					providerUserID string,
-				) (*domain.User, error) {
-					t.Logf(
-						"GetByOAuth provider=%s provider_user_id=%s",
-						provider,
-						providerUserID,
-					)
-					return tt.existingUser, tt.getOAuthErr
-				},
+			if !slices.Contains(f.deleted, stateKey) {
+				t.Errorf("used state must be deleted; deleted: %v", f.deleted)
 			}
 
-			tokenMng := &MockTokenManager{
-				Log: logger,
-				GenerateTokenFunc: func(userID string, role ...domain.Role) (string, error) {
-					t.Logf("GenerateToken user_id=%s role=%v", userID, role)
-					if tt.tokenErr != nil {
-						return "", tt.tokenErr
-					}
-					return "access-token", nil
-				},
-			}
-
-			service := newAuthServiceForTest(
-				userRepo,
-				sessRepo,
-				nil,
-				tokenMng,
-				oauth,
-			)
-
-			result, err := service.GoogleCallback(
-				testContext(),
-				"state-123",
-				"google-code",
-			)
-
-			if !tt.expectError {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
+			if !tt.wantNewUser {
+				if f.oauthProvider != domain.ProviderGoogle.String() || f.oauthID != f.profile.ProviderUserID {
+					t.Errorf("GetByOAuth(%q, %q)", f.oauthProvider, f.oauthID)
 				}
-
-				if tt.expectRegistration {
-					if result.RegistrationKey == "" {
-						t.Fatal("expected registration key")
-					}
-					if result.Tokens != nil {
-						t.Fatal("did not expect tokens for new oauth user")
-					}
-					if !strings.HasPrefix(savedKey, "oauth:pending:") {
-						t.Fatalf("unexpected pending key: %q", savedKey)
-					}
-
-					var savedProfile domain.OAuthProfile
-					if err := json.Unmarshal([]byte(savedValue), &savedProfile); err != nil {
-						t.Fatalf("decode saved profile: %v", err)
-					}
-					if savedProfile.ProviderUserID != profile.ProviderUserID {
-						t.Fatalf("unexpected saved profile: %#v", savedProfile)
-					}
-				} else {
-					if result.Tokens == nil {
-						t.Fatal("expected tokens for existing oauth user")
-					}
-					if result.Tokens.AccessToken != "access-token" {
-						t.Fatalf("unexpected access token: %q", result.Tokens.AccessToken)
-					}
-					if result.Tokens.RefreshToken == "" {
-						t.Fatal("expected non-empty refresh token")
-					}
-					if saveCalls != 2 {
-						t.Fatalf("expected 2 token saves, got %d", saveCalls)
-					}
+				if res.Tokens == nil || res.RegistrationKey != "" {
+					t.Fatalf("expected tokens only, got %+v", res)
 				}
-			} else {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if tt.expectMsg != "" && !strings.Contains(err.Error(), tt.expectMsg) {
-					t.Fatalf("expected error containing %q, got %q", tt.expectMsg, err.Error())
-				}
+				assertTokenPair(t, f, *res.Tokens, testUserID, domain.RoleAnalyst)
+				return
 			}
 
-			if tt.stateGetErr == nil && stateDeleteCalls != 1 {
-				t.Fatalf("expected one state delete call, got %d", stateDeleteCalls)
+			if res.Tokens != nil || res.RegistrationKey == "" {
+				t.Fatalf("expected registration key only, got %+v", res)
 			}
-
-			t.Logf("finished oauth callback scenario=%s err=%v", tt.name, err)
+			if f.created != nil {
+				t.Error("no session must be created for an unregistered user")
+			}
+			pending, ok := f.saved["oauth:pending:"+res.RegistrationKey]
+			if !ok || pending.ttl != oauthPendingTTL {
+				t.Fatalf("pending entry = %+v (found=%t), want ttl %s", pending, ok, oauthPendingTTL)
+			}
+			if got := decode[domain.OAuthProfile](t, []byte(pending.value)); got != *f.profile {
+				t.Errorf("stored profile = %+v, want %+v", got, *f.profile)
+			}
 		})
 	}
 }
 
 func TestAuthService_CompleteOAuthRegistration(t *testing.T) {
-	logger := newTestLogger()
-	createdUserID := mustUUID()
-
-	baseProfile := domain.OAuthProfile{
-		Provider:       domain.ProviderGoogle,
-		ProviderUserID: "google-123",
-		Email:          "john@example.com",
-		FirstName:      "GoogleJohn",
-		LastName:       "GoogleDoe",
-	}
-
-	profileJSONBytes, err := json.Marshal(baseProfile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	profileJSON := string(profileJSONBytes)
+	const key = "pending-key"
+	pendingKey := "oauth:pending:" + key
 
 	tests := []struct {
-		name           string
-		profileJSON    string
-		getErr         error
-		createErr      error
-		tokenErr       error
-		saveErrOn      int
-		firstName      string
-		lastName       string
-		expectError    bool
-		expectMsg      string
-		expectOverride bool
+		name          string
+		first, last   string // overrides from the registration form
+		pendingValue  string // "" = the valid profile from the fixture
+		removePending bool
+		notCalled     []string
+		errCase
 	}{
+		{name: "success keeps profile names"},
+		{name: "success overrides names from the form", first: "John", last: "Doe"},
 		{
-			name:        "success preserve profile names",
-			profileJSON: profileJSON,
+			name:          "pending profile not found",
+			removePending: true,
+			errCase:       errCase{wantMsg: "when completing the profile"},
+			notCalled:     []string{"users.CreateWithOauth"},
 		},
 		{
-			name:           "success override profile names",
-			profileJSON:    profileJSON,
-			firstName:      "John",
-			lastName:       "Doe",
-			expectOverride: true,
+			name:         "invalid pending profile",
+			pendingValue: "not-json",
+			errCase:      errCase{wantMsg: "deserialization error"},
+			notCalled:    []string{"users.CreateWithOauth"},
 		},
 		{
-			name:        "pending profile not found",
-			getErr:      errors.New("redis key not found"),
-			expectError: true,
-			expectMsg:   "when completing the profile",
+			name:      "create user error",
+			errCase:   errCase{failAt: "users.CreateWithOauth", wantMsg: "error creating oauth user"},
+			notCalled: []string{"sess.DeleteEntry", "sess.CreateSession"},
 		},
 		{
-			name:        "invalid profile json",
-			profileJSON: "not-json",
-			expectError: true,
-			expectMsg:   "deserialization error",
+			name:      "pending delete error",
+			errCase:   errCase{failAt: "sess.DeleteEntry"},
+			notCalled: []string{"sess.CreateSession"},
 		},
 		{
-			name:        "create oauth user error",
-			profileJSON: profileJSON,
-			createErr:   errors.New("database insert failed"),
-			expectError: true,
-			expectMsg:   "error creating oauth user",
-		},
-		{
-			name:        "token generation error",
-			profileJSON: profileJSON,
-			tokenErr:    errors.New("jwt failure"),
-			expectError: true,
-			expectMsg:   "access key generation error",
-		},
-		{
-			name:        "refresh save error",
-			profileJSON: profileJSON,
-			saveErrOn:   1,
-			expectError: true,
-			expectMsg:   "error saving refresh token",
-		},
-		{
-			name:        "access save error",
-			profileJSON: profileJSON,
-			saveErrOn:   2,
-			expectError: true,
-			expectMsg:   "error saving access token",
+			name:    "session creation error",
+			errCase: errCase{failAt: "sess.CreateSession", wantMsg: "error saving auth session"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			getCalls := 0
-			createCalls := 0
-			deleteCalls := 0
-			saveCalls := 0
-			var createdUser *domain.User
+			f := newFixture(t)
+			f.store[pendingKey] = mustJSON(t, f.profile)
+			if tt.pendingValue != "" {
+				f.store[pendingKey] = tt.pendingValue
+			}
+			if tt.removePending {
+				delete(f.store, pendingKey)
+			}
+			tt.arm(f)
 
-			userRepo := &MockUserRepo{
-				Log: logger,
-				CreateWithOauthFunc: func(_ context.Context, user *domain.User) (uuid.UUID, error) {
-					createCalls++
-					createdUser = user
-					t.Logf("CreateWithOauth email=%s first=%s last=%s phone=%s provider=%s provider_user_id=%s", user.Email, user.FirstName, user.LastName, user.Phone, user.Provider, user.ProviderUserID)
-					return createdUserID, tt.createErr
-				},
+			tokens, err := f.svc.CompleteOAuthRegistration(testCtx(), domain.OAuthRegistrationData{
+				Key:       key,
+				FirstName: tt.first,
+				LastName:  tt.last,
+				Phone:     "+123456789",
+			})
+			if tt.check(t, err) {
+				assertNotCalled(t, f, tt.notCalled...)
+				return
 			}
 
-			sessRepo := &MockSessionRepo{
-				Log: logger,
-				GetValueFunc: func(_ context.Context, key string) (string, error) {
-					getCalls++
-					t.Logf("GetValue key=%s", key)
-					return tt.profileJSON, tt.getErr
-				},
-				DeleteEntryFunc: func(_ context.Context, key string) error {
-					deleteCalls++
-					t.Logf("DeleteEntry key=%s", key)
-					return nil
-				},
-				SaveEntryFunc: func(_ context.Context, key, value string, ttl time.Duration) error {
-					saveCalls++
-					t.Logf("SaveEntry #%d key=%s value=%s ttl=%s", saveCalls, key, value, ttl)
-					if saveCalls == tt.saveErrOn {
-						return errors.New("redis save failed")
-					}
-					return nil
-				},
+			wantFirst, wantLast := f.profile.FirstName, f.profile.LastName
+			if tt.first != "" {
+				wantFirst = tt.first
+			}
+			if tt.last != "" {
+				wantLast = tt.last
 			}
 
-			tokenMng := &MockTokenManager{
-				Log: logger,
-				GenerateTokenFunc: func(userID string, role ...domain.Role) (string, error) {
-					t.Logf("GenerateToken user_id=%s role=%v", userID, role)
-					if tt.tokenErr != nil {
-						return "", tt.tokenErr
-					}
-					return "access-token", nil
-				},
+			u := f.createdUser
+			if u.Email != f.profile.Email || u.Phone != "+123456789" ||
+				u.Provider != f.profile.Provider || u.ProviderUserID != f.profile.ProviderUserID {
+				t.Errorf("unexpected created user: %+v", u)
 			}
-
-			service := newAuthServiceForTest(
-				userRepo,
-				sessRepo,
-				nil,
-				tokenMng,
-				nil,
-			)
-
-			result, err := service.CompleteOAuthRegistration(
-				testContext(),
-				domain.OAuthRegistrationData{
-					Key:       "pending-key",
-					FirstName: tt.firstName,
-					LastName:  tt.lastName,
-					Phone:     "+123456789",
-				},
-			)
-
-			if !tt.expectError {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
-				if result.AccessToken != "access-token" || result.RefreshToken == "" {
-					t.Fatalf("unexpected token pair: %#v", result)
-				}
-				if getCalls != 1 || createCalls != 1 || deleteCalls != 1 || saveCalls != 2 {
-					t.Fatalf("unexpected calls get=%d create=%d delete=%d save=%d", getCalls, createCalls, deleteCalls, saveCalls)
-				}
-				if createdUser == nil {
-					t.Fatal("expected created user")
-				}
-				if createdUser.Email != baseProfile.Email || createdUser.Phone != "+123456789" {
-					t.Fatalf("unexpected created user: %#v", createdUser)
-				}
-				if tt.expectOverride {
-					if createdUser.FirstName != "John" || createdUser.LastName != "Doe" {
-						t.Fatalf("expected overridden names, got %q %q", createdUser.FirstName, createdUser.LastName)
-					}
-				} else {
-					if createdUser.FirstName != baseProfile.FirstName || createdUser.LastName != baseProfile.LastName {
-						t.Fatalf("expected profile names, got %q %q", createdUser.FirstName, createdUser.LastName)
-					}
-				}
-			} else {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if tt.expectMsg != "" && !strings.Contains(err.Error(), tt.expectMsg) {
-					t.Fatalf("expected error containing %q, got %q", tt.expectMsg, err.Error())
-				}
+			if u.FirstName != wantFirst || u.LastName != wantLast {
+				t.Errorf("names = %q %q, want %q %q", u.FirstName, u.LastName, wantFirst, wantLast)
 			}
-
-			t.Logf("finished complete oauth scenario=%s err=%v", tt.name, err)
+			if !slices.Contains(f.deleted, pendingKey) {
+				t.Errorf("pending profile must be deleted; deleted: %v", f.deleted)
+			}
+			assertTokenPair(t, f, tokens, testUserID, domain.RoleCustomer)
 		})
 	}
 }
 
 func TestAuthService_ResendVerCode(t *testing.T) {
-	logger := newTestLogger()
+	verKey := "ver:" + testUserID
 
 	tests := []struct {
-		name        string
-		saveErr     error
-		emailErr    error
-		publishErr  error
-		expectError bool
-		expectMsg   string
+		name      string
+		notCalled []string
+		errCase
 	}{
 		{name: "success"},
 		{
-			name:        "save code error",
-			saveErr:     errors.New("redis unavailable"),
-			expectError: true,
-			expectMsg:   "failed to save code",
+			name:      "save code error",
+			errCase:   errCase{failAt: "sess.SaveEntry", wantMsg: "failed to save code"},
+			notCalled: []string{"users.GetEmailByUserID", "pub.PublishEvent"},
 		},
 		{
-			name:        "email lookup error",
-			emailErr:    errors.New("postgres unavailable"),
-			expectError: true,
-			expectMsg:   "failed to receive email",
+			name:      "email lookup error",
+			errCase:   errCase{failAt: "users.GetEmailByUserID", wantMsg: "failed to receive email"},
+			notCalled: []string{"pub.PublishEvent"},
 		},
 		{
-			name:        "publish error",
-			publishErr:  errors.New("rabbit unavailable"),
-			expectError: true,
-			expectMsg:   "error while publishing event",
+			name:    "publisher error",
+			errCase: errCase{failAt: "pub.PublishEvent", wantMsg: "error while publishing event"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			saveCalls := 0
-			var verificationCode string
-			publishCalls := 0
-			var publishedPayload []byte
+			f := newFixture(t)
+			tt.arm(f)
 
-			sessRepo := &MockSessionRepo{
-				Log: logger,
-				SaveEntryFunc: func(_ context.Context, key, value string, ttl time.Duration) error {
-					saveCalls++
-					verificationCode = value
-					t.Logf("SaveEntry key=%s code=%s ttl=%s", key, value, ttl)
-					return tt.saveErr
-				},
+			err := f.svc.ResendVerCode(testCtx(), testUserID)
+			if tt.check(t, err) {
+				assertNotCalled(t, f, tt.notCalled...)
+				return
 			}
 
-			userRepo := &MockUserRepo{
-				Log: logger,
-				GetEmailByUserIDFunc: func(_ context.Context, userID string) (string, error) {
-					t.Logf("GetEmailByUserID user_id=%s", userID)
-					return "john@example.com", tt.emailErr
-				},
+			ver, ok := f.saved[verKey]
+			if !ok || ver.value == "" || ver.ttl != verificationCodeTTL {
+				t.Fatalf("verification entry = %+v (found=%t), want non-empty code with ttl %s", ver, ok, verificationCodeTTL)
 			}
-
-			publisher := &MockPublisher{
-				Log: logger,
-				PublishEventFunc: func(eventKey string, payload []byte) error {
-					publishCalls++
-					publishedPayload = append([]byte(nil), payload...)
-					t.Logf("PublishEvent key=%s payload=%s", eventKey, string(payload))
-					return tt.publishErr
-				},
+			ev := decode[domain.UserRegisteredEvent](t, f.eventPayload(t, domain.UserRegistredEventKey))
+			if ev.Email != testEmail || ev.Code != ver.value {
+				t.Errorf("event %+v does not match email/saved code %q", ev, ver.value)
 			}
-
-			service := newAuthServiceForTest(
-				userRepo,
-				sessRepo,
-				publisher,
-				nil,
-				nil,
-			)
-
-			err := service.ResendVerCode(testContext(), "user-123")
-
-			if !tt.expectError {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
-				if saveCalls != 1 || publishCalls != 1 {
-					t.Fatalf("expected one save and one publish, got save=%d publish=%d", saveCalls, publishCalls)
-				}
-				if verificationCode == "" {
-					t.Fatal("expected non-empty verification code")
-				}
-
-				var event domain.UserRegisteredEvent
-				if err := json.Unmarshal(publishedPayload, &event); err != nil {
-					t.Fatalf("decode published event: %v", err)
-				}
-				if event.Email != "john@example.com" {
-					t.Fatalf("unexpected event email: %q", event.Email)
-				}
-				if event.Code != verificationCode {
-					t.Fatalf("event code %q does not match saved code %q", event.Code, verificationCode)
-				}
-			} else {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if tt.expectMsg != "" && !strings.Contains(err.Error(), tt.expectMsg) {
-					t.Fatalf("expected error containing %q, got %q", tt.expectMsg, err.Error())
-				}
-			}
-
-			t.Logf("finished resend scenario=%s err=%v", tt.name, err)
 		})
 	}
 }

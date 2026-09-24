@@ -11,10 +11,13 @@ import (
 )
 
 const (
-	accessTokenTTL   = 15 * time.Minute
-	refreshTokenTTL  = 7 * 24 * time.Hour
-	sessionIDSize    = 32
-	refreshTokenSize = 32
+	accessTokenTTL      = 15 * time.Minute
+	refreshTokenTTL     = 7 * 24 * time.Hour
+	verificationCodeTTL = 15 * time.Minute
+	oauthStateTTL       = 15 * time.Minute
+	oauthPendingTTL     = 15 * time.Minute
+	sessionIDSize       = 32
+	refreshTokenSize    = 32
 )
 
 func (as *AuthService) CreateSession(
