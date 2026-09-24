@@ -5,10 +5,11 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"time"
+
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -166,7 +167,7 @@ func (as *AuthService) Login(
 	}
 
 	if !status {
-		return domain.TokenPair{}, fmt.Errorf("the user is not active")
+		return domain.TokenPair{}, domain.ErrUserNotActive
 	}
 
 	return as.CreateSession(
