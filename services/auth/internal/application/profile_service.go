@@ -28,12 +28,14 @@ func NewProfileService(
 
 func (ps *ProfileService) GetUserProfile(ctx context.Context, userID string) (domain.UserProfile, error) {
 	user, err := ps.userRepo.GetByIDProfile(ctx, userID)
-	if err != nil {
+	if err != nil || user == nil {
 		return domain.UserProfile{}, domain.ErrUserNotFound
 	}
+
 	if !user.IsActive {
 		return domain.UserProfile{}, domain.ErrUserNotActive
 	}
+
 	return domain.UserProfile{
 		Email:     user.Email,
 		FirstName: user.FirstName,
@@ -113,36 +115,26 @@ func (ps *ProfileService) ResetPassword(ctx context.Context, userID, oldPass, ne
 		return domain.ErrInvalidCredentials
 	}
 
-	hashedNewPass, err := crypto.HashPassword(newPass)
+	session, err := ps.sessRepo.GetSessionByRefreshToken(ctx, refresh)
 	if err != nil {
-		return fmt.Errorf("error while hashing new password: %w", err)
-	}
-
-	err = ps.userRepo.ResetPassword(ctx, userID, hashedNewPass)
-	if err != nil {
-		return fmt.Errorf("failed to change password: %w", err)
-	}
-
-	session, err := ps.sessRepo.GetSessionByRefreshToken(
-		ctx,
-		refresh,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"error searching for session: %w",
-			err,
-		)
+		return fmt.Errorf("error searching for session: %w", err)
 	}
 
 	if session.AccessToken != access {
 		return fmt.Errorf("access token does not belong to session")
 	}
 
-	if err := ps.sessRepo.RevokeAllSessions(ctx, userID); err != nil {
-		return fmt.Errorf(
-			"error occurred while revoking all auth sessions: %w",
-			err,
-		)
+	hashedNewPass, err := crypto.HashPassword(newPass)
+	if err != nil {
+		return fmt.Errorf("error while hashing new password: %w", err)
+	}
+
+	if err = ps.userRepo.ResetPassword(ctx, userID, hashedNewPass); err != nil {
+		return fmt.Errorf("failed to change password: %w", err)
+	}
+
+	if err = ps.sessRepo.RevokeAllSessions(ctx, userID); err != nil {
+		return fmt.Errorf("error occurred while revoking all auth sessions: %w", err)
 	}
 
 	return nil
