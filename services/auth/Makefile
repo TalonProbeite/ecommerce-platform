@@ -2,7 +2,7 @@ COMPOSE_FILE := docker-compose.local.yaml
 COMPOSE := docker compose -f $(COMPOSE_FILE)
 
 MIGRATIONS_PATH := ./migrations
-DB_URL ?= postgres://postgres:postgres@localhost:5432/auth?sslmode=disable
+DB_URL ?= postgres://postgres:postgres@localhost:5432/shop_auth?sslmode=disable
 
 .PHONY: info up down restart logs ps \
 	test test-unit test-integration test-cover test-race \

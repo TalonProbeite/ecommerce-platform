@@ -337,6 +337,7 @@ func TestAuthService_Logout(t *testing.T) {
 		errCase
 	}{
 		{name: "success", access: "old-access"},
+		{name: "empty access token (expired) still logs out by refresh token", access: ""},
 		{
 			name:      "session not found",
 			access:    "old-access",

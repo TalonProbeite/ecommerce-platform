@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type UserRepo struct {
@@ -90,7 +91,8 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID
 		return uuid.Nil, fmt.Errorf("insert profile: %w", err)
 	}
 
-	if err := tx.Commit(); err != nil {
+	err = tx.Commit()
+	if err != nil {
 		return uuid.Nil, fmt.Errorf("commit tx: %w", err)
 	}
 
@@ -214,8 +216,12 @@ func (r *UserRepo) CreateWithOauth(ctx context.Context, u *domain.User) (userID 
 		u.Provider,
 		u.ProviderUserID,
 	)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("insert oauth account: %w", err)
+	}
 
-	if err := tx.Commit(); err != nil {
+	err = tx.Commit()
+	if err != nil {
 		return uuid.Nil, fmt.Errorf("commit tx: %w", err)
 	}
 
@@ -289,7 +295,10 @@ func (r *UserRepo) GetByIDProfile(ctx context.Context, userID string) (*domain.U
 					WHERE u.id = $1`
 	err := r.pg.GetContext(ctx, &u, query, userID)
 	if err != nil {
-		return &domain.User{}, err
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
 	}
 
 	return &u, nil
@@ -298,24 +307,10 @@ func (r *UserRepo) GetByIDProfile(ctx context.Context, userID string) (*domain.U
 func (r *UserRepo) UpdateProfile(
 	ctx context.Context,
 	userID, email, firstName, lastName, phone string,
-) (err error) {
+) error {
 	if email != "" {
-		var hasOAuth bool
-
-		const checkQuery = `
-			SELECT EXISTS(
-				SELECT 1
-				FROM oauth_accounts
-				WHERE user_id = $1
-			)
-		`
-
-		if err := r.pg.GetContext(ctx, &hasOAuth, checkQuery, userID); err != nil {
-			return fmt.Errorf("failed to check oauth account: %w", err)
-		}
-
-		if hasOAuth {
-			return domain.ErrEmailLockedByOAuth
+		if err := r.checkEmailUpdateAllowed(ctx, userID); err != nil {
+			return err
 		}
 	}
 
@@ -323,6 +318,7 @@ func (r *UserRepo) UpdateProfile(
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
+
 	defer func() {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
 			err = errors.Join(err, fmt.Errorf("rollback error: %w", rollbackErr))
@@ -330,66 +326,122 @@ func (r *UserRepo) UpdateProfile(
 	}()
 
 	if email != "" {
-		const userQuery = `UPDATE users SET email = $1, is_email_verified = $2 WHERE id = $3`
-
-		result, err := tx.ExecContext(ctx, userQuery, email, false, userID)
+		err = updateUserEmail(ctx, tx, userID, email)
 		if err != nil {
-			return fmt.Errorf("failed to update user email: %w", err)
-		}
-
-		rows, err := result.RowsAffected()
-		if err != nil {
-			return fmt.Errorf("failed to get affected rows for users: %w", err)
-		}
-		if rows == 0 {
-			return domain.ErrUserNotFound
+			return err
 		}
 	}
 
-	if firstName != "" || lastName != "" || phone != "" {
-		setParts := make([]string, 0, 3)
-		args := make([]any, 0, 4)
-
-		if firstName != "" {
-			setParts = append(setParts, "first_name = ?")
-			args = append(args, firstName)
-		}
-
-		if lastName != "" {
-			setParts = append(setParts, "last_name = ?")
-			args = append(args, lastName)
-		}
-
-		if phone != "" {
-			setParts = append(setParts, "phone = ?")
-			args = append(args, phone)
-		}
-
-		query := fmt.Sprintf(
-			"UPDATE profiles SET %s WHERE user_id = ?",
-			strings.Join(setParts, ", "),
-		)
-
-		args = append(args, userID)
-		query = r.pg.Rebind(query)
-
-		result, err := tx.ExecContext(ctx, query, args...)
-		if err != nil {
-			return fmt.Errorf("failed to update profile: %w", err)
-		}
-
-		rows, err := result.RowsAffected()
-		if err != nil {
-			return fmt.Errorf("failed to get affected rows for profiles: %w", err)
-		}
-
-		if rows == 0 && email == "" {
-			return domain.ErrUserNotFound
-		}
+	err = updateUserProfile(ctx, tx, userID, email, firstName, lastName, phone)
+	if err != nil {
+		return err
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
+	}
+
+	return nil
+}
+
+func (r *UserRepo) checkEmailUpdateAllowed(ctx context.Context, userID string) error {
+	var hasOAuth bool
+
+	const checkQuery = `
+		SELECT EXISTS(
+			SELECT 1
+			FROM oauth_accounts
+			WHERE user_id = $1
+		)
+	`
+
+	if err := r.pg.GetContext(ctx, &hasOAuth, checkQuery, userID); err != nil {
+		return fmt.Errorf("failed to check oauth account: %w", err)
+	}
+
+	if hasOAuth {
+		return domain.ErrEmailLockedByOAuth
+	}
+
+	return nil
+}
+
+func updateUserEmail(
+	ctx context.Context,
+	tx *sqlx.Tx,
+	userID, email string,
+) error {
+	const query = `UPDATE users SET email = $1, is_email_verified = $2 WHERE id = $3`
+
+	result, err := tx.ExecContext(ctx, query, email, false, userID)
+	if err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			return domain.ErrEmailAlreadyExists
+		}
+
+		return fmt.Errorf("failed to update user email: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows for users: %w", err)
+	}
+
+	if rows == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
+}
+
+func updateUserProfile(
+	ctx context.Context,
+	tx *sqlx.Tx,
+	userID, email, firstName, lastName, phone string,
+) error {
+	setParts := make([]string, 0, 3)
+	args := make([]any, 0, 4)
+
+	if firstName != "" {
+		setParts = append(setParts, "first_name = ?")
+		args = append(args, firstName)
+	}
+
+	if lastName != "" {
+		setParts = append(setParts, "last_name = ?")
+		args = append(args, lastName)
+	}
+
+	if phone != "" {
+		setParts = append(setParts, "phone = ?")
+		args = append(args, phone)
+	}
+
+	if len(setParts) == 0 {
+		return nil
+	}
+
+	query := fmt.Sprintf(
+		"UPDATE profiles SET %s WHERE user_id = ?",
+		strings.Join(setParts, ", "),
+	)
+
+	args = append(args, userID)
+	query = tx.Rebind(query)
+
+	result, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update profile: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows for profiles: %w", err)
+	}
+
+	if rows == 0 && email == "" {
+		return domain.ErrUserNotFound
 	}
 
 	return nil

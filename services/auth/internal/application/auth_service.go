@@ -5,11 +5,10 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
-	"time"
-
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -44,7 +43,7 @@ func (as *AuthService) Registration(
 		return domain.TokenPair{}, fmt.Errorf("error while hashing password: %w", err)
 	}
 
-	UserID, err := as.userRepo.Create(ctx, &domain.User{
+	userID, err := as.userRepo.Create(ctx, &domain.User{
 		Email:           userData.Email,
 		Password:        hashPassword,
 		Role:            domain.RoleCustomer,
@@ -68,7 +67,7 @@ func (as *AuthService) Registration(
 		)
 	}
 
-	if UserID == uuid.Nil {
+	if userID == uuid.Nil {
 		return domain.TokenPair{}, fmt.Errorf("user repository returned empty user id")
 	}
 
@@ -99,18 +98,18 @@ func (as *AuthService) Registration(
 		)
 	}
 
-	userID := UserID.String()
+	userIDString := userID.String()
 
 	tokens, err := as.CreateSession(
 		ctx,
-		userID,
+		userIDString,
 		domain.RoleCustomer,
 	)
 	if err != nil {
 		return domain.TokenPair{}, err
 	}
 
-	verKey := fmt.Sprintf("ver:%s", userID)
+	verKey := fmt.Sprintf("ver:%s", userIDString)
 
 	err = as.sessRepo.SaveEntry(
 		ctx,
@@ -328,11 +327,12 @@ func (as *AuthService) Logout(
 		)
 	}
 
-	if session.AccessToken != access {
+	if access != "" && session.AccessToken != access {
 		return fmt.Errorf("access token does not belong to session")
 	}
 
-	if err := as.sessRepo.DeleteSession(ctx, session); err != nil {
+	err = as.sessRepo.DeleteSession(ctx, session)
+	if err != nil {
 		return fmt.Errorf(
 			"error occurred while deleting auth session: %w",
 			err,
@@ -412,7 +412,7 @@ func (as *AuthService) GoogleCallback(
 	if user != nil {
 		var tokens domain.TokenPair
 
-		tokens, err := as.CreateSession(
+		tokens, err = as.CreateSession(
 			ctx,
 			user.ID,
 			user.Role,
@@ -447,12 +447,13 @@ func (as *AuthService) GoogleCallback(
 		)
 	}
 
-	if err := as.sessRepo.SaveEntry(
+	err = as.sessRepo.SaveEntry(
 		ctx,
 		profKey,
 		string(profJSON),
 		15*time.Minute,
-	); err != nil {
+	)
+	if err != nil {
 		return domain.OAuthResult{}, fmt.Errorf(
 			"profile save error: %w",
 			err,
@@ -519,7 +520,8 @@ func (as *AuthService) CompleteOAuthRegistration(
 		)
 	}
 
-	if err := as.sessRepo.DeleteEntry(ctx, profKey); err != nil {
+	err = as.sessRepo.DeleteEntry(ctx, profKey)
+	if err != nil {
 		return domain.TokenPair{}, err
 	}
 

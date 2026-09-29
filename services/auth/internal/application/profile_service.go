@@ -28,7 +28,10 @@ func NewProfileService(
 
 func (ps *ProfileService) GetUserProfile(ctx context.Context, userID string) (domain.UserProfile, error) {
 	user, err := ps.userRepo.GetByIDProfile(ctx, userID)
-	if err != nil || user == nil {
+	if err != nil {
+		return domain.UserProfile{}, fmt.Errorf("failed to get user profile: %w", err)
+	}
+	if user == nil {
 		return domain.UserProfile{}, domain.ErrUserNotFound
 	}
 

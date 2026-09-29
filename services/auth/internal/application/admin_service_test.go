@@ -73,12 +73,14 @@ func TestAdminService_UpdateRole(t *testing.T) {
 		publisherErr  error
 		wantErr       string
 		wantRepoCalls int
+		wantRevoke    int
 		wantPubCalls  int
 	}{
 		{
 			name:          "success",
 			newRole:       domain.RoleAdmin,
 			wantRepoCalls: 1,
+			wantRevoke:    1,
 			wantPubCalls:  1,
 		},
 		{
@@ -94,6 +96,7 @@ func TestAdminService_UpdateRole(t *testing.T) {
 			publisherErr:  errors.New("boom"),
 			wantErr:       "error while publishing event",
 			wantRepoCalls: 1,
+			wantRevoke:    1,
 			wantPubCalls:  1,
 		},
 	}
@@ -102,6 +105,8 @@ func TestAdminService_UpdateRole(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var gotUserID string
 			var gotRole domain.Role
+			var revokeCalls int
+			var revokedUserID string
 
 			userRepo := &adminUserRepoMock{
 				UpdateRoleFunc: func(_ context.Context, id string, role domain.Role) error {
@@ -111,7 +116,14 @@ func TestAdminService_UpdateRole(t *testing.T) {
 				},
 			}
 			publisher := &adminPublisherMock{err: tt.publisherErr}
-			svc := newAdminServiceTestService(userRepo, &MockSessionRepo{}, publisher)
+			session := &MockSessionRepo{
+				RevokeAllSessionsFunc: func(_ context.Context, id string) error {
+					revokeCalls++
+					revokedUserID = id
+					return nil
+				},
+			}
+			svc := newAdminServiceTestService(userRepo, session, publisher)
 
 			started := time.Now().Unix()
 			err := svc.UpdateRole(context.Background(), userID, adminID, tt.newRole)
@@ -135,6 +147,13 @@ func TestAdminService_UpdateRole(t *testing.T) {
 			}
 			if gotRole != tt.newRole && tt.wantRepoCalls > 0 {
 				t.Errorf("role = %q, want %q", gotRole, tt.newRole)
+			}
+
+			if revokeCalls != tt.wantRevoke {
+				t.Errorf("revoke calls = %d, want %d", revokeCalls, tt.wantRevoke)
+			}
+			if revokeCalls > 0 && revokedUserID != userID {
+				t.Errorf("revoked userID = %q, want %q", revokedUserID, userID)
 			}
 
 			if publisher.calls != tt.wantPubCalls {

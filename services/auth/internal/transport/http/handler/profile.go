@@ -51,6 +51,10 @@ func (ph *ProfileHandler) PatchUserProfile(c echo.Context, userID string) error 
 		})
 	}
 
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
+	}
+
 	if err := req.Validate(); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": err.Error(),

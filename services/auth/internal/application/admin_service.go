@@ -32,6 +32,11 @@ func (ads *AdminService) UpdateRole(ctx context.Context, userID, adminID string,
 		return fmt.Errorf("error updating role: %w", err)
 	}
 
+	err = ads.sesRepo.RevokeAllSessions(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("error occurred while revoking all auth sessions: %w", err)
+	}
+
 	payload, err := json.Marshal(domain.UserRoleChangedEvent{
 		UserID:    userID,
 		AdminID:   adminID,
@@ -57,7 +62,8 @@ func (ads *AdminService) BanUser(ctx context.Context, userID, adminID string, is
 	}
 
 	if isBanned {
-		if err := ads.sesRepo.RevokeAllSessions(ctx, userID); err != nil {
+		err = ads.sesRepo.RevokeAllSessions(ctx, userID)
+		if err != nil {
 			return fmt.Errorf("error occurred while revoking all auth sessions: %w", err)
 		}
 	}
