@@ -4,7 +4,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-
 	"shop/auth/internal/application"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/transport/http/dto"

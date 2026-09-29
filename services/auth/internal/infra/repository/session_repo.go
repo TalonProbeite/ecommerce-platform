@@ -3,10 +3,10 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"time"
-
 	"shop/auth/internal/domain"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -19,6 +19,15 @@ func NewSessionRepo(rdb *redis.Client) *SessionRepo {
 	return &SessionRepo{
 		rdb: rdb,
 	}
+}
+
+func marshalSession(session *domain.Session) ([]byte, error) {
+	return json.Marshal(map[string]string{
+		"id":            session.ID,
+		"user_id":       session.UserID,
+		"access_token":  session.AccessToken,
+		"refresh_token": session.RefreshToken,
+	})
 }
 
 func (s *SessionRepo) SaveEntry(
@@ -54,7 +63,7 @@ func (s *SessionRepo) CreateSession(
 	refreshKey := fmt.Sprintf("refresh:%s", session.RefreshToken)
 	userSessionsKey := fmt.Sprintf("user:sessions:%s", session.UserID)
 
-	data, err := json.Marshal(session)
+	data, err := marshalSession(session)
 	if err != nil {
 		return fmt.Errorf("failed to marshal session: %w", err)
 	}
@@ -66,7 +75,8 @@ func (s *SessionRepo) CreateSession(
 	pipe.Set(ctx, sessionKey, data, refreshTTL)
 	pipe.SAdd(ctx, userSessionsKey, session.ID)
 
-	if _, err := pipe.Exec(ctx); err != nil {
+	_, err = pipe.Exec(ctx)
+	if err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
 
@@ -92,7 +102,8 @@ func (s *SessionRepo) GetSessionByRefreshToken(
 	}
 
 	var session domain.Session
-	if err := json.Unmarshal(data, &session); err != nil {
+	err = json.Unmarshal(data, &session)
+	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal session: %w", err)
 	}
 
@@ -107,7 +118,7 @@ func (s *SessionRepo) UpdateSessionTokens(
 	accessTTL time.Duration,
 	refreshTTL time.Duration,
 ) error {
-	data, err := json.Marshal(session)
+	data, err := marshalSession(session)
 	if err != nil {
 		return err
 	}
@@ -119,7 +130,7 @@ func (s *SessionRepo) UpdateSessionTokens(
 	sessionKey := fmt.Sprintf("session:%s", session.ID)
 
 	err = s.rdb.Watch(ctx, func(tx *redis.Tx) error {
-		_, err := tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 			pipe.Del(ctx, accessKey)
 			pipe.Del(ctx, refreshKey)
 			pipe.Set(ctx, newAccessKey, session.UserID, accessTTL)
@@ -172,16 +183,17 @@ func (s *SessionRepo) RevokeAllSessions(
 	for _, sessionID := range sessionIDs {
 		sessionKey := fmt.Sprintf("session:%s", sessionID)
 
-		data, err := s.rdb.Get(ctx, sessionKey).Bytes()
-		if err != nil {
-			if err == redis.Nil {
+		data, getErr := s.rdb.Get(ctx, sessionKey).Bytes()
+		if getErr != nil {
+			if errors.Is(getErr, redis.Nil) {
 				continue
 			}
-			return fmt.Errorf("failed to get session %s: %w", sessionID, err)
+
+			return fmt.Errorf("failed to get session %s: %w", sessionID, getErr)
 		}
 
 		var session domain.Session
-		if err := json.Unmarshal(data, &session); err != nil {
+		if err = json.Unmarshal(data, &session); err != nil {
 			return fmt.Errorf("failed to unmarshal session %s: %w", sessionID, err)
 		}
 
@@ -192,7 +204,8 @@ func (s *SessionRepo) RevokeAllSessions(
 
 	pipe.Del(ctx, userSessionsKey)
 
-	if _, err := pipe.Exec(ctx); err != nil {
+	_, err = pipe.Exec(ctx)
+	if err != nil {
 		return fmt.Errorf("failed to revoke user sessions: %w", err)
 	}
 

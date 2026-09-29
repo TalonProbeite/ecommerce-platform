@@ -4,9 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
-
 	"shop/auth/internal/domain"
+	"time"
 )
 
 type AdminService struct {
@@ -33,7 +32,8 @@ func (ads *AdminService) UpdateRole(ctx context.Context, userID, adminID string,
 		return fmt.Errorf("error updating role: %w", err)
 	}
 
-	if err := ads.sesRepo.RevokeAllSessions(ctx, userID); err != nil {
+	err = ads.sesRepo.RevokeAllSessions(ctx, userID)
+	if err != nil {
 		return fmt.Errorf("error occurred while revoking all auth sessions: %w", err)
 	}
 
@@ -62,7 +62,8 @@ func (ads *AdminService) BanUser(ctx context.Context, userID, adminID string, is
 	}
 
 	if isBanned {
-		if err := ads.sesRepo.RevokeAllSessions(ctx, userID); err != nil {
+		err = ads.sesRepo.RevokeAllSessions(ctx, userID)
+		if err != nil {
 			return fmt.Errorf("error occurred while revoking all auth sessions: %w", err)
 		}
 	}

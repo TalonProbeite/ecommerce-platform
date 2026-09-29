@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"net/http"
-
 	"shop/auth/internal/domain"
 
 	"github.com/labstack/echo/v4"
