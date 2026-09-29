@@ -11,6 +11,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var ErrRefreshTokenRejected = errors.New("refresh token rejected")
+
 type SessionRepo struct {
 	rdb *redis.Client
 }
@@ -130,7 +132,20 @@ func (s *SessionRepo) UpdateSessionTokens(
 	sessionKey := fmt.Sprintf("session:%s", session.ID)
 
 	err = s.rdb.Watch(ctx, func(tx *redis.Tx) error {
-		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+		currentSessionID, getErr := tx.Get(ctx, refreshKey).Result()
+		if getErr != nil {
+			if errors.Is(getErr, redis.Nil) {
+				return ErrRefreshTokenRejected
+			}
+
+			return getErr
+		}
+
+		if currentSessionID != session.ID {
+			return ErrRefreshTokenRejected
+		}
+
+		_, txErr := tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 			pipe.Del(ctx, accessKey)
 			pipe.Del(ctx, refreshKey)
 			pipe.Set(ctx, newAccessKey, session.UserID, accessTTL)
@@ -138,7 +153,11 @@ func (s *SessionRepo) UpdateSessionTokens(
 			pipe.Set(ctx, sessionKey, data, refreshTTL)
 			return nil
 		})
-		return err
+		if errors.Is(txErr, redis.TxFailedErr) {
+			return ErrRefreshTokenRejected
+		}
+
+		return txErr
 	}, refreshKey)
 
 	return err
