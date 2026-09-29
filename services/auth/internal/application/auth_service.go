@@ -328,7 +328,7 @@ func (as *AuthService) Logout(
 		)
 	}
 
-	if session.AccessToken != access {
+	if access != "" && session.AccessToken != access {
 		return fmt.Errorf("access token does not belong to session")
 	}
 

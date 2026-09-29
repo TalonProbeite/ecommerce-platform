@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"shop/auth/internal/domain"
 	"strings"
+
+	"shop/auth/internal/domain"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type UserRepo struct {
@@ -289,7 +291,10 @@ func (r *UserRepo) GetByIDProfile(ctx context.Context, userID string) (*domain.U
 					WHERE u.id = $1`
 	err := r.pg.GetContext(ctx, &u, query, userID)
 	if err != nil {
-		return &domain.User{}, err
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
 	}
 
 	return &u, nil
@@ -334,6 +339,12 @@ func (r *UserRepo) UpdateProfile(
 
 		result, err := tx.ExecContext(ctx, userQuery, email, false, userID)
 		if err != nil {
+			var pqErr *pq.Error
+			if errors.As(err, &pqErr) {
+				if pqErr.Code == "23505" {
+					return domain.ErrEmailAlreadyExists
+				}
+			}
 			return fmt.Errorf("failed to update user email: %w", err)
 		}
 

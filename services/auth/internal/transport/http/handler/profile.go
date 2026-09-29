@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+
 	"shop/auth/internal/application"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/transport/http/dto"
@@ -49,6 +50,10 @@ func (ph *ProfileHandler) PatchUserProfile(c echo.Context, userID string) error 
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "invalid request format",
 		})
+	}
+
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 	}
 
 	if err := req.Validate(); err != nil {

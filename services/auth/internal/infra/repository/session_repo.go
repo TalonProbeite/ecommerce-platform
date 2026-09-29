@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"shop/auth/internal/domain"
 	"time"
+
+	"shop/auth/internal/domain"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -61,11 +62,8 @@ func (s *SessionRepo) CreateSession(
 	pipe := s.rdb.TxPipeline()
 
 	pipe.Set(ctx, accessKey, session.UserID, accessTTL)
-
 	pipe.Set(ctx, refreshKey, session.ID, refreshTTL)
-
 	pipe.Set(ctx, sessionKey, data, refreshTTL)
-
 	pipe.SAdd(ctx, userSessionsKey, session.ID)
 
 	if _, err := pipe.Exec(ctx); err != nil {
@@ -120,15 +118,18 @@ func (s *SessionRepo) UpdateSessionTokens(
 	newRefreshKey := fmt.Sprintf("refresh:%s", session.RefreshToken)
 	sessionKey := fmt.Sprintf("session:%s", session.ID)
 
-	pipe := s.rdb.Pipeline()
+	err = s.rdb.Watch(ctx, func(tx *redis.Tx) error {
+		_, err := tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+			pipe.Del(ctx, accessKey)
+			pipe.Del(ctx, refreshKey)
+			pipe.Set(ctx, newAccessKey, session.UserID, accessTTL)
+			pipe.Set(ctx, newRefreshKey, session.ID, refreshTTL)
+			pipe.Set(ctx, sessionKey, data, refreshTTL)
+			return nil
+		})
+		return err
+	}, refreshKey)
 
-	pipe.Del(ctx, accessKey)
-	pipe.Del(ctx, refreshKey)
-	pipe.Set(ctx, newAccessKey, session.UserID, accessTTL)
-	pipe.Set(ctx, newRefreshKey, session.ID, refreshTTL)
-	pipe.Set(ctx, sessionKey, data, refreshTTL)
-
-	_, err = pipe.Exec(ctx)
 	return err
 }
 
@@ -173,7 +174,10 @@ func (s *SessionRepo) RevokeAllSessions(
 
 		data, err := s.rdb.Get(ctx, sessionKey).Bytes()
 		if err != nil {
-			continue
+			if err == redis.Nil {
+				continue
+			}
+			return fmt.Errorf("failed to get session %s: %w", sessionID, err)
 		}
 
 		var session domain.Session

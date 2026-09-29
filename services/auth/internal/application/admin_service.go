@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"shop/auth/internal/domain"
 	"time"
+
+	"shop/auth/internal/domain"
 )
 
 type AdminService struct {
@@ -30,6 +31,10 @@ func (ads *AdminService) UpdateRole(ctx context.Context, userID, adminID string,
 	err := ads.userRepo.UpdateRole(ctx, userID, newRole)
 	if err != nil {
 		return fmt.Errorf("error updating role: %w", err)
+	}
+
+	if err := ads.sesRepo.RevokeAllSessions(ctx, userID); err != nil {
+		return fmt.Errorf("error occurred while revoking all auth sessions: %w", err)
 	}
 
 	payload, err := json.Marshal(domain.UserRoleChangedEvent{
