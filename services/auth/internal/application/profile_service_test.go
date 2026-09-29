@@ -240,7 +240,7 @@ func TestProfileService_GetUserProfile(t *testing.T) {
 		},
 		{
 			name:    "repository error",
-			errCase: errCase{failAt: "users.GetByIDProfile", wantIs: domain.ErrUserNotFound},
+			errCase: errCase{failAt: "users.GetByIDProfile", wantIs: errBoom}, // repository error is now propagated as is
 		},
 		{
 			name: "user not found",
