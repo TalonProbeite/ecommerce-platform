@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"shop/auth/internal/domain"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type UserRepo struct {
@@ -89,7 +91,8 @@ func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID
 		return uuid.Nil, fmt.Errorf("insert profile: %w", err)
 	}
 
-	if err := tx.Commit(); err != nil {
+	err = tx.Commit()
+	if err != nil {
 		return uuid.Nil, fmt.Errorf("commit tx: %w", err)
 	}
 
@@ -213,8 +216,12 @@ func (r *UserRepo) CreateWithOauth(ctx context.Context, u *domain.User) (userID 
 		u.Provider,
 		u.ProviderUserID,
 	)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("insert oauth account: %w", err)
+	}
 
-	if err := tx.Commit(); err != nil {
+	err = tx.Commit()
+	if err != nil {
 		return uuid.Nil, fmt.Errorf("commit tx: %w", err)
 	}
 
@@ -272,4 +279,247 @@ func (r *UserRepo) GetEmailByUserID(
 	}
 
 	return email, nil
+}
+
+func (r *UserRepo) GetByIDProfile(ctx context.Context, userID string) (*domain.User, error) {
+	var u domain.User
+
+	const query = `SELECT
+						email ,
+						is_active ,
+						first_name,
+						last_name,
+						phone
+					FROM users u
+					JOIN profiles p ON u.id = p.user_id
+					WHERE u.id = $1`
+	err := r.pg.GetContext(ctx, &u, query, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return &u, nil
+}
+
+func (r *UserRepo) UpdateProfile(
+	ctx context.Context,
+	userID, email, firstName, lastName, phone string,
+) error {
+	if email != "" {
+		if err := r.checkEmailUpdateAllowed(ctx, userID); err != nil {
+			return err
+		}
+	}
+
+	tx, err := r.pg.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			err = errors.Join(err, fmt.Errorf("rollback error: %w", rollbackErr))
+		}
+	}()
+
+	if email != "" {
+		err = updateUserEmail(ctx, tx, userID, email)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = updateUserProfile(ctx, tx, userID, email, firstName, lastName, phone)
+	if err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+
+	return nil
+}
+
+func (r *UserRepo) checkEmailUpdateAllowed(ctx context.Context, userID string) error {
+	var hasOAuth bool
+
+	const checkQuery = `
+		SELECT EXISTS(
+			SELECT 1
+			FROM oauth_accounts
+			WHERE user_id = $1
+		)
+	`
+
+	if err := r.pg.GetContext(ctx, &hasOAuth, checkQuery, userID); err != nil {
+		return fmt.Errorf("failed to check oauth account: %w", err)
+	}
+
+	if hasOAuth {
+		return domain.ErrEmailLockedByOAuth
+	}
+
+	return nil
+}
+
+func updateUserEmail(
+	ctx context.Context,
+	tx *sqlx.Tx,
+	userID, email string,
+) error {
+	const query = `UPDATE users SET email = $1, is_email_verified = $2 WHERE id = $3`
+
+	result, err := tx.ExecContext(ctx, query, email, false, userID)
+	if err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			return domain.ErrEmailAlreadyExists
+		}
+
+		return fmt.Errorf("failed to update user email: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows for users: %w", err)
+	}
+
+	if rows == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
+}
+
+func updateUserProfile(
+	ctx context.Context,
+	tx *sqlx.Tx,
+	userID, email, firstName, lastName, phone string,
+) error {
+	setParts := make([]string, 0, 3)
+	args := make([]any, 0, 4)
+
+	if firstName != "" {
+		setParts = append(setParts, "first_name = ?")
+		args = append(args, firstName)
+	}
+
+	if lastName != "" {
+		setParts = append(setParts, "last_name = ?")
+		args = append(args, lastName)
+	}
+
+	if phone != "" {
+		setParts = append(setParts, "phone = ?")
+		args = append(args, phone)
+	}
+
+	if len(setParts) == 0 {
+		return nil
+	}
+
+	query := fmt.Sprintf(
+		"UPDATE profiles SET %s WHERE user_id = ?",
+		strings.Join(setParts, ", "),
+	)
+
+	args = append(args, userID)
+	query = tx.Rebind(query)
+
+	result, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update profile: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows for profiles: %w", err)
+	}
+
+	if rows == 0 && email == "" {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
+}
+
+func (r *UserRepo) ResetPassword(ctx context.Context, userID, pass string) error {
+	const query = `UPDATE users SET password_hash = $1 WHERE id = $2`
+
+	result, err := r.pg.ExecContext(ctx, query, pass, userID)
+	if err != nil {
+		return fmt.Errorf("failed to reset password: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	if rows == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
+}
+
+func (r *UserRepo) GetPassByUserID(ctx context.Context, userID string) (string, error) {
+	var pass string
+	const query = `SELECT password_hash FROM users WHERE id = $1`
+
+	err := r.pg.GetContext(ctx, &pass, query, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", domain.ErrUserNotFound
+		}
+		return "", err
+	}
+
+	return pass, nil
+}
+
+func (r *UserRepo) UpdateRole(ctx context.Context, userID string, role domain.Role) error {
+	const query = `UPDATE users SET role = $1 WHERE id = $2`
+
+	result, err := r.pg.ExecContext(ctx, query, role, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update profile role: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows for profiles: %w", err)
+	}
+
+	if rows == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
+}
+
+func (r *UserRepo) UpdateBanStatus(ctx context.Context, userID string, isBanned bool) error {
+	const query = `UPDATE users SET is_active = $1 WHERE id = $2`
+
+	isActive := !isBanned
+
+	result, err := r.pg.ExecContext(ctx, query, isActive, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update profile ban status: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows for profiles: %w", err)
+	}
+
+	if rows == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
 }

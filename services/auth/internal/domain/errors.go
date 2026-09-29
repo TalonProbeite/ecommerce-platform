@@ -7,4 +7,6 @@ var (
 	ErrInvalidCredentials = errors.New("incorrect password")
 	ErrUserNotActive      = errors.New("the user is not active")
 	ErrEmailAlreadyExists = errors.New("email already in use")
+	ErrValidationFailed   = errors.New("validation failed")
+	ErrEmailLockedByOAuth = errors.New("user is registered using oauth")
 )

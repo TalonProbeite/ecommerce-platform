@@ -9,10 +9,10 @@ services:
       - .env
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASS:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-shop_auth}
     volumes:
-      - auth_pg_data:/var/lib/postgresql/
+      - auth_pg_data:/var/lib/postgresql
     networks:
       - auth_internal
     healthcheck:
@@ -73,7 +73,9 @@ services:
       APP_PORT: ${APP_PORT:-8080}
       SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
       AUTO_MIGRATE: ${AUTO_MIGRATE:-true}
-      DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASS:-postgres}@auth-db:5432/${DB_NAME:-shop_auth}?sslmode=disable
+
+      DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@auth-db:5432/${DB_NAME:-shop_auth}?sslmode=disable
+
       REDIS_URL: redis://auth-redis:6379/${REDIS_DB:-0}
 
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
@@ -82,9 +84,11 @@ services:
 
       JWT_PRIVATE_KEY_BASE64: ${JWT_PRIVATE_KEY_BASE64}
       JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
+
       CLIENT_ID: ${CLIENT_ID}
-      CLIENT_SECRETE: ${CLIENT_SECRETE}
+      CLIENT_SECRETE: ${CLIENT_SECRET}
       REDIRECT_URL: ${REDIRECT_URL:-https://localhost:8443/api/oauth/google/callback}
+
     depends_on:
       auth-db:
         condition: service_healthy
@@ -92,9 +96,14 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+
+    ports:
+      - "8080:8080"
+
     networks:
       - shop_global
       - auth_internal
+
     healthcheck:
       test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080/api/healthz" ]
       interval: 10s
@@ -118,7 +127,7 @@ services:
       - shop_global
       - auth_internal
     healthcheck:
-      test: [ "CMD-SHELL", "wget --no-check-certificate -q --spider https://127.0.0.1:443/ || exit 1" ]
+      test: [ "CMD-SHELL", "wget --no-check-certificate -q --spider https://127.0.0.1/api/healthz || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3

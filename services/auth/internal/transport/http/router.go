@@ -41,13 +41,16 @@ func (s *JSONV2Serializer) Deserialize(c echo.Context, i interface{}) error {
 }
 
 type Handlers struct {
-	HealthHandler *handler.HealthHandler
-	ReadyzHandler *handler.ReadyzHandler
-	AuthHandler   *handler.AuthHandler
+	HealthHandler  *handler.HealthHandler
+	ReadyzHandler  *handler.ReadyzHandler
+	AuthHandler    *handler.AuthHandler
+	ProfileHandler *handler.ProfileHandler
+	AdminHandler   *handler.AdminHandler
 }
 
 type Middlewares struct {
 	AuthCheck echo.MiddlewareFunc
+	AdminOnly echo.MiddlewareFunc
 }
 
 func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *echo.Echo {
@@ -62,10 +65,18 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 
 	public := e.Group("/api")
 	private := e.Group("/api/private")
+	admin := e.Group("/api/admin")
 
 	private.Use(m.AuthCheck)
 	private.POST("/email/verify", handler.WithUserID(h.AuthHandler.VerifyEmail))
 	private.POST("/email/resend", handler.WithUserID(h.AuthHandler.ResendCode))
+	private.GET("/profile", handler.WithUserID(h.ProfileHandler.GetUserProfile))
+	private.PATCH("/profile", handler.WithUserID(h.ProfileHandler.PatchUserProfile))
+	private.PUT("/profile/password", handler.WithUserID(h.ProfileHandler.ResetPassword))
+
+	admin.Use(m.AuthCheck, m.AdminOnly)
+	admin.PATCH("/users/:id/role", handler.WithUserID(h.AdminHandler.UpdateRole))
+	admin.PATCH("/users/:id/ban", handler.WithUserID(h.AdminHandler.BanUser))
 
 	public.GET("/healthz", h.HealthHandler.Check)
 	public.GET("/readyz", h.ReadyzHandler.Check)

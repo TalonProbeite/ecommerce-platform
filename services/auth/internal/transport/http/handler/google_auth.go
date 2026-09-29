@@ -50,7 +50,7 @@ func (h *AuthHandler) GoogleCallback(c echo.Context) error {
 		c.SetCookie(&http.Cookie{
 			Name:     "refresh_token",
 			Value:    result.Tokens.RefreshToken,
-			Path:     "/auth/api/auth/refresh",
+			Path:     "/",
 			Expires:  time.Now().Add(7 * 24 * time.Hour),
 			HttpOnly: true,
 			Secure:   true,
@@ -62,7 +62,7 @@ func (h *AuthHandler) GoogleCallback(c echo.Context) error {
 	c.SetCookie(&http.Cookie{
 		Name:     "profile_key",
 		Value:    result.RegistrationKey,
-		Path:     "/auth",
+		Path:     "/",
 		Expires:  time.Now().Add(15 * time.Minute),
 		HttpOnly: true,
 		Secure:   true,
@@ -108,7 +108,7 @@ func (h *AuthHandler) CompleteOAuthRegistration(c echo.Context) error {
 	c.SetCookie(&http.Cookie{
 		Name:     "refresh_token",
 		Value:    tokens.RefreshToken,
-		Path:     "/api/auth/refresh",
+		Path:     "/",
 		Expires:  time.Now().Add(7 * 24 * time.Hour),
 		HttpOnly: true,
 		Secure:   true,

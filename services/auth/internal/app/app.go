@@ -89,15 +89,22 @@ func New(cfg *config.Config) (*App, error) {
 		}
 		return nil, fmt.Errorf("failed to init event publisher: %w", err)
 	}
+
 	authService := application.NewAuthService(userRepo, sessionRepo, eventPublisher, tokenManager, oauthClient)
+	profileService := application.NewProfileService(userRepo, sessionRepo, eventPublisher)
+	adminService := application.NewAdminService(userRepo, sessionRepo, eventPublisher)
 
 	handlers := transporthttp.Handlers{
-		HealthHandler: handler.NewHealthHandler(),
-		ReadyzHandler: handler.NewReadyzHandler(pg, rdb, rabbit),
-		AuthHandler:   handler.NewAuthHandler(authService, log),
+		HealthHandler:  handler.NewHealthHandler(),
+		ReadyzHandler:  handler.NewReadyzHandler(pg, rdb, rabbit),
+		AuthHandler:    handler.NewAuthHandler(authService, log),
+		ProfileHandler: handler.NewProfileHandlers(profileService, log),
+		AdminHandler:   handler.NewAdminHandlers(adminService, log),
 	}
+
 	middlewares := transporthttp.Middlewares{
 		AuthCheck: middleware.AuthCheck(tokenManager, sessionRepo),
+		AdminOnly: middleware.AdminOnly,
 	}
 
 	router := transporthttp.NewRouter(cfg, log, handlers, middlewares)

@@ -34,3 +34,16 @@ type OAuthRegistrationData struct {
 	LastName  string
 	Phone     string
 }
+
+type UserProfile struct {
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Phone     string `json:"phone"`
+}
+type Session struct {
+	ID           string `json:"id"`
+	UserID       string `json:"user_id"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
