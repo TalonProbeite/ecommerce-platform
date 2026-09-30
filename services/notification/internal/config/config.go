@@ -26,6 +26,7 @@ type SMTPConfig struct {
 	SMTPPort string `env:"SMTP_PORT" env-default:"587"`
 	SMTPUser string `env:"SMTP_USER" env-required:"true"`
 	SMTPPass string `env:"SMTP_PASS" env-required:"true"`
+	From     string `env:"SMTP_FROM" env-required:"true"`
 }
 
 type Config struct {
