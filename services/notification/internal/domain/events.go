@@ -1,8 +1,11 @@
 package domain
 
 const (
-	UserRegistredEventKey     = "user.registered"
+	UserRegisteredEventKey    = "user.registered"
 	UserEmailVerifiedEventKey = "user.email_verified"
+	OrderPaidEventKey         = "order.paid"
+	OrderConfirmedEventKey    = "order.confirmed"
+	OrderCancelledEventKey    = "order.cancelled"
 )
 
 type UserRegisteredEvent struct {
