@@ -11,8 +11,11 @@ import (
 	"shop/notification/internal/config"
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/logger"
+	"shop/notification/internal/infra/mailer"
 	"shop/notification/internal/infra/mongodb"
 	"shop/notification/internal/infra/rabbitmq"
+	"shop/notification/internal/infra/repository"
+	"shop/notification/internal/infra/template"
 	"shop/notification/internal/services"
 	"shop/notification/internal/transport/http/handlers"
 	"syscall"
@@ -35,55 +38,61 @@ type App struct {
 func New(cfg *config.Config) (*App, error) {
 	log := logger.Init(cfg.App.Env)
 
+	a := &App{cfg: cfg, log: log}
+
 	mongoClient, err := mongodb.NewMongoClient(cfg.Mongo.URI, cfg.Mongo.DatabaseName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to mongodb: %w", err)
 	}
+	a.mongo = mongoClient
 
 	rabbit, err := rabbitmq.NewRabbitClient(cfg.Rabbit.RabbitURL)
 	if err != nil {
-		if closeErr := mongoClient.Close(); closeErr != nil {
-			log.Error("failed to close mongodb", slog.Any("err", closeErr))
-		}
+		a.closeResources()
 		return nil, fmt.Errorf("failed to connect to rabbitmq: %w", err)
 	}
+	a.rabbit = rabbit
+
+	sender, err := mailer.NewSender(&cfg.SMTP)
+	if err != nil {
+		a.closeResources()
+		return nil, fmt.Errorf("failed to init mailer: %w", err)
+	}
+
+	renderer, err := template.NewMessageBuilder(cfg.App.Env)
+	if err != nil {
+		a.closeResources()
+		return nil, fmt.Errorf("failed to init template builder: %w", err)
+	}
+
+	eventRepo := repository.NewEventRepo(mongoClient)
+
+	userHandler := services.NewUserEventHandler(renderer, sender, eventRepo)
 
 	consumer, err := rabbitmq.NewConsumer(rabbit)
 	if err != nil {
-		if closeErr := rabbit.Close(); closeErr != nil {
-			log.Error("failed to close rabbitmq", slog.Any("err", closeErr))
-		}
-		if closeErr := mongoClient.Close(); closeErr != nil {
-			log.Error("failed to close mongodb", slog.Any("err", closeErr))
-		}
+		a.closeResources()
 		return nil, fmt.Errorf("failed to init rabbitmq consumer: %w", err)
 	}
+	a.consumer = consumer
 
-	eventRouter := services.NewEventRouter(consumer.ConsumerList, eventHandlers(), log)
+	a.router = services.NewEventRouter(consumer.ConsumerList, eventHandlers(userHandler), log)
 
 	h := transporthttp.Handlers{
 		HealthHandler: handlers.NewHealthHandler(mongoClient.Client, rabbit),
 	}
 
-	router := transporthttp.NewRouter(cfg, log, h)
+	a.echo = transporthttp.NewRouter(cfg, log, h)
 
-	return &App{
-		cfg:      cfg,
-		log:      log,
-		echo:     router,
-		mongo:    mongoClient,
-		rabbit:   rabbit,
-		consumer: consumer,
-		router:   eventRouter,
-	}, nil
+	return a, nil
 }
 
-func eventHandlers() map[string]services.HandlerFunc {
+func eventHandlers(user *services.UserEventHandler) map[string]services.HandlerFunc {
 	noop := func(ctx context.Context, body []byte) error { return nil }
 
 	return map[string]services.HandlerFunc{
-		domain.UserRegisteredEventKey:    noop,
-		domain.UserEmailVerifiedEventKey: noop,
+		domain.UserRegisteredEventKey:    user.HandleUserRegistered,
+		domain.UserEmailVerifiedEventKey: user.HandleEmailVerified,
 		domain.OrderPaidEventKey:         noop,
 		domain.OrderConfirmedEventKey:    noop,
 		domain.OrderCancelledEventKey:    noop,
