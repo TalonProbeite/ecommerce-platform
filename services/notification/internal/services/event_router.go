@@ -38,7 +38,7 @@ func (r *EventRouter) Run(ctx context.Context) error {
 
 	for _, c := range r.consumers {
 		g.Go(func() error {
-			return r.consume(ctx, c)	
+			return r.consume(ctx, c)
 		})
 	}
 
