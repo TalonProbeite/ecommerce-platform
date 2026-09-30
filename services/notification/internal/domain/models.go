@@ -1,13 +1,14 @@
 package domain
 
-import "time"
+import (
+	"shop/notification/internal/infra/mailer"
+	"time"
+)
 
 type EventLog struct {
-	Type      string    `bson:"type"`
-	Status    string    `bson:"status"`
-	Payload   any       `bson:"payload"`
-	Error     string    `bson:"error,omitempty"`
-	CreatedAt time.Time `bson:"created_at"`
+	CreatedAt time.Time         `bson:"created_at"`
+	Payload   any               `bson:"payload"`
+	Type      string            `bson:"type"`
+	Status    mailer.SendStatus `bson:"status"`
+	Error     string            `bson:"error,omitempty"`
 }
-
-

@@ -7,18 +7,30 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
+type SendStatus string
+
+const (
+	SendStatusSent   SendStatus = "sent"
+	SendStatusFailed SendStatus = "failed"
+)
+
 type Sender struct {
 	dialer *gomail.Dialer
 	from   string
 }
 
-func NewSender(cfg config.SMTPConfig, from string) (*Sender, error) {
+func NewSender(cfg *config.SMTPConfig) (*Sender, error) {
 	port, err := strconv.Atoi(cfg.SMTPPort)
 	if err != nil {
 		return nil, err
 	}
 
-	dialer := gomail.NewDialer(cfg.SMTPHost, port, cfg.SMTPUser, cfg.SMTPPass)
+	dialer := gomail.NewDialer(
+		cfg.SMTPHost,
+		port,
+		cfg.SMTPUser,
+		cfg.SMTPPass,
+	)
 
 	conn, err := dialer.Dial()
 	if err != nil {
@@ -31,11 +43,15 @@ func NewSender(cfg config.SMTPConfig, from string) (*Sender, error) {
 
 	return &Sender{
 		dialer: dialer,
-		from:   from,
+		from:   cfg.From,
 	}, nil
 }
 
-func (s *Sender) SendHTML(to, subject, htmlBody string) error {
+func (s *Sender) SendHTML(
+	to string,
+	subject string,
+	htmlBody string,
+) error {
 	m := gomail.NewMessage()
 
 	m.SetHeader("From", s.from)
