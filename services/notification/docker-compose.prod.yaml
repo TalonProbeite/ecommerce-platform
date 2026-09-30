@@ -36,7 +36,6 @@ services:
       MONGO_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin}@notification-db:27017/
       MONGO_DB_NAME: ${MONGO_DB:-shop_notifications}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
-      EXCHANGE_NAME: ${EXCHANGE_NAME:-events_exchange}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USER: ${SMTP_USER}
@@ -73,6 +72,14 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
+  ervices:
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: notification-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
 volumes:
   notification_mongo_data:
