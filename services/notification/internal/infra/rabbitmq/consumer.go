@@ -2,7 +2,6 @@ package rabbitmq
 
 import (
 	"fmt"
-
 	"shop/notification/internal/domain"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -65,8 +64,8 @@ var queues = []queueSpec{
 }
 
 type EventConsumer struct {
-	Queue      string
 	Deliveries <-chan amqp.Delivery
+	Queue      string
 }
 
 type Consumer struct {

@@ -18,8 +18,7 @@ type MongoDBConfig struct {
 }
 
 type RabbitConfig struct {
-	RabbitURL    string `env:"RABBITMQ_URL" env-required:"true"`
-	ExchangeName string `env:"EXCHANGE_NAME" env-default:"events_exchange"`
+	RabbitURL string `env:"RABBITMQ_URL" env-required:"true"`
 }
 
 type SMTPConfig struct {
