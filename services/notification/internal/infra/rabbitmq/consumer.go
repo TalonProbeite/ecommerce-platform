@@ -70,7 +70,8 @@ type EventConsumer struct {
 }
 
 type Consumer struct {
-	client *RabbitClient
+	client       *RabbitClient
+	ConsumerList []EventConsumer
 }
 
 func NewConsumer(client *RabbitClient) (*Consumer, error) {
@@ -84,10 +85,17 @@ func NewConsumer(client *RabbitClient) (*Consumer, error) {
 		return nil, fmt.Errorf("set qos: %w", err)
 	}
 
+	list, err := c.subscribe()
+	if err != nil {
+		return nil, err
+	}
+
+	c.ConsumerList = list
+
 	return c, nil
 }
 
-func (c *Consumer) Subscribe() ([]EventConsumer, error) {
+func (c *Consumer) subscribe() ([]EventConsumer, error) {
 	result := make([]EventConsumer, 0, len(queues))
 
 	for _, q := range queues {
