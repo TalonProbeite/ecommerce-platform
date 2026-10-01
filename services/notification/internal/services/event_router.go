@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-
 	"shop/notification/internal/infra/rabbitmq"
 
 	amqp "github.com/rabbitmq/amqp091-go"
