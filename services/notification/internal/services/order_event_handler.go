@@ -4,7 +4,6 @@ import (
 	"context"
 	json "encoding/json/v2"
 	"fmt"
-
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mailer"
 	"shop/notification/internal/infra/repository"
@@ -99,7 +98,7 @@ func (h *OrderEventHandler) HandleOrderCancelled(
 
 	mailBody, err := h.renderer.RenderCancelled(event.OrderID, event.Reason)
 	if err != nil {
-		return fmt.Errorf("error rendering cancelled template: %w", err)
+		return fmt.Errorf("error rendering canceled template: %w", err)
 	}
 
 	return h.dispatcher.dispatch(ctx, &emailMessage{

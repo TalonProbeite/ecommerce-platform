@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+
 	"shop/notification/internal/infra/rabbitmq"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -67,6 +68,8 @@ func (r *EventRouter) process(ctx context.Context, queue string, d *amqp.Deliver
 		r.reject(d, false)
 		return
 	}
+
+	ctx = withAttempt(ctx, deliveryAttempt(d))
 
 	err := r.safeHandle(ctx, handler, d.Body)
 	if err == nil {

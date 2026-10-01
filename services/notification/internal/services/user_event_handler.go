@@ -4,7 +4,6 @@ import (
 	"context"
 	json "encoding/json/v2"
 	"fmt"
-
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mailer"
 	"shop/notification/internal/infra/repository"

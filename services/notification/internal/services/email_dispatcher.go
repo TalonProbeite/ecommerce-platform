@@ -4,21 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
-
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mailer"
 	"shop/notification/internal/infra/repository"
+	"time"
 )
 
 const channelEmail = "email"
 
 type emailMessage struct {
+	Payload   any
 	EventType string
 	To        string
 	Subject   string
 	Body      string
-	Payload   any
 }
 
 type emailDispatcher struct {
