@@ -68,3 +68,52 @@ func (m *MessageBuilder) RenderVerification(code string, expiresInMinutes int) (
 
 	return buf.String(), nil
 }
+
+func (m *MessageBuilder) RenderConfirmed(orderID string) (string, error) {
+	data := struct {
+		OrderID string
+	}{
+		OrderID: orderID,
+	}
+
+	var buf bytes.Buffer
+	if err := m.templates.ExecuteTemplate(&buf, "confirmed.html", data); err != nil {
+		return "", fmt.Errorf("failed to render confirmed template: %w", err)
+	}
+
+	return buf.String(), nil
+}
+
+func (m *MessageBuilder) RenderPaid(orderID string, amount float64) (string, error) {
+	data := struct {
+		OrderID string
+		Amount  float64
+	}{
+		OrderID: orderID,
+		Amount:  amount,
+	}
+
+	var buf bytes.Buffer
+	if err := m.templates.ExecuteTemplate(&buf, "paid.html", data); err != nil {
+		return "", fmt.Errorf("failed to render paid template: %w", err)
+	}
+
+	return buf.String(), nil
+}
+
+func (m *MessageBuilder) RenderCancelled(orderID, reason string) (string, error) {
+	data := struct {
+		OrderID string
+		Reason  string
+	}{
+		OrderID: orderID,
+		Reason:  reason,
+	}
+
+	var buf bytes.Buffer
+	if err := m.templates.ExecuteTemplate(&buf, "cancelled.html", data); err != nil {
+		return "", fmt.Errorf("failed to render canceled template: %w", err)
+	}
+
+	return buf.String(), nil
+}
