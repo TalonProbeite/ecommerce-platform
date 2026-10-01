@@ -1,21 +1,27 @@
 package domain
 
 import (
-	"time"
-
 	"shop/notification/internal/infra/mailer"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type EventLog struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+	Payload   any                `bson:"payload" json:"payload"`
 	Type      string             `bson:"type" json:"type"`
 	Channel   string             `bson:"channel" json:"channel"`
 	Recipient string             `bson:"recipient" json:"recipient"`
 	Status    mailer.SendStatus  `bson:"status" json:"status"`
-	Attempts  int                `bson:"attempts" json:"attempts"`
-	Payload   any                `bson:"payload" json:"payload"`
 	Error     string             `bson:"error,omitempty" json:"error,omitempty"`
-	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+	Attempts  int                `bson:"attempts" json:"attempts"`
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+}
+type HistoryFilters struct {
+	StartDate time.Time
+	EndDate   time.Time
+	Status    string
+	Channel   string
+	Recipient string
 }
