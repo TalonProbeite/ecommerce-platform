@@ -35,7 +35,7 @@ func (er *EventRepo) SaveEvent(ctx context.Context, event any) error {
 func (er *EventRepo) GetByID(ctx context.Context, id string) (domain.EventLog, error) {
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		return domain.EventLog{}, errors.New("invalid id format")
+		return domain.EventLog{}, domain.ErrInvalidFilters
 	}
 
 	var log domain.EventLog
@@ -44,7 +44,7 @@ func (er *EventRepo) GetByID(ctx context.Context, id string) (domain.EventLog, e
 	err = collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&log)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return domain.EventLog{}, errors.New("notification not found")
+			return domain.EventLog{}, domain.ErrNotificationNotFound
 		}
 		return domain.EventLog{}, err
 	}
