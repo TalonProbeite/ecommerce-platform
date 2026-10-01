@@ -68,6 +68,7 @@ func New(cfg *config.Config) (*App, error) {
 	eventRepo := repository.NewEventRepo(mongoClient)
 
 	userHandler := services.NewUserEventHandler(renderer, sender, eventRepo)
+	orderHandler := services.NewOrderEventHandler(renderer, sender, eventRepo)
 
 	consumer, err := rabbitmq.NewConsumer(rabbit)
 	if err != nil {
@@ -76,7 +77,11 @@ func New(cfg *config.Config) (*App, error) {
 	}
 	a.consumer = consumer
 
-	a.router = services.NewEventRouter(consumer.ConsumerList, eventHandlers(userHandler), log)
+	a.router = services.NewEventRouter(
+		consumer.ConsumerList,
+		eventHandlers(userHandler, orderHandler),
+		log,
+	)
 
 	h := transporthttp.Handlers{
 		HealthHandler: handlers.NewHealthHandler(mongoClient.Client, rabbit),
@@ -87,15 +92,16 @@ func New(cfg *config.Config) (*App, error) {
 	return a, nil
 }
 
-func eventHandlers(user *services.UserEventHandler) map[string]services.HandlerFunc {
-	noop := func(ctx context.Context, body []byte) error { return nil }
-
+func eventHandlers(
+	user *services.UserEventHandler,
+	order *services.OrderEventHandler,
+) map[string]services.HandlerFunc {
 	return map[string]services.HandlerFunc{
 		domain.UserRegisteredEventKey:    user.HandleUserRegistered,
 		domain.UserEmailVerifiedEventKey: user.HandleEmailVerified,
-		domain.OrderPaidEventKey:         noop,
-		domain.OrderConfirmedEventKey:    noop,
-		domain.OrderCancelledEventKey:    noop,
+		domain.OrderPaidEventKey:         order.HandleOrderPaid,
+		domain.OrderConfirmedEventKey:    order.HandleOrderConfirmed,
+		domain.OrderCancelledEventKey:    order.HandleOrderCancelled,
 	}
 }
 
