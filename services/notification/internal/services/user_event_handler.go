@@ -3,21 +3,19 @@ package services
 import (
 	"context"
 	json "encoding/json/v2"
-	"errors"
 	"fmt"
+
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mailer"
 	"shop/notification/internal/infra/repository"
 	"shop/notification/internal/infra/template"
-	"time"
 )
 
 const verificationCodeTTLMinutes = 15
 
 type UserEventHandler struct {
-	renderer *template.MessageBuilder
-	sender   *mailer.Sender
-	evRepo   *repository.EventRepo
+	renderer   *template.MessageBuilder
+	dispatcher *emailDispatcher
 }
 
 func NewUserEventHandler(
@@ -26,9 +24,8 @@ func NewUserEventHandler(
 	evRepo *repository.EventRepo,
 ) *UserEventHandler {
 	return &UserEventHandler{
-		renderer: renderer,
-		sender:   sender,
-		evRepo:   evRepo,
+		renderer:   renderer,
+		dispatcher: newEmailDispatcher(sender, evRepo),
 	}
 }
 
@@ -51,14 +48,13 @@ func (h *UserEventHandler) HandleUserRegistered(
 		return fmt.Errorf("error rendering verification template: %w", err)
 	}
 
-	return h.sendAndLog(
-		ctx,
-		domain.UserRegisteredEventKey,
-		event.Email,
-		domain.UserRegisteredSubject,
-		mailBody,
-		event,
-	)
+	return h.dispatcher.dispatch(ctx, &emailMessage{
+		EventType: domain.UserRegisteredEventKey,
+		To:        event.Email,
+		Subject:   domain.UserRegisteredSubject,
+		Body:      mailBody,
+		Payload:   event,
+	})
 }
 
 func (h *UserEventHandler) HandleEmailVerified(
@@ -80,43 +76,11 @@ func (h *UserEventHandler) HandleEmailVerified(
 		return fmt.Errorf("error rendering welcome template: %w", err)
 	}
 
-	return h.sendAndLog(
-		ctx,
-		domain.UserEmailVerifiedEventKey,
-		event.Email,
-		domain.UserEmailVerifiedSubject,
-		mailBody,
-		event,
-	)
-}
-
-func (h *UserEventHandler) sendAndLog(
-	ctx context.Context,
-	eventType string,
-	to string,
-	subject string,
-	mailBody string,
-	payload any,
-) error {
-	eventModel := domain.EventLog{
-		Type:      eventType,
-		Status:    mailer.SendStatusSent,
-		Payload:   payload,
-		Error:     "",
-		CreatedAt: time.Now().UTC(),
-	}
-
-	sendErr := h.sender.SendHTML(to, subject, mailBody)
-	if sendErr != nil {
-		eventModel.Status = mailer.SendStatusFailed
-		eventModel.Error = sendErr.Error()
-		sendErr = fmt.Errorf("email send error: %w", sendErr)
-	}
-
-	saveErr := h.evRepo.SaveEvent(ctx, eventModel)
-	if saveErr != nil {
-		saveErr = fmt.Errorf("mongo audit log error: %w", saveErr)
-	}
-
-	return errors.Join(sendErr, saveErr)
+	return h.dispatcher.dispatch(ctx, &emailMessage{
+		EventType: domain.UserEmailVerifiedEventKey,
+		To:        event.Email,
+		Subject:   domain.UserEmailVerifiedSubject,
+		Body:      mailBody,
+		Payload:   event,
+	})
 }

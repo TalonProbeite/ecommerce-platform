@@ -3,19 +3,17 @@ package services
 import (
 	"context"
 	json "encoding/json/v2"
-	"errors"
 	"fmt"
+
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mailer"
 	"shop/notification/internal/infra/repository"
 	"shop/notification/internal/infra/template"
-	"time"
 )
 
 type OrderEventHandler struct {
-	renderer *template.MessageBuilder
-	sender   *mailer.Sender
-	evRepo   *repository.EventRepo
+	renderer   *template.MessageBuilder
+	dispatcher *emailDispatcher
 }
 
 func NewOrderEventHandler(
@@ -24,9 +22,8 @@ func NewOrderEventHandler(
 	evRepo *repository.EventRepo,
 ) *OrderEventHandler {
 	return &OrderEventHandler{
-		renderer: renderer,
-		sender:   sender,
-		evRepo:   evRepo,
+		renderer:   renderer,
+		dispatcher: newEmailDispatcher(sender, evRepo),
 	}
 }
 
@@ -38,7 +35,7 @@ func (h *OrderEventHandler) HandleOrderConfirmed(
 
 	if err := json.Unmarshal(body, &event); err != nil {
 		return fmt.Errorf(
-			"unmarshal user.registered event: %w: %w",
+			"unmarshal order.confirmed event: %w: %w",
 			err,
 			ErrUnrecoverable,
 		)
@@ -46,16 +43,16 @@ func (h *OrderEventHandler) HandleOrderConfirmed(
 
 	mailBody, err := h.renderer.RenderConfirmed(event.OrderID)
 	if err != nil {
-		return fmt.Errorf("error rendering template: %w", err)
+		return fmt.Errorf("error rendering confirmed template: %w", err)
 	}
-	return h.sendAndLog(
-		ctx,
-		domain.UserEmailVerifiedEventKey,
-		event.Email,
-		domain.UserEmailVerifiedSubject,
-		mailBody,
-		event,
-	)
+
+	return h.dispatcher.dispatch(ctx, &emailMessage{
+		EventType: domain.OrderConfirmedEventKey,
+		To:        event.Email,
+		Subject:   domain.OrderConfirmedSubject,
+		Body:      mailBody,
+		Payload:   event,
+	})
 }
 
 func (h *OrderEventHandler) HandleOrderPaid(
@@ -74,17 +71,16 @@ func (h *OrderEventHandler) HandleOrderPaid(
 
 	mailBody, err := h.renderer.RenderPaid(event.OrderID, event.Amount)
 	if err != nil {
-		return fmt.Errorf("error rendering template: %w", err)
+		return fmt.Errorf("error rendering paid template: %w", err)
 	}
 
-	return h.sendAndLog(
-		ctx,
-		domain.OrderPaidEventKey,
-		event.Email,
-		domain.OrderPaidSubject,
-		mailBody,
-		event,
-	)
+	return h.dispatcher.dispatch(ctx, &emailMessage{
+		EventType: domain.OrderPaidEventKey,
+		To:        event.Email,
+		Subject:   domain.OrderPaidSubject,
+		Body:      mailBody,
+		Payload:   event,
+	})
 }
 
 func (h *OrderEventHandler) HandleOrderCancelled(
@@ -103,46 +99,14 @@ func (h *OrderEventHandler) HandleOrderCancelled(
 
 	mailBody, err := h.renderer.RenderCancelled(event.OrderID, event.Reason)
 	if err != nil {
-		return fmt.Errorf("error rendering template: %w", err)
+		return fmt.Errorf("error rendering cancelled template: %w", err)
 	}
 
-	return h.sendAndLog(
-		ctx,
-		domain.OrderCancelledEventKey,
-		event.Email,
-		domain.OrderCancelledSubject,
-		mailBody,
-		event,
-	)
-}
-
-func (h *OrderEventHandler) sendAndLog(
-	ctx context.Context,
-	eventType string,
-	to string,
-	subject string,
-	mailBody string,
-	payload any,
-) error {
-	eventModel := domain.EventLog{
-		Type:      eventType,
-		Status:    mailer.SendStatusSent,
-		Payload:   payload,
-		Error:     "",
-		CreatedAt: time.Now().UTC(),
-	}
-
-	sendErr := h.sender.SendHTML(to, subject, mailBody)
-	if sendErr != nil {
-		eventModel.Status = mailer.SendStatusFailed
-		eventModel.Error = sendErr.Error()
-		sendErr = fmt.Errorf("email send error: %w", sendErr)
-	}
-
-	saveErr := h.evRepo.SaveEvent(ctx, eventModel)
-	if saveErr != nil {
-		saveErr = fmt.Errorf("mongo audit log error: %w", saveErr)
-	}
-
-	return errors.Join(sendErr, saveErr)
+	return h.dispatcher.dispatch(ctx, &emailMessage{
+		EventType: domain.OrderCancelledEventKey,
+		To:        event.Email,
+		Subject:   domain.OrderCancelledSubject,
+		Body:      mailBody,
+		Payload:   event,
+	})
 }
