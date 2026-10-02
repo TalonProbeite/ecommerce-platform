@@ -40,8 +40,8 @@ type Config struct {
 	SMTP   SMTPConfig
 	Mongo  MongoDBConfig
 	Rabbit RabbitConfig
-	App    AppConfig
 	JWT    JWTConfig
+	App    AppConfig
 }
 
 func MustLoad() *Config {

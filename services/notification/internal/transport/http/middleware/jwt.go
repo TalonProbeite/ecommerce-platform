@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"net/http"
-
 	"shop/notification/internal/infra/crypto"
 
 	"github.com/labstack/echo/v4"

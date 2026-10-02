@@ -92,7 +92,7 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	a.echo = transporthttp.NewRouter(cfg, log, h)
-	
+
 	a.echo.Use(middleware.AuthCheck(jwtManager))
 	a.echo.Use(middleware.AdminOnly)
 

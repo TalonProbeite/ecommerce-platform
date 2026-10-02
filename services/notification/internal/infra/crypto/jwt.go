@@ -3,7 +3,6 @@ package crypto
 import (
 	"crypto/rsa"
 	"fmt"
-
 	"shop/notification/internal/domain"
 
 	"github.com/golang-jwt/jwt/v5"
