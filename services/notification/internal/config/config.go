@@ -1,8 +1,11 @@
 package config
 
 import (
+	"crypto/rsa"
+	"encoding/base64"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
@@ -29,11 +32,16 @@ type SMTPConfig struct {
 	From     string `env:"SMTP_FROM" env-required:"true"`
 }
 
+type JWTConfig struct {
+	JwtPublicKeyBase64 string `env:"JWT_PUBLIC_KEY_BASE64" env-required:"true"`
+}
+
 type Config struct {
 	SMTP   SMTPConfig
 	Mongo  MongoDBConfig
 	Rabbit RabbitConfig
 	App    AppConfig
+	JWT    JWTConfig
 }
 
 func MustLoad() *Config {
@@ -45,4 +53,18 @@ func MustLoad() *Config {
 	}
 
 	return &cfg
+}
+
+func (c *Config) RSAPublicKey() *rsa.PublicKey {
+	pemBytes, err := base64.StdEncoding.DecodeString(c.JWT.JwtPublicKeyBase64)
+	if err != nil {
+		panic(err)
+	}
+
+	key, err := jwt.ParseRSAPublicKeyFromPEM(pemBytes)
+	if err != nil {
+		panic(err)
+	}
+
+	return key
 }
