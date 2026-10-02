@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"shop/notification/internal/config"
 	"shop/notification/internal/domain"
+	"shop/notification/internal/infra/crypto"
 	"shop/notification/internal/infra/logger"
 	"shop/notification/internal/infra/mailer"
 	"shop/notification/internal/infra/mongodb"
@@ -18,6 +19,7 @@ import (
 	"shop/notification/internal/infra/template"
 	"shop/notification/internal/services"
 	"shop/notification/internal/transport/http/handlers"
+	"shop/notification/internal/transport/http/middleware"
 	"syscall"
 
 	"github.com/labstack/echo/v4"
@@ -83,11 +85,16 @@ func New(cfg *config.Config) (*App, error) {
 		log,
 	)
 
+	jwtManager := crypto.NewJWTManager(cfg.RSAPublicKey())
+
 	h := transporthttp.Handlers{
 		HealthHandler: handlers.NewHealthHandler(mongoClient.Client, rabbit),
 	}
 
 	a.echo = transporthttp.NewRouter(cfg, log, h)
+	
+	a.echo.Use(middleware.AuthCheck(jwtManager))
+	a.echo.Use(middleware.AdminOnly)
 
 	return a, nil
 }
