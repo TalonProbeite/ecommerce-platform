@@ -21,6 +21,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
 COPY --from=builder /app/notification-service .
+COPY --from=builder /app/templates ./templates
 
 EXPOSE 8080
 
