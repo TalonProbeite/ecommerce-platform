@@ -71,6 +71,7 @@ func New(cfg *config.Config) (*App, error) {
 
 	userHandler := services.NewUserEventHandler(renderer, sender, eventRepo)
 	orderHandler := services.NewOrderEventHandler(renderer, sender, eventRepo)
+	analyticsService := services.NewAnalyticsService(eventRepo)
 
 	consumer, err := rabbitmq.NewConsumer(rabbit)
 	if err != nil {
@@ -88,13 +89,16 @@ func New(cfg *config.Config) (*App, error) {
 	jwtManager := crypto.NewJWTManager(cfg.RSAPublicKey())
 
 	h := transporthttp.Handlers{
-		HealthHandler: handlers.NewHealthHandler(mongoClient.Client, rabbit),
+		HealthHandler:    handlers.NewHealthHandler(mongoClient.Client, rabbit),
+		AnalyticsHandler: handlers.NewAnalyticsHandlers(analyticsService),
 	}
 
-	a.echo = transporthttp.NewRouter(cfg, log, h)
+	middlewares := transporthttp.Middlewares{
+		AuthCheck:      middleware.AuthCheck(jwtManager),
+		AdminOrAnalyst: middleware.AdminOrAnalyst,
+	}
 
-	a.echo.Use(middleware.AuthCheck(jwtManager))
-	a.echo.Use(middleware.AdminOnly)
+	a.echo = transporthttp.NewRouter(cfg, log, h, middlewares)
 
 	return a, nil
 }

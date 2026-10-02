@@ -40,10 +40,16 @@ func (s *JSONV2Serializer) Deserialize(c echo.Context, i interface{}) error {
 }
 
 type Handlers struct {
-	HealthHandler *handlers.HealthHandler
+	HealthHandler    *handlers.HealthHandler
+	AnalyticsHandler *handlers.AnalyticsHandlers
 }
 
-func NewRouter(_ *config.Config, log *slog.Logger, h Handlers) *echo.Echo {
+type Middlewares struct {
+	AuthCheck      echo.MiddlewareFunc
+	AdminOrAnalyst echo.MiddlewareFunc
+}
+
+func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -54,9 +60,15 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers) *echo.Echo {
 	e.Use(middleware.RequestLogger(log))
 
 	public := e.Group("/api")
+	private := e.Group("/api/private")
+
+	private.Use(m.AuthCheck, m.AdminOrAnalyst)
 
 	public.GET("/healthz", h.HealthHandler.Healthz)
 	public.GET("/readyz", h.HealthHandler.Readyz)
+
+	private.GET("/notifications", h.AnalyticsHandler.GetNotificationsHistory)
+	private.GET("/notifications/:id", h.AnalyticsHandler.GetNotificationByID)
 
 	return e
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func AdminOnly(next echo.HandlerFunc) echo.HandlerFunc {
+func AdminOrAnalyst(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		role, ok := c.Get("role").(domain.Role)
 		if !ok || (role != domain.RoleAdmin && role != domain.RoleAnalyst) {
