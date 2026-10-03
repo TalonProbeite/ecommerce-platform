@@ -5,22 +5,19 @@ import (
 	json "encoding/json/v2"
 	"fmt"
 	"shop/notification/internal/domain"
-	"shop/notification/internal/infra/mailer"
-	"shop/notification/internal/infra/repository"
-	"shop/notification/internal/infra/template"
 )
 
 const verificationCodeTTLMinutes = 15
 
 type UserEventHandler struct {
-	renderer   *template.MessageBuilder
+	renderer   MailRenderer
 	dispatcher *emailDispatcher
 }
 
 func NewUserEventHandler(
-	renderer *template.MessageBuilder,
-	sender *mailer.Sender,
-	evRepo *repository.EventRepo,
+	renderer MailRenderer,
+	sender MailSender,
+	evRepo EventSaver,
 ) *UserEventHandler {
 	return &UserEventHandler{
 		renderer:   renderer,

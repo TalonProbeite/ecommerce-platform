@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mailer"
-	"shop/notification/internal/infra/repository"
 	"time"
 )
 
@@ -21,11 +20,11 @@ type emailMessage struct {
 }
 
 type emailDispatcher struct {
-	sender *mailer.Sender
-	evRepo *repository.EventRepo
+	sender MailSender
+	evRepo EventSaver
 }
 
-func newEmailDispatcher(sender *mailer.Sender, evRepo *repository.EventRepo) *emailDispatcher {
+func newEmailDispatcher(sender MailSender, evRepo EventSaver) *emailDispatcher {
 	return &emailDispatcher{
 		sender: sender,
 		evRepo: evRepo,

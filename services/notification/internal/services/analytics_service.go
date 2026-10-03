@@ -3,14 +3,13 @@ package services
 import (
 	"context"
 	"shop/notification/internal/domain"
-	"shop/notification/internal/infra/repository"
 )
 
 type AnalyticsService struct {
-	repo *repository.EventRepo
+	repo EventReader
 }
 
-func NewAnalyticsService(repo *repository.EventRepo) *AnalyticsService {
+func NewAnalyticsService(repo EventReader) *AnalyticsService {
 	return &AnalyticsService{
 		repo: repo,
 	}

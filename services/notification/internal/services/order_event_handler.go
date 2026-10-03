@@ -5,20 +5,17 @@ import (
 	json "encoding/json/v2"
 	"fmt"
 	"shop/notification/internal/domain"
-	"shop/notification/internal/infra/mailer"
-	"shop/notification/internal/infra/repository"
-	"shop/notification/internal/infra/template"
 )
 
 type OrderEventHandler struct {
-	renderer   *template.MessageBuilder
+	renderer   MailRenderer
 	dispatcher *emailDispatcher
 }
 
 func NewOrderEventHandler(
-	renderer *template.MessageBuilder,
-	sender *mailer.Sender,
-	evRepo *repository.EventRepo,
+	renderer MailRenderer,
+	sender MailSender,
+	evRepo EventSaver,
 ) *OrderEventHandler {
 	return &OrderEventHandler{
 		renderer:   renderer,
