@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mongodb"
 
@@ -52,7 +53,7 @@ func (er *EventRepo) GetByID(ctx context.Context, id string) (domain.EventLog, e
 	return log, nil
 }
 
-func (er *EventRepo) GetHistory(ctx context.Context, f *domain.HistoryFilters) ([]domain.EventLog, error) {
+func (er *EventRepo) GetHistory(ctx context.Context, f *domain.HistoryFilters) (logs []domain.EventLog, err error) {
 	filter := bson.M{}
 
 	if f.Status != "" {
@@ -77,6 +78,7 @@ func (er *EventRepo) GetHistory(ctx context.Context, f *domain.HistoryFilters) (
 	}
 
 	collection := er.client.DB.Collection("events")
+
 	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -87,8 +89,7 @@ func (er *EventRepo) GetHistory(ctx context.Context, f *domain.HistoryFilters) (
 		}
 	}()
 
-	var logs []domain.EventLog
-	if err := cursor.All(ctx, &logs); err != nil {
+	if err = cursor.All(ctx, &logs); err != nil {
 		return nil, err
 	}
 
