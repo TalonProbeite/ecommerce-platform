@@ -90,7 +90,7 @@ func (as *AuthService) Registration(
 		)
 	}
 
-	err = as.publisher.PublishEvent(domain.UserRegistredEventKey, payload)
+	err = as.publisher.PublishEvent(domain.UserRegisteredEventKey, payload)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf(
 			"error while publishing event: %w",
@@ -579,7 +579,7 @@ func (as *AuthService) ResendVerCode(
 	}
 
 	err = as.publisher.PublishEvent(
-		domain.UserRegistredEventKey,
+		domain.UserRegisteredEventKey,
 		payload,
 	)
 	if err != nil {

@@ -1,7 +1,7 @@
 package domain
 
 const (
-	UserRegistredEventKey     = "user.registered"
+	UserRegisteredEventKey    = "user.registered"
 	UserEmailVerifiedEventKey = "user.email_verified"
 	RoutingKeyUserRoleChanged = "user.role_changed"
 	RoutingKeyUserBanned      = "user.banned"

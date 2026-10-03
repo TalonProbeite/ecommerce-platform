@@ -99,7 +99,7 @@ func (ps *ProfileService) PatchUserProfile(
 			return fmt.Errorf("error while creating json struct for event: %w", err)
 		}
 
-		err = ps.publisher.PublishEvent(domain.UserRegistredEventKey, payload)
+		err = ps.publisher.PublishEvent(domain.UserRegisteredEventKey, payload)
 		if err != nil {
 			return fmt.Errorf("error while publishing event: %w", err)
 		}

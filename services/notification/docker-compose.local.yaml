@@ -1,0 +1,129 @@
+name: shop-notification-local
+
+services:
+  notification-db:
+    image: mongo:6
+    container_name: notification-mongo
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-admin}
+    volumes:
+      - notification_mongo_data:/data/db
+    networks:
+      - notification_internal
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: notification-rabbitmq
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - notification_rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5674:5672"
+      - "15674:15672"
+    networks:
+      - shop_global
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  notification-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: notification-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      APP_PORT: ${APP_PORT:-8080}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
+
+      MONGO_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin}@notification-db:27017/
+      MONGO_DB_NAME: ${MONGO_DB:-shop_notifications}
+
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
+
+      JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
+
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM}
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    ports:
+      - "8081:8080"
+    networks:
+      - shop_global
+      - notification_internal
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080/api/healthz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  notification-nginx:
+    image: nginx:alpine
+    container_name: notification-nginx
+    restart: unless-stopped
+    ports:
+      - "8444:443"
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      notification-app:
+        condition: service_healthy
+    networks:
+      - shop_global
+      - notification_internal
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-check-certificate -q --spider https://127.0.0.1/api/healthz || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: notification-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - notification_internal
+
+volumes:
+  notification_mongo_data:
+  notification_rabbitmq_data:
+
+networks:
+  shop_global:
+    driver: bridge
+  notification_internal:
+    driver: bridge

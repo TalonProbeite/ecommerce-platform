@@ -103,7 +103,7 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	middlewares := transporthttp.Middlewares{
-		AuthCheck: middleware.AuthCheck(tokenManager, sessionRepo),
+		AuthCheck: middleware.AuthCheck(tokenManager),
 		AdminOnly: middleware.AdminOnly,
 	}
 

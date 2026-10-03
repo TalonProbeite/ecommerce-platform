@@ -95,7 +95,7 @@ func TestAuthService_Registration(t *testing.T) {
 				t.Errorf("verification entry = %+v (found=%t), want non-empty code with ttl %s", ver, ok, verificationCodeTTL)
 			}
 
-			ev := decode[domain.UserRegisteredEvent](t, f.eventPayload(t, domain.UserRegistredEventKey))
+			ev := decode[domain.UserRegisteredEvent](t, f.eventPayload(t, domain.UserRegisteredEventKey))
 			if ev.Email != req.Email || ev.Code != ver.value {
 				t.Errorf("event %+v does not match email/saved code %q", ev, ver.value)
 			}
@@ -639,7 +639,7 @@ func TestAuthService_ResendVerCode(t *testing.T) {
 			if !ok || ver.value == "" || ver.ttl != verificationCodeTTL {
 				t.Fatalf("verification entry = %+v (found=%t), want non-empty code with ttl %s", ver, ok, verificationCodeTTL)
 			}
-			ev := decode[domain.UserRegisteredEvent](t, f.eventPayload(t, domain.UserRegistredEventKey))
+			ev := decode[domain.UserRegisteredEvent](t, f.eventPayload(t, domain.UserRegisteredEventKey))
 			if ev.Email != testEmail || ev.Code != ver.value {
 				t.Errorf("event %+v does not match email/saved code %q", ev, ver.value)
 			}

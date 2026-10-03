@@ -61,7 +61,7 @@ services:
       JWT_PRIVATE_KEY_BASE64: ${JWT_PRIVATE_KEY_BASE64}
       JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
       CLIENT_ID: ${CLIENT_ID}
-      CLIENT_SECRETE: ${CLIENT_SECRETE}
+      CLIENT_SECRET: ${CLIENT_SECRET}
       REDIRECT_URL: ${REDIRECT_URL:-https://localhost/auth/api/oauth/google/callback}
     depends_on:
       auth-db:

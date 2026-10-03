@@ -61,7 +61,6 @@ func (s *SessionRepo) CreateSession(
 	refreshTTL time.Duration,
 ) error {
 	sessionKey := fmt.Sprintf("session:%s", session.ID)
-	accessKey := fmt.Sprintf("access:%s", session.AccessToken)
 	refreshKey := fmt.Sprintf("refresh:%s", session.RefreshToken)
 	userSessionsKey := fmt.Sprintf("user:sessions:%s", session.UserID)
 
@@ -72,7 +71,6 @@ func (s *SessionRepo) CreateSession(
 
 	pipe := s.rdb.TxPipeline()
 
-	pipe.Set(ctx, accessKey, session.UserID, accessTTL)
 	pipe.Set(ctx, refreshKey, session.ID, refreshTTL)
 	pipe.Set(ctx, sessionKey, data, refreshTTL)
 	pipe.SAdd(ctx, userSessionsKey, session.ID)
@@ -125,9 +123,7 @@ func (s *SessionRepo) UpdateSessionTokens(
 		return err
 	}
 
-	accessKey := fmt.Sprintf("access:%s", oldAccessToken)
 	refreshKey := fmt.Sprintf("refresh:%s", oldRefreshToken)
-	newAccessKey := fmt.Sprintf("access:%s", session.AccessToken)
 	newRefreshKey := fmt.Sprintf("refresh:%s", session.RefreshToken)
 	sessionKey := fmt.Sprintf("session:%s", session.ID)
 
@@ -146,9 +142,7 @@ func (s *SessionRepo) UpdateSessionTokens(
 		}
 
 		_, txErr := tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
-			pipe.Del(ctx, accessKey)
 			pipe.Del(ctx, refreshKey)
-			pipe.Set(ctx, newAccessKey, session.UserID, accessTTL)
 			pipe.Set(ctx, newRefreshKey, session.ID, refreshTTL)
 			pipe.Set(ctx, sessionKey, data, refreshTTL)
 			return nil
@@ -168,14 +162,12 @@ func (s *SessionRepo) DeleteSession(
 	session *domain.Session,
 ) error {
 	sessionKey := fmt.Sprintf("session:%s", session.ID)
-	accessKey := fmt.Sprintf("access:%s", session.AccessToken)
 	refreshKey := fmt.Sprintf("refresh:%s", session.RefreshToken)
 	userSessionsKey := fmt.Sprintf("user:sessions:%s", session.UserID)
 
 	pipe := s.rdb.TxPipeline()
 
 	pipe.Del(ctx, sessionKey)
-	pipe.Del(ctx, accessKey)
 	pipe.Del(ctx, refreshKey)
 	pipe.SRem(ctx, userSessionsKey, session.ID)
 
@@ -217,7 +209,6 @@ func (s *SessionRepo) RevokeAllSessions(
 		}
 
 		pipe.Del(ctx, sessionKey)
-		pipe.Del(ctx, fmt.Sprintf("access:%s", session.AccessToken))
 		pipe.Del(ctx, fmt.Sprintf("refresh:%s", session.RefreshToken))
 	}
 

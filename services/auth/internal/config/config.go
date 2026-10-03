@@ -34,7 +34,7 @@ type JWTConfig struct {
 }
 type OAuthConfig struct {
 	ClientID     string `env:"CLIENT_ID" env-required:"true"`
-	ClientSecret string `env:"CLIENT_SECRETE" env-required:"true"`
+	ClientSecret string `env:"CLIENT_SECRET" env-required:"true"`
 	RedirectURL  string `env:"REDIRECT_URL" env-required:"true"`
 }
 
