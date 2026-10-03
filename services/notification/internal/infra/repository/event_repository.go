@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mongodb"
 
@@ -89,7 +88,7 @@ func (er *EventRepo) GetHistory(ctx context.Context, f *domain.HistoryFilters) (
 		}
 	}()
 
-	if err = cursor.All(ctx, &logs); err != nil {
+	if err := cursor.All(ctx, &logs); err != nil {
 		return nil, err
 	}
 
