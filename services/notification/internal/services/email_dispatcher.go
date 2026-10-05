@@ -9,7 +9,12 @@ import (
 	"time"
 )
 
-const channelEmail = "email"
+const (
+	channelEmail = "email"
+
+	saveAttempts       = 3
+	defaultSaveBackoff = 200 * time.Millisecond
+)
 
 type emailMessage struct {
 	Payload   any
@@ -20,14 +25,16 @@ type emailMessage struct {
 }
 
 type emailDispatcher struct {
-	sender MailSender
-	evRepo EventSaver
+	sender         MailSender
+	evRepo         EventSaver
+	saveRetryDelay time.Duration
 }
 
 func newEmailDispatcher(sender MailSender, evRepo EventSaver) *emailDispatcher {
 	return &emailDispatcher{
-		sender: sender,
-		evRepo: evRepo,
+		sender:         sender,
+		evRepo:         evRepo,
+		saveRetryDelay: defaultSaveBackoff,
 	}
 }
 
@@ -50,10 +57,36 @@ func (d *emailDispatcher) dispatch(ctx context.Context, msg *emailMessage) error
 		sendErr = fmt.Errorf("email send error: %w", sendErr)
 	}
 
-	saveErr := d.evRepo.SaveEvent(ctx, eventModel)
+	saveErr := d.saveWithRetry(ctx, &eventModel)
 	if saveErr != nil {
 		saveErr = fmt.Errorf("mongo audit log error: %w", saveErr)
 	}
 
+	if sendErr == nil && saveErr != nil {
+		return fmt.Errorf("mail already sent, audit log lost: %w: %w", saveErr, ErrUnrecoverable)
+	}
+
 	return errors.Join(sendErr, saveErr)
+}
+
+func (d *emailDispatcher) saveWithRetry(ctx context.Context, event *domain.EventLog) error {
+	var err error
+
+	for attempt := 1; attempt <= saveAttempts; attempt++ {
+		if err = d.evRepo.SaveEvent(ctx, *event); err == nil {
+			return nil
+		}
+
+		if attempt == saveAttempts {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return errors.Join(err, ctx.Err())
+		case <-time.After(d.saveRetryDelay):
+		}
+	}
+
+	return err
 }

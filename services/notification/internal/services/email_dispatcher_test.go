@@ -3,19 +3,23 @@ package services
 import (
 	"context"
 	"errors"
-	"shop/notification/internal/infra/mailer"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"shop/notification/internal/infra/mailer"
 )
 
 func newDispatcherFixture() (*emailDispatcher, *fakeSender, *fakeSaver) {
 	sender := &fakeSender{}
 	saver := &fakeSaver{}
 
-	return newEmailDispatcher(sender, saver), sender, saver
+	d := newEmailDispatcher(sender, saver)
+	d.saveRetryDelay = 0
+
+	return d, sender, saver
 }
 
 func testEmailMessage() *emailMessage {
@@ -38,6 +42,7 @@ func TestEmailDispatcher_Dispatch_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, []sentMail{{To: msg.To, Subject: msg.Subject, Body: msg.Body}}, sender.calls)
+	assert.Len(t, saver.calls, 1)
 
 	require.Len(t, saver.saved, 1)
 	got := saver.saved[0]
@@ -59,13 +64,35 @@ func TestEmailDispatcher_Dispatch_Failures(t *testing.T) {
 	errSave := errors.New("mongo unavailable")
 
 	tests := []struct {
-		name    string
-		sendErr error
-		saveErr error
+		name              string
+		sendErr           error
+		saveErr           error
+		wantUnrecoverable bool
+		wantSaveCalls     int
+		wantStatus        mailer.SendStatus
 	}{
-		{name: "send fails", sendErr: errSend},
-		{name: "save fails", saveErr: errSave},
-		{name: "both fail", sendErr: errSend, saveErr: errSave},
+		{
+			name:              "send fails and log is saved",
+			sendErr:           errSend,
+			wantUnrecoverable: false,
+			wantSaveCalls:     1,
+			wantStatus:        mailer.SendStatusFailed,
+		},
+		{
+			name:              "mail sent but log cannot be saved",
+			saveErr:           errSave,
+			wantUnrecoverable: true,
+			wantSaveCalls:     saveAttempts,
+			wantStatus:        mailer.SendStatusSent,
+		},
+		{
+			name:              "send and save both fail",
+			sendErr:           errSend,
+			saveErr:           errSave,
+			wantUnrecoverable: false,
+			wantSaveCalls:     saveAttempts,
+			wantStatus:        mailer.SendStatusFailed,
+		},
 	}
 
 	for _, tc := range tests {
@@ -86,18 +113,58 @@ func TestEmailDispatcher_Dispatch_Failures(t *testing.T) {
 				require.ErrorIs(t, err, tc.saveErr)
 			}
 
-			require.Len(t, saver.saved, 1)
-			got := saver.saved[0]
+			if tc.wantUnrecoverable {
+				require.ErrorIs(t, err, ErrUnrecoverable)
+			} else {
+				require.NotErrorIs(t, err, ErrUnrecoverable)
+			}
+
+			assert.Len(t, sender.calls, 1)
+			require.Len(t, saver.calls, tc.wantSaveCalls)
+
+			got := saver.calls[0]
+			assert.Equal(t, tc.wantStatus, got.Status)
 
 			if tc.sendErr != nil {
-				assert.Equal(t, mailer.SendStatusFailed, got.Status)
 				assert.Equal(t, tc.sendErr.Error(), got.Error)
 			} else {
-				assert.Equal(t, mailer.SendStatusSent, got.Status)
 				assert.Empty(t, got.Error)
 			}
 		})
 	}
+}
+
+func TestEmailDispatcher_Dispatch_RecoversFromTransientSaveFailure(t *testing.T) {
+	t.Parallel()
+
+	d, sender, saver := newDispatcherFixture()
+	saver.err = errors.New("mongo blip")
+	saver.failFirst = saveAttempts - 1
+
+	err := d.dispatch(context.Background(), testEmailMessage())
+
+	require.NoError(t, err)
+	assert.Len(t, sender.calls, 1)
+	assert.Len(t, saver.calls, saveAttempts)
+	assert.Len(t, saver.saved, 1)
+}
+
+func TestEmailDispatcher_Dispatch_StopsSaveRetriesWhenContextIsCancelled(t *testing.T) {
+	t.Parallel()
+
+	d, sender, saver := newDispatcherFixture()
+	d.saveRetryDelay = time.Hour
+	saver.err = errors.New("mongo unavailable")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := d.dispatch(ctx, testEmailMessage())
+
+	require.ErrorIs(t, err, context.Canceled)
+	require.ErrorIs(t, err, ErrUnrecoverable)
+	assert.Len(t, sender.calls, 1)
+	assert.Len(t, saver.calls, 1)
 }
 
 func TestEmailDispatcher_Dispatch_UsesAttemptFromContext(t *testing.T) {
