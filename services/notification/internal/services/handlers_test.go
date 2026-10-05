@@ -3,12 +3,13 @@ package services
 import (
 	"encoding/json"
 	"errors"
-	"shop/notification/internal/domain"
-	"shop/notification/internal/infra/mailer"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"shop/notification/internal/domain"
+	"shop/notification/internal/infra/mailer"
 )
 
 const testRecipient = "customer@example.com"
@@ -42,6 +43,8 @@ type handlerCase struct {
 	eventKey   string
 	subject    string
 	wantRender string
+
+	wantPayload any
 }
 
 func handlerCases() []handlerCase {
@@ -53,6 +56,8 @@ func handlerCases() []handlerCase {
 			eventKey:   domain.UserRegisteredEventKey,
 			subject:    domain.UserRegisteredSubject,
 			wantRender: "RenderVerification(123456,15)",
+
+			wantPayload: domain.UserRegisteredEvent{Email: testRecipient},
 		},
 		{
 			name:       "user email verified",
@@ -119,7 +124,13 @@ func TestHandlers_ValidEvent_SendsMailAndLogsIt(t *testing.T) {
 			assert.Equal(t, channelEmail, got.Channel)
 			assert.Equal(t, testRecipient, got.Recipient)
 			assert.Equal(t, mailer.SendStatusSent, got.Status)
-			assert.Equal(t, tc.event, got.Payload)
+
+			wantPayload := tc.wantPayload
+			if wantPayload == nil {
+				wantPayload = tc.event
+			}
+
+			assert.Equal(t, wantPayload, got.Payload)
 		})
 	}
 }
@@ -185,4 +196,18 @@ func TestHandlers_SendFailure_IsLoggedAsFailedAndReturned(t *testing.T) {
 			assert.Equal(t, errSend.Error(), f.saver.saved[0].Error)
 		})
 	}
+}
+
+func TestHandlers_UserRegistered_DoesNotPersistVerificationCode(t *testing.T) {
+	t.Parallel()
+
+	f := newHandlerFixture()
+	event := domain.UserRegisteredEvent{Email: testRecipient, Code: "123456"}
+
+	require.NoError(t, f.user.HandleUserRegistered(t.Context(), mustMarshal(t, event)))
+
+	assert.Equal(t, []string{"RenderVerification(123456,15)"}, f.renderer.calls)
+
+	require.Len(t, f.saver.saved, 1)
+	assert.Equal(t, domain.UserRegisteredEvent{Email: testRecipient}, f.saver.saved[0].Payload)
 }
