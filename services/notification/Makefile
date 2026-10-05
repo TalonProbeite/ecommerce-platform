@@ -3,8 +3,7 @@ COMPOSE := docker compose -f $(COMPOSE_FILE)
 
 .PHONY: info up down restart logs ps \
 	test test-unit test-integration test-cover test-race \
-	lint \
-	migrate-up migrate-down migrate-create migrate-version migrate-force
+	lint
 
 info:
 	@echo "Available commands:"
@@ -51,3 +50,13 @@ test-unit:
 
 test-integration:
 	go test -tags=integration -v -count=1 ./tests/integration/...
+
+test-cover:
+	go test -v -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out
+
+test-race:
+	go test -race -v ./...
+
+lint:
+	golangci-lint run --fix
