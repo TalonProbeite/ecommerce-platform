@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"shop/notification/internal/domain"
 	"shop/notification/internal/services"
+	"strconv"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -61,8 +62,27 @@ func (h *AnalyticsHandlers) GetNotificationsHistory(c echo.Context) error {
 		filters.EndDate = parsedDate
 	}
 
+	if limitStr := c.QueryParam("limit"); limitStr != "" {
+		limit, err := strconv.ParseInt(limitStr, 10, 64)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid limit format, expected integer"})
+		}
+		filters.Limit = limit
+	}
+
+	if offsetStr := c.QueryParam("offset"); offsetStr != "" {
+		offset, err := strconv.ParseInt(offsetStr, 10, 64)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid offset format, expected integer"})
+		}
+		filters.Offset = offset
+	}
+
 	logs, err := h.service.GetNotificationsHistory(c.Request().Context(), &filters)
 	if err != nil {
+		if errors.Is(err, domain.ErrInvalidFilters) {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 

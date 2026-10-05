@@ -36,8 +36,10 @@ func (f *fakeSender) SendHTML(to, subject, body string) error {
 }
 
 type fakeSaver struct {
-	err   error
-	saved []domain.EventLog
+	err       error
+	failFirst int
+	calls     []domain.EventLog
+	saved     []domain.EventLog
 }
 
 func (f *fakeSaver) SaveEvent(_ context.Context, event any) error {
@@ -46,9 +48,15 @@ func (f *fakeSaver) SaveEvent(_ context.Context, event any) error {
 		panic(fmt.Sprintf("SaveEvent got %T, want domain.EventLog", event))
 	}
 
+	f.calls = append(f.calls, log)
+
+	if f.err != nil && (f.failFirst == 0 || len(f.calls) <= f.failFirst) {
+		return f.err
+	}
+
 	f.saved = append(f.saved, log)
 
-	return f.err
+	return nil
 }
 
 type fakeRenderer struct {

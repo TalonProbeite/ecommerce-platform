@@ -133,3 +133,81 @@ func TestEventRepo_GetByID(t *testing.T) {
 		require.ErrorIs(t, err, domain.ErrInvalidFilters)
 	})
 }
+
+func TestEventRepo_GetHistory_Pagination(t *testing.T) {
+	repo := newRepo(t)
+	base := time.Now().UTC().Truncate(time.Millisecond)
+
+	// We need enough events to test DefaultHistoryLimit (100) and MaxHistoryLimit (500).
+	// Let's insert 550 events. We use identical CreatedAt to test stable sorting.
+	totalEvents := 550
+	for i := 0; i < totalEvents; i++ {
+		require.NoError(t, repo.SaveEvent(t.Context(), domain.EventLog{
+			Type:      domain.UserRegisteredEventKey,
+			Channel:   "email",
+			Recipient: "page@example.com",
+			Status:    mailer.SendStatusSent,
+			Attempts:  1,
+			CreatedAt: base, // all have the same timestamp to test _id tie-breaker
+		}))
+	}
+
+	t.Run("default limit", func(t *testing.T) {
+		logs, err := repo.GetHistory(t.Context(), &domain.HistoryFilters{})
+		require.NoError(t, err)
+		assert.Len(t, logs, int(domain.DefaultHistoryLimit))
+	})
+
+	t.Run("max limit", func(t *testing.T) {
+		logs, err := repo.GetHistory(t.Context(), &domain.HistoryFilters{Limit: 10000}) // over max
+		require.NoError(t, err)
+		assert.Len(t, logs, int(domain.MaxHistoryLimit))
+	})
+
+	t.Run("explicit limit and offset", func(t *testing.T) {
+		logs, err := repo.GetHistory(t.Context(), &domain.HistoryFilters{Limit: 15, Offset: 10})
+		require.NoError(t, err)
+		assert.Len(t, logs, 15)
+	})
+
+	t.Run("stable pagination across same timestamps", func(t *testing.T) {
+		// fetch all 550 events in pages of 50
+		var allIDs []string
+		pageSize := int64(50)
+		for offset := int64(0); offset < int64(totalEvents); offset += pageSize {
+			logs, err := repo.GetHistory(t.Context(), &domain.HistoryFilters{Limit: pageSize, Offset: offset})
+			require.NoError(t, err)
+			if offset+pageSize <= int64(totalEvents) {
+				assert.Len(t, logs, int(pageSize))
+			}
+			for _, log := range logs {
+				allIDs = append(allIDs, log.ID.Hex())
+			}
+		}
+
+		require.Len(t, allIDs, totalEvents)
+
+		// check uniqueness of IDs
+		uniqueIDs := make(map[string]bool)
+		for _, id := range allIDs {
+			uniqueIDs[id] = true
+		}
+		assert.Len(t, uniqueIDs, totalEvents, "Pagination missed or duplicated items")
+	})
+
+	t.Run("order is newest to oldest", func(t *testing.T) {
+		// Add one older and one newer event
+		older := base.Add(-time.Hour)
+		newer := base.Add(time.Hour)
+
+		require.NoError(t, repo.SaveEvent(t.Context(), domain.EventLog{Recipient: "order@example.com", CreatedAt: older}))
+		require.NoError(t, repo.SaveEvent(t.Context(), domain.EventLog{Recipient: "order@example.com", CreatedAt: newer}))
+
+		logs, err := repo.GetHistory(t.Context(), &domain.HistoryFilters{Recipient: "order@example.com"})
+		require.NoError(t, err)
+		require.Len(t, logs, 2)
+
+		assert.Equal(t, newer, logs[0].CreatedAt)
+		assert.Equal(t, older, logs[1].CreatedAt)
+	})
+}

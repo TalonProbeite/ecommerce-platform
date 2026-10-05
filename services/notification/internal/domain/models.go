@@ -24,4 +24,11 @@ type HistoryFilters struct {
 	Status    string
 	Channel   string
 	Recipient string
+	Limit     int64
+	Offset    int64
 }
+
+const (
+	DefaultHistoryLimit int64 = 100
+	MaxHistoryLimit     int64 = 500
+)

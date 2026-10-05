@@ -34,5 +34,9 @@ func (s *AnalyticsService) GetNotificationsHistory(ctx context.Context, filters 
 		}
 	}
 
+	if filters.Limit < 0 || filters.Offset < 0 {
+		return nil, domain.ErrInvalidFilters
+	}
+
 	return s.repo.GetHistory(ctx, filters)
 }

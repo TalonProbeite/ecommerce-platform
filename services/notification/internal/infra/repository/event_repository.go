@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type EventRepo struct {
@@ -78,7 +79,23 @@ func (er *EventRepo) GetHistory(ctx context.Context, f *domain.HistoryFilters) (
 
 	collection := er.client.DB.Collection("events")
 
-	cursor, err := collection.Find(ctx, filter)
+	opts := options.Find()
+	opts.SetSort(bson.D{{Key: "created_at", Value: -1}, {Key: "_id", Value: -1}})
+
+	switch {
+	case f.Limit <= 0:
+		opts.SetLimit(domain.DefaultHistoryLimit)
+	case f.Limit > domain.MaxHistoryLimit:
+		opts.SetLimit(domain.MaxHistoryLimit)
+	default:
+		opts.SetLimit(f.Limit)
+	}
+
+	if f.Offset > 0 {
+		opts.SetSkip(f.Offset)
+	}
+
+	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, err
 	}

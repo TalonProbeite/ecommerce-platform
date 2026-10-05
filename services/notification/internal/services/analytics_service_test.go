@@ -104,6 +104,28 @@ func TestAnalyticsService_GetNotificationsHistory(t *testing.T) {
 			wantErr:       errRepo,
 			wantRepoCalls: 1,
 		},
+		{
+			name:          "negative limit is rejected",
+			filters:       &domain.HistoryFilters{Limit: -1},
+			wantErr:       domain.ErrInvalidFilters,
+			wantRepoCalls: 0,
+		},
+		{
+			name:          "negative offset is rejected",
+			filters:       &domain.HistoryFilters{Offset: -1},
+			wantErr:       domain.ErrInvalidFilters,
+			wantRepoCalls: 0,
+		},
+		{
+			name:          "positive limit and offset are accepted",
+			filters:       &domain.HistoryFilters{Limit: 10, Offset: 20},
+			wantRepoCalls: 1,
+		},
+		{
+			name:          "zero limit and offset are accepted",
+			filters:       &domain.HistoryFilters{Limit: 0, Offset: 0},
+			wantRepoCalls: 1,
+		},
 	}
 
 	for _, tc := range tests {
