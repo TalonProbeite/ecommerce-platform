@@ -1,0 +1,125 @@
+name: shop-catalog-prod
+
+services:
+  catalog-db:
+    image: postgres:16-alpine
+    container_name: catalog-db-prod
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-catalog_db}
+      POSTGRES_USER: ${DB_USERNAME:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - catalog_postgres_data:/var/lib/postgresql/data
+    networks:
+      - catalog_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-admin} -d ${DB_DATABASE:-catalog_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  catalog-redis:
+    image: redis:7-alpine
+    container_name: catalog-redis-prod
+    restart: always
+    volumes:
+      - catalog_redis_data:/data
+    networks:
+      - catalog_internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  catalog-seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: catalog-seaweedfs-prod
+    restart: always
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-seaweed_admin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-seaweed_secret_123}
+      S3_BUCKET: ${AWS_BUCKET:-catalog_assets}
+    command: ["mini", "-dir=/data"]
+    volumes:
+      - catalog_seaweedfs_data:/data
+    networks:
+      - catalog_internal
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8333/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  catalog-app:
+    image: shop-catalog-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: catalog-app-prod
+    restart: always
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_PORT: ${APP_PORT:-8000}
+      DB_HOST: catalog-db
+      DB_PORT: 5432
+      REDIS_HOST: catalog-redis
+      REDIS_PORT: 6379
+      AWS_ENDPOINT: http://catalog-seaweedfs:8333
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+      catalog-redis:
+        condition: service_healthy
+      catalog-seaweedfs:
+        condition: service_healthy
+    networks:
+      - shop_global
+      - catalog_internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8000/api/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  catalog-nginx:
+    image: nginx:alpine
+    container_name: catalog-nginx-prod
+    restart: always
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      catalog-app:
+        condition: service_healthy
+    networks:
+      - shop_global
+      - catalog_internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -q --spider https://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  catalog_postgres_data:
+  catalog_redis_data:
+  catalog_seaweedfs_data:
+
+networks:
+  catalog_internal:
+    driver: bridge
+
+  shop_global:
+    name: shop_global
