@@ -44,6 +44,8 @@ func (h *UserEventHandler) HandleUserRegistered(
 		return fmt.Errorf("error rendering verification template: %w", err)
 	}
 
+	event.Code = ""
+
 	return h.dispatcher.dispatch(ctx, &emailMessage{
 		EventType: domain.UserRegisteredEventKey,
 		To:        event.Email,
