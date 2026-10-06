@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"shop/notification/internal/domain"
 	"shop/notification/internal/services"
-	"strconv"
+	"shop/notification/internal/transport/http/dto"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -22,68 +22,98 @@ func NewAnalyticsHandlers(service *services.AnalyticsService) *AnalyticsHandlers
 }
 
 func (h *AnalyticsHandlers) GetNotificationByID(c echo.Context) error {
-	id := c.Param("id")
-	if id == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "id parameter is required"})
+	var req dto.GetNotificationByIDRequest
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": "invalid request parameters",
+		})
 	}
 
-	log, err := h.service.GetNotificationByID(c.Request().Context(), id)
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": err.Error(),
+		})
+	}
+
+	log, err := h.service.GetNotificationByID(
+		c.Request().Context(),
+		req.ID,
+	)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotificationNotFound) {
-			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
+			return c.JSON(http.StatusNotFound, echo.Map{
+				"error": err.Error(),
+			})
 		}
 
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": err.Error(),
+		})
 	}
 
 	return c.JSON(http.StatusOK, log)
 }
 
 func (h *AnalyticsHandlers) GetNotificationsHistory(c echo.Context) error {
+	var req dto.GetNotificationsHistoryRequest
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": "invalid request parameters",
+		})
+	}
+
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error": err.Error(),
+		})
+	}
+
 	filters := domain.HistoryFilters{
-		Status:    c.QueryParam("status"),
-		Channel:   c.QueryParam("channel"),
-		Recipient: c.QueryParam("recipient"),
+		Status:    req.Status,
+		Channel:   req.Channel,
+		Recipient: req.Recipient,
+		Limit:     req.Limit,
+		Offset:    req.Offset,
 	}
 
-	if startDateStr := c.QueryParam("start_date"); startDateStr != "" {
-		parsedDate, err := time.Parse(time.RFC3339, startDateStr)
+	if req.StartDate != "" {
+		startDate, err := time.Parse(time.RFC3339, req.StartDate)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid start_date format, expected RFC3339"})
+			return c.JSON(http.StatusBadRequest, echo.Map{
+				"error": "invalid start_date format, expected RFC3339",
+			})
 		}
-		filters.StartDate = parsedDate
+
+		filters.StartDate = startDate
 	}
 
-	if endDateStr := c.QueryParam("end_date"); endDateStr != "" {
-		parsedDate, err := time.Parse(time.RFC3339, endDateStr)
+	if req.EndDate != "" {
+		endDate, err := time.Parse(time.RFC3339, req.EndDate)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid end_date format, expected RFC3339"})
+			return c.JSON(http.StatusBadRequest, echo.Map{
+				"error": "invalid end_date format, expected RFC3339",
+			})
 		}
-		filters.EndDate = parsedDate
+
+		filters.EndDate = endDate
 	}
 
-	if limitStr := c.QueryParam("limit"); limitStr != "" {
-		limit, err := strconv.ParseInt(limitStr, 10, 64)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid limit format, expected integer"})
-		}
-		filters.Limit = limit
-	}
-
-	if offsetStr := c.QueryParam("offset"); offsetStr != "" {
-		offset, err := strconv.ParseInt(offsetStr, 10, 64)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid offset format, expected integer"})
-		}
-		filters.Offset = offset
-	}
-
-	logs, err := h.service.GetNotificationsHistory(c.Request().Context(), &filters)
+	logs, err := h.service.GetNotificationsHistory(
+		c.Request().Context(),
+		&filters,
+	)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidFilters) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+			return c.JSON(http.StatusBadRequest, echo.Map{
+				"error": err.Error(),
+			})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error": err.Error(),
+		})
 	}
 
 	return c.JSON(http.StatusOK, logs)
