@@ -1,0 +1,137 @@
+version: "2"
+
+run:
+  tests: false
+
+linters:
+  default: none
+
+  enable:
+    # Correctness / compiler-level analysis
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - errcheck
+    - nilerr
+
+    # Code quality
+    - gocritic
+    - gocyclo
+    - cyclop
+    - dupl
+    - unconvert
+    - unparam
+    - bodyclose
+    - makezero
+    - prealloc
+    - intrange
+    - copyloopvar
+
+    # Error handling
+    - errorlint
+    - errname
+
+    # Security
+    - gosec
+
+    # API / style / maintainability
+    - revive
+    - forcetypeassert
+    - nilnil
+    - nakedret
+    - misspell
+    - whitespace
+
+    # Correctness / consistency
+    - exhaustive
+    - exhaustive
+    - contextcheck
+    - bidichk
+    - asciicheck
+
+  settings:
+    govet:
+      enable-all: true
+
+    gocyclo:
+      min-complexity: 15
+
+    cyclop:
+      max-complexity: 15
+      package-average: 10.0
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+
+    exhaustive:
+      default-signifies-exhaustive: true
+
+    revive:
+      rules:
+        # Explicitly disable the comment bullshit.
+        - name: exported
+          disabled: true
+
+        - name: package-comments
+          disabled: true
+
+        - name: var-naming
+          disabled: false
+
+        - name: receiver-naming
+          disabled: false
+
+        - name: error-naming
+          disabled: false
+
+        - name: error-return
+          disabled: false
+
+        - name: error-strings
+          disabled: false
+
+        - name: indent-error-flow
+          disabled: false
+
+        - name: unexported-return
+          disabled: false
+
+    gosec:
+      excludes:
+        - G104
+
+    misspell:
+      locale: US
+
+  exclusions:
+    generated: strict
+    warn-unused: true
+
+    # Keep default exclusions off so the linter is actually strict.
+    presets: []
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+
+  settings:
+    gofumpt:
+      extra:
+        group-params: true
+
+  exclusions:
+    generated: strict
+    warn-unused: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
