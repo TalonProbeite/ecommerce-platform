@@ -3,21 +3,6 @@ module shop/notification
 go 1.27.1
 
 require (
-	github.com/go-playground/validator/v10 v10.30.5
-	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/ilyakaznacheev/cleanenv v1.5.0
-	github.com/labstack/echo/v4 v4.15.4
-	github.com/rabbitmq/amqp091-go v1.15.0
-	github.com/stretchr/testify v1.11.1
-	github.com/testcontainers/testcontainers-go v0.44.0
-	github.com/testcontainers/testcontainers-go/modules/mongodb v0.44.0
-	github.com/testcontainers/testcontainers-go/modules/rabbitmq v0.44.0
-	go.mongodb.org/mongo-driver v1.17.10
-	golang.org/x/sync v0.23.0
-	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
-)
-
-require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/BurntSushi/toml v1.2.1 // indirect
@@ -90,3 +75,21 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3 // indirect
 )
+
+require (
+	github.com/go-playground/validator/v10 v10.30.5
+	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/ilyakaznacheev/cleanenv v1.5.0
+	github.com/labstack/echo/v4 v4.16.0
+	github.com/rabbitmq/amqp091-go v1.15.0
+	github.com/stretchr/testify v1.11.1
+	github.com/testcontainers/testcontainers-go v0.44.0
+	github.com/testcontainers/testcontainers-go/modules/mongodb v0.44.0
+	github.com/testcontainers/testcontainers-go/modules/rabbitmq v0.44.0
+	go.mongodb.org/mongo-driver v1.17.10
+	golang.org/x/sync v0.23.0
+	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
+	shop/shared v0.0.0
+)
+
+replace shop/shared => ../pkg/shared

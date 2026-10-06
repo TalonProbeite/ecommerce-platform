@@ -45,8 +45,8 @@ services:
 
   notification-app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: notification/Dockerfile
     container_name: notification-app
     restart: unless-stopped
     env_file:

@@ -9,11 +9,13 @@ import (
 	"time"
 
 	"shop/auth/internal/domain"
+	"shop/shared/events"
+	"shop/shared/roles"
 )
 
 type adminUserRepoMock struct {
 	GetByIDFunc         func(context.Context, string) (*domain.User, error)
-	UpdateRoleFunc      func(context.Context, string, domain.Role) error
+	UpdateRoleFunc      func(context.Context, string, roles.Role) error
 	UpdateBanStatusFunc func(context.Context, string, bool) error
 }
 
@@ -24,7 +26,7 @@ func (m *adminUserRepoMock) GetByID(ctx context.Context, userID string) (*domain
 	return m.GetByIDFunc(ctx, userID)
 }
 
-func (m *adminUserRepoMock) UpdateRole(ctx context.Context, userID string, role domain.Role) error {
+func (m *adminUserRepoMock) UpdateRole(ctx context.Context, userID string, role roles.Role) error {
 	if m.UpdateRoleFunc == nil {
 		return errors.New("UpdateRoleFunc is not set")
 	}
@@ -68,7 +70,7 @@ func TestAdminService_UpdateRole(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		newRole       domain.Role
+		newRole       roles.Role
 		repoErr       error
 		publisherErr  error
 		wantErr       string
@@ -78,21 +80,21 @@ func TestAdminService_UpdateRole(t *testing.T) {
 	}{
 		{
 			name:          "success",
-			newRole:       domain.RoleAdmin,
+			newRole:       roles.RoleAdmin,
 			wantRepoCalls: 1,
 			wantRevoke:    1,
 			wantPubCalls:  1,
 		},
 		{
 			name:          "repository error",
-			newRole:       domain.RoleAnalyst,
+			newRole:       roles.RoleAnalyst,
 			repoErr:       errors.New("boom"),
 			wantErr:       "error updating role",
 			wantRepoCalls: 1,
 		},
 		{
 			name:          "publisher error",
-			newRole:       domain.RoleCustomer,
+			newRole:       roles.RoleCustomer,
 			publisherErr:  errors.New("boom"),
 			wantErr:       "error while publishing event",
 			wantRepoCalls: 1,
@@ -104,12 +106,12 @@ func TestAdminService_UpdateRole(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var gotUserID string
-			var gotRole domain.Role
+			var gotRole roles.Role
 			var revokeCalls int
 			var revokedUserID string
 
 			userRepo := &adminUserRepoMock{
-				UpdateRoleFunc: func(_ context.Context, id string, role domain.Role) error {
+				UpdateRoleFunc: func(_ context.Context, id string, role roles.Role) error {
 					gotUserID = id
 					gotRole = role
 					return tt.repoErr
@@ -163,11 +165,11 @@ func TestAdminService_UpdateRole(t *testing.T) {
 				return
 			}
 
-			if publisher.key != domain.RoutingKeyUserRoleChanged {
-				t.Fatalf("event key = %q, want %q", publisher.key, domain.RoutingKeyUserRoleChanged)
+			if publisher.key != events.RoutingKeyUserRoleChanged {
+				t.Fatalf("event key = %q, want %q", publisher.key, events.RoutingKeyUserRoleChanged)
 			}
 
-			var event domain.UserRoleChangedEvent
+			var event events.UserRoleChangedEvent
 			if err := json.Unmarshal(publisher.payload, &event); err != nil {
 				t.Fatalf("unmarshal event: %v", err)
 			}
@@ -288,10 +290,10 @@ func TestAdminService_BanUser(t *testing.T) {
 				return
 			}
 
-			if publisher.key != domain.RoutingKeyUserBanned {
-				t.Fatalf("event key = %q, want %q", publisher.key, domain.RoutingKeyUserBanned)
+			if publisher.key != events.RoutingKeyUserBanned {
+				t.Fatalf("event key = %q, want %q", publisher.key, events.RoutingKeyUserBanned)
 			}
-			var event domain.UserBannedEvent
+			var event events.UserBannedEvent
 			if err := json.Unmarshal(publisher.payload, &event); err != nil {
 				t.Fatalf("unmarshal event: %v", err)
 			}

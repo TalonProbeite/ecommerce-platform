@@ -7,6 +7,7 @@ import (
 
 	"shop/auth/internal/domain"
 	"shop/auth/internal/transport/http/dto"
+	"shop/shared/events"
 )
 
 type MockProfileUserRepo struct {
@@ -390,9 +391,9 @@ func TestProfileService_PatchUserProfile(t *testing.T) {
 					t.Fatalf("verification entry = %+v (found=%t), want non-empty code with ttl 15m", entry, ok)
 				}
 
-				event := decode[domain.UserRegisteredEvent](
+				event := decode[events.UserRegisteredEvent](
 					t,
-					profileEventPayload(t, f, domain.UserRegisteredEventKey),
+					profileEventPayload(t, f, events.UserRegisteredEventKey),
 				)
 				if event.Email != tt.want.email || event.Code != entry.value {
 					t.Errorf("event %+v does not match email/saved code %q", event, entry.value)

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
+	"shop/shared/roles"
 	"time"
 )
 
@@ -23,7 +24,7 @@ const (
 func (as *AuthService) CreateSession(
 	ctx context.Context,
 	userID string,
-	role domain.Role,
+	role roles.Role,
 ) (domain.TokenPair, error) {
 	if userID == "" {
 		return domain.TokenPair{}, fmt.Errorf("user id is empty")

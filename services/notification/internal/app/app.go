@@ -9,8 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"shop/notification/internal/config"
-	"shop/notification/internal/domain"
-	"shop/notification/internal/infra/crypto"
 	"shop/notification/internal/infra/logger"
 	"shop/notification/internal/infra/mailer"
 	"shop/notification/internal/infra/mongodb"
@@ -19,7 +17,9 @@ import (
 	"shop/notification/internal/infra/template"
 	"shop/notification/internal/services"
 	"shop/notification/internal/transport/http/handlers"
-	"shop/notification/internal/transport/http/middleware"
+	"shop/shared/events"
+	"shop/shared/jwt"
+	"shop/shared/middleware"
 	"syscall"
 
 	"github.com/labstack/echo/v4"
@@ -86,7 +86,7 @@ func New(cfg *config.Config) (*App, error) {
 		log,
 	)
 
-	jwtManager := crypto.NewJWTManager(cfg.RSAPublicKey())
+	jwtManager := jwt.NewJWTManager(cfg.RSAPublicKey())
 
 	h := transporthttp.Handlers{
 		HealthHandler:    handlers.NewHealthHandler(mongoClient.Client, rabbit),
@@ -108,11 +108,11 @@ func eventHandlers(
 	order *services.OrderEventHandler,
 ) map[string]services.HandlerFunc {
 	return map[string]services.HandlerFunc{
-		domain.UserRegisteredEventKey:    user.HandleUserRegistered,
-		domain.UserEmailVerifiedEventKey: user.HandleEmailVerified,
-		domain.OrderPaidEventKey:         order.HandleOrderPaid,
-		domain.OrderConfirmedEventKey:    order.HandleOrderConfirmed,
-		domain.OrderCancelledEventKey:    order.HandleOrderCancelled,
+		events.UserRegisteredEventKey:    user.HandleUserRegistered,
+		events.UserEmailVerifiedEventKey: user.HandleEmailVerified,
+		events.OrderPaidEventKey:         order.HandleOrderPaid,
+		events.OrderConfirmedEventKey:    order.HandleOrderConfirmed,
+		events.OrderCancelledEventKey:    order.HandleOrderCancelled,
 	}
 }
 

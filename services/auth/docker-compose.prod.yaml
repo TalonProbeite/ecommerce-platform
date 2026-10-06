@@ -40,8 +40,8 @@ services:
   auth-app:
     image: shop-auth-app:latest
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: auth/Dockerfile
     container_name: auth-app-prod
     restart: always
     env_file:

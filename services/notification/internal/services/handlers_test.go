@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mailer"
+	"shop/shared/events"
 )
 
 const testRecipient = "customer@example.com"
@@ -52,43 +52,43 @@ func handlerCases() []handlerCase {
 		{
 			name:       "user registered",
 			handle:     func(f *handlerFixture) HandlerFunc { return f.user.HandleUserRegistered },
-			event:      domain.UserRegisteredEvent{Email: testRecipient, Code: "123456"},
-			eventKey:   domain.UserRegisteredEventKey,
-			subject:    domain.UserRegisteredSubject,
+			event:      events.UserRegisteredEvent{Email: testRecipient, Code: "123456"},
+			eventKey:   events.UserRegisteredEventKey,
+			subject:    events.UserRegisteredSubject,
 			wantRender: "RenderVerification(123456,15)",
 
-			wantPayload: domain.UserRegisteredEvent{Email: testRecipient},
+			wantPayload: events.UserRegisteredEvent{Email: testRecipient},
 		},
 		{
 			name:       "user email verified",
 			handle:     func(f *handlerFixture) HandlerFunc { return f.user.HandleEmailVerified },
-			event:      domain.UserEmailVerifiedEvent{Email: testRecipient, Name: "John"},
-			eventKey:   domain.UserEmailVerifiedEventKey,
-			subject:    domain.UserEmailVerifiedSubject,
+			event:      events.UserEmailVerifiedEvent{Email: testRecipient, Name: "John"},
+			eventKey:   events.UserEmailVerifiedEventKey,
+			subject:    events.UserEmailVerifiedSubject,
 			wantRender: "RenderWelcome(John)",
 		},
 		{
 			name:       "order confirmed",
 			handle:     func(f *handlerFixture) HandlerFunc { return f.order.HandleOrderConfirmed },
-			event:      domain.OrderConfirmedEvent{OrderID: "order-1", Email: testRecipient},
-			eventKey:   domain.OrderConfirmedEventKey,
-			subject:    domain.OrderConfirmedSubject,
+			event:      events.OrderConfirmedEvent{OrderID: "order-1", Email: testRecipient},
+			eventKey:   events.OrderConfirmedEventKey,
+			subject:    events.OrderConfirmedSubject,
 			wantRender: "RenderConfirmed(order-1)",
 		},
 		{
 			name:       "order paid",
 			handle:     func(f *handlerFixture) HandlerFunc { return f.order.HandleOrderPaid },
-			event:      domain.OrderPaidEvent{OrderID: "order-1", Email: testRecipient, Amount: 100},
-			eventKey:   domain.OrderPaidEventKey,
-			subject:    domain.OrderPaidSubject,
+			event:      events.OrderPaidEvent{OrderID: "order-1", Email: testRecipient, Amount: 100},
+			eventKey:   events.OrderPaidEventKey,
+			subject:    events.OrderPaidSubject,
 			wantRender: "RenderPaid(order-1,100)",
 		},
 		{
 			name:       "order cancelled",
 			handle:     func(f *handlerFixture) HandlerFunc { return f.order.HandleOrderCancelled },
-			event:      domain.OrderCancelledPayload{OrderID: "order-1", Email: testRecipient, Reason: "out of stock"},
-			eventKey:   domain.OrderCancelledEventKey,
-			subject:    domain.OrderCancelledSubject,
+			event:      events.OrderCancelledPayload{OrderID: "order-1", Email: testRecipient, Reason: "out of stock"},
+			eventKey:   events.OrderCancelledEventKey,
+			subject:    events.OrderCancelledSubject,
 			wantRender: "RenderCancelled(order-1,out of stock)",
 		},
 	}
@@ -202,12 +202,12 @@ func TestHandlers_UserRegistered_DoesNotPersistVerificationCode(t *testing.T) {
 	t.Parallel()
 
 	f := newHandlerFixture()
-	event := domain.UserRegisteredEvent{Email: testRecipient, Code: "123456"}
+	event := events.UserRegisteredEvent{Email: testRecipient, Code: "123456"}
 
 	require.NoError(t, f.user.HandleUserRegistered(t.Context(), mustMarshal(t, event)))
 
 	assert.Equal(t, []string{"RenderVerification(123456,15)"}, f.renderer.calls)
 
 	require.Len(t, f.saver.saved, 1)
-	assert.Equal(t, domain.UserRegisteredEvent{Email: testRecipient}, f.saver.saved[0].Payload)
+	assert.Equal(t, events.UserRegisteredEvent{Email: testRecipient}, f.saver.saved[0].Payload)
 }

@@ -8,6 +8,7 @@ import (
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mailer"
 	"shop/notification/internal/infra/rabbitmq"
+	"shop/shared/events"
 	"slices"
 	"testing"
 
@@ -30,46 +31,46 @@ func TestNotificationFlow_EventProducesEmailAndAuditLog(t *testing.T) {
 		{
 			name:       "user registered sends verification code",
 			exchange:   rabbitmq.ExchangeUser,
-			key:        domain.UserRegisteredEventKey,
+			key:        events.UserRegisteredEventKey,
 			recipient:  "registered@example.com",
-			event:      domain.UserRegisteredEvent{Email: "registered@example.com", Code: "482913"},
-			subject:    domain.UserRegisteredSubject,
+			event:      events.UserRegisteredEvent{Email: "registered@example.com", Code: "482913"},
+			subject:    events.UserRegisteredSubject,
 			bodyMarker: "482913",
 		},
 		{
 			name:       "email verified sends welcome mail",
 			exchange:   rabbitmq.ExchangeUser,
-			key:        domain.UserEmailVerifiedEventKey,
+			key:        events.UserEmailVerifiedEventKey,
 			recipient:  "verified@example.com",
-			event:      domain.UserEmailVerifiedEvent{Email: "verified@example.com", Name: "Alice"},
-			subject:    domain.UserEmailVerifiedSubject,
+			event:      events.UserEmailVerifiedEvent{Email: "verified@example.com", Name: "Alice"},
+			subject:    events.UserEmailVerifiedSubject,
 			bodyMarker: "Alice",
 		},
 		{
 			name:       "order confirmed",
 			exchange:   rabbitmq.ExchangeOrder,
-			key:        domain.OrderConfirmedEventKey,
+			key:        events.OrderConfirmedEventKey,
 			recipient:  "confirmed@example.com",
-			event:      domain.OrderConfirmedEvent{OrderID: "order-1001", Email: "confirmed@example.com"},
-			subject:    domain.OrderConfirmedSubject,
+			event:      events.OrderConfirmedEvent{OrderID: "order-1001", Email: "confirmed@example.com"},
+			subject:    events.OrderConfirmedSubject,
 			bodyMarker: "order-1001",
 		},
 		{
 			name:       "order paid",
 			exchange:   rabbitmq.ExchangeOrder,
-			key:        domain.OrderPaidEventKey,
+			key:        events.OrderPaidEventKey,
 			recipient:  "paid@example.com",
-			event:      domain.OrderPaidEvent{OrderID: "order-1002", Email: "paid@example.com", Amount: 149.9},
-			subject:    domain.OrderPaidSubject,
+			event:      events.OrderPaidEvent{OrderID: "order-1002", Email: "paid@example.com", Amount: 149.9},
+			subject:    events.OrderPaidSubject,
 			bodyMarker: "order-1002",
 		},
 		{
 			name:       "order cancelled",
 			exchange:   rabbitmq.ExchangeOrder,
-			key:        domain.OrderCancelledEventKey,
+			key:        events.OrderCancelledEventKey,
 			recipient:  "cancelled@example.com",
-			event:      domain.OrderCancelledPayload{OrderID: "order-1003", Email: "cancelled@example.com", Reason: "out of stock"},
-			subject:    domain.OrderCancelledSubject,
+			event:      events.OrderCancelledPayload{OrderID: "order-1003", Email: "cancelled@example.com", Reason: "out of stock"},
+			subject:    events.OrderCancelledSubject,
 			bodyMarker: "order-1003",
 		},
 	}
@@ -101,7 +102,7 @@ func TestNotificationFlow_InvalidPayloadGoesToDeadLetterQueue(t *testing.T) {
 	s := newStack(t, nil)
 
 	body := []byte("{definitely not json")
-	s.publish(t, rabbitmq.ExchangeUser, domain.UserRegisteredEventKey, body)
+	s.publish(t, rabbitmq.ExchangeUser, events.UserRegisteredEventKey, body)
 
 	dead := s.waitForDeadLetter(t)
 	assert.Equal(t, body, dead.Body)
@@ -117,8 +118,8 @@ func TestNotificationFlow_SMTPFailureIsRetriedThenDeadLettered(t *testing.T) {
 	errSMTP := errors.New("smtp unavailable")
 	s := newStack(t, failingSender{err: errSMTP})
 
-	event := domain.UserRegisteredEvent{Email: recipient, Code: "111222"}
-	sent := s.publishJSON(t, rabbitmq.ExchangeUser, domain.UserRegisteredEventKey, event)
+	event := events.UserRegisteredEvent{Email: recipient, Code: "111222"}
+	sent := s.publishJSON(t, rabbitmq.ExchangeUser, events.UserRegisteredEventKey, event)
 
 	dead := s.waitForDeadLetter(t)
 	assert.JSONEq(t, string(sent), string(dead.Body))

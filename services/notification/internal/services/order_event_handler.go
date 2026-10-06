@@ -4,7 +4,7 @@ import (
 	"context"
 	json "encoding/json/v2"
 	"fmt"
-	"shop/notification/internal/domain"
+	"shop/shared/events"
 )
 
 type OrderEventHandler struct {
@@ -27,7 +27,7 @@ func (h *OrderEventHandler) HandleOrderConfirmed(
 	ctx context.Context,
 	body []byte,
 ) error {
-	var event domain.OrderConfirmedEvent
+	var event events.OrderConfirmedEvent
 
 	if err := json.Unmarshal(body, &event); err != nil {
 		return fmt.Errorf(
@@ -43,9 +43,9 @@ func (h *OrderEventHandler) HandleOrderConfirmed(
 	}
 
 	return h.dispatcher.dispatch(ctx, &emailMessage{
-		EventType: domain.OrderConfirmedEventKey,
+		EventType: events.OrderConfirmedEventKey,
 		To:        event.Email,
-		Subject:   domain.OrderConfirmedSubject,
+		Subject:   events.OrderConfirmedSubject,
 		Body:      mailBody,
 		Payload:   event,
 	})
@@ -55,7 +55,7 @@ func (h *OrderEventHandler) HandleOrderPaid(
 	ctx context.Context,
 	body []byte,
 ) error {
-	var event domain.OrderPaidEvent
+	var event events.OrderPaidEvent
 
 	if err := json.Unmarshal(body, &event); err != nil {
 		return fmt.Errorf(
@@ -71,9 +71,9 @@ func (h *OrderEventHandler) HandleOrderPaid(
 	}
 
 	return h.dispatcher.dispatch(ctx, &emailMessage{
-		EventType: domain.OrderPaidEventKey,
+		EventType: events.OrderPaidEventKey,
 		To:        event.Email,
-		Subject:   domain.OrderPaidSubject,
+		Subject:   events.OrderPaidSubject,
 		Body:      mailBody,
 		Payload:   event,
 	})
@@ -83,7 +83,7 @@ func (h *OrderEventHandler) HandleOrderCancelled(
 	ctx context.Context,
 	body []byte,
 ) error {
-	var event domain.OrderCancelledPayload
+	var event events.OrderCancelledPayload
 
 	if err := json.Unmarshal(body, &event); err != nil {
 		return fmt.Errorf(
@@ -99,9 +99,9 @@ func (h *OrderEventHandler) HandleOrderCancelled(
 	}
 
 	return h.dispatcher.dispatch(ctx, &emailMessage{
-		EventType: domain.OrderCancelledEventKey,
+		EventType: events.OrderCancelledEventKey,
 		To:        event.Email,
-		Subject:   domain.OrderCancelledSubject,
+		Subject:   events.OrderCancelledSubject,
 		Body:      mailBody,
 		Payload:   event,
 	})

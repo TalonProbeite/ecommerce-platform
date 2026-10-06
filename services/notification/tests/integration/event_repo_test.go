@@ -5,6 +5,7 @@ package integration
 import (
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mailer"
+	"shop/shared/events"
 	"slices"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func TestEventRepo_GetHistory_Filters(t *testing.T) {
 
 	seed := []domain.EventLog{
 		{
-			Type:      domain.UserRegisteredEventKey,
+			Type:      events.UserRegisteredEventKey,
 			Channel:   "email",
 			Recipient: "a@example.com",
 			Status:    mailer.SendStatusSent,
@@ -39,7 +40,7 @@ func TestEventRepo_GetHistory_Filters(t *testing.T) {
 			CreatedAt: base.Add(-2 * time.Hour),
 		},
 		{
-			Type:      domain.OrderPaidEventKey,
+			Type:      events.OrderPaidEventKey,
 			Channel:   "email",
 			Recipient: "b@example.com",
 			Status:    mailer.SendStatusFailed,
@@ -48,7 +49,7 @@ func TestEventRepo_GetHistory_Filters(t *testing.T) {
 			CreatedAt: base.Add(-time.Hour),
 		},
 		{
-			Type:      domain.OrderPaidEventKey,
+			Type:      events.OrderPaidEventKey,
 			Channel:   "sms",
 			Recipient: "c@example.com",
 			Status:    mailer.SendStatusSent,
@@ -99,7 +100,7 @@ func TestEventRepo_GetByID(t *testing.T) {
 	repo := newRepo(t)
 
 	require.NoError(t, repo.SaveEvent(t.Context(), domain.EventLog{
-		Type:      domain.OrderPaidEventKey,
+		Type:      events.OrderPaidEventKey,
 		Channel:   "email",
 		Recipient: "x@example.com",
 		Status:    mailer.SendStatusSent,
@@ -115,7 +116,7 @@ func TestEventRepo_GetByID(t *testing.T) {
 		got, err := repo.GetByID(t.Context(), saved[0].ID.Hex())
 
 		require.NoError(t, err)
-		assert.Equal(t, domain.OrderPaidEventKey, got.Type)
+		assert.Equal(t, events.OrderPaidEventKey, got.Type)
 		assert.Equal(t, "x@example.com", got.Recipient)
 		assert.Equal(t, mailer.SendStatusSent, got.Status)
 		assert.Equal(t, 2, got.Attempts)
@@ -143,7 +144,7 @@ func TestEventRepo_GetHistory_Pagination(t *testing.T) {
 	totalEvents := 550
 	for i := 0; i < totalEvents; i++ {
 		require.NoError(t, repo.SaveEvent(t.Context(), domain.EventLog{
-			Type:      domain.UserRegisteredEventKey,
+			Type:      events.UserRegisteredEventKey,
 			Channel:   "email",
 			Recipient: "page@example.com",
 			Status:    mailer.SendStatusSent,

@@ -62,8 +62,8 @@ services:
 
   auth-app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: auth/Dockerfile
     container_name: auth-app
     restart: unless-stopped
     env_file:

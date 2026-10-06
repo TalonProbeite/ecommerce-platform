@@ -8,7 +8,7 @@ import (
 	"shop/notification/internal/config"
 	"shop/notification/internal/infra/validator"
 	"shop/notification/internal/transport/http/handlers"
-	"shop/notification/internal/transport/http/middleware"
+	"shop/shared/middleware"
 
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
