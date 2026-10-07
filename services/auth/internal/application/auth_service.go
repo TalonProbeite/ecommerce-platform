@@ -8,6 +8,8 @@ import (
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
+	"shop/shared/events"
+	"shop/shared/roles"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,7 +48,7 @@ func (as *AuthService) Registration(
 	userID, err := as.userRepo.Create(ctx, &domain.User{
 		Email:           userData.Email,
 		Password:        hashPassword,
-		Role:            domain.RoleCustomer,
+		Role:            roles.RoleCustomer,
 		IsActive:        true,
 		IsEmailVerified: false,
 		FirstName:       userData.FirstName,
@@ -79,7 +81,7 @@ func (as *AuthService) Registration(
 		)
 	}
 
-	payload, err := json.Marshal(domain.UserRegisteredEvent{
+	payload, err := json.Marshal(events.UserRegisteredEvent{
 		Email: userData.Email,
 		Code:  code,
 	})
@@ -90,7 +92,7 @@ func (as *AuthService) Registration(
 		)
 	}
 
-	err = as.publisher.PublishEvent(domain.UserRegistredEventKey, payload)
+	err = as.publisher.PublishEvent(events.UserRegisteredEventKey, payload)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf(
 			"error while publishing event: %w",
@@ -103,7 +105,7 @@ func (as *AuthService) Registration(
 	tokens, err := as.CreateSession(
 		ctx,
 		userIDString,
-		domain.RoleCustomer,
+		roles.RoleCustomer,
 	)
 	if err != nil {
 		return domain.TokenPair{}, err
@@ -210,7 +212,7 @@ func (as *AuthService) VerifyEmail(
 		)
 	}
 
-	payload, err := json.Marshal(domain.UserEmailVerifiedEvent{
+	payload, err := json.Marshal(events.UserEmailVerifiedEvent{
 		Email: email,
 		Name:  name,
 	})
@@ -222,7 +224,7 @@ func (as *AuthService) VerifyEmail(
 	}
 
 	err = as.publisher.PublishEvent(
-		domain.UserEmailVerifiedEventKey,
+		events.UserEmailVerifiedEventKey,
 		payload,
 	)
 	if err != nil {
@@ -528,7 +530,7 @@ func (as *AuthService) CompleteOAuthRegistration(
 	return as.CreateSession(
 		ctx,
 		userID.String(),
-		domain.RoleCustomer,
+		roles.RoleCustomer,
 	)
 }
 
@@ -567,7 +569,7 @@ func (as *AuthService) ResendVerCode(
 		)
 	}
 
-	payload, err := json.Marshal(domain.UserRegisteredEvent{
+	payload, err := json.Marshal(events.UserRegisteredEvent{
 		Email: email,
 		Code:  code,
 	})
@@ -579,7 +581,7 @@ func (as *AuthService) ResendVerCode(
 	}
 
 	err = as.publisher.PublishEvent(
-		domain.UserRegistredEventKey,
+		events.UserRegisteredEventKey,
 		payload,
 	)
 	if err != nil {

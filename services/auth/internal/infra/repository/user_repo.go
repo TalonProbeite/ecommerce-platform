@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"shop/auth/internal/domain"
+	"shop/shared/roles"
 	"strings"
 
 	"github.com/google/uuid"
@@ -39,7 +40,7 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 
 func (r *UserRepo) Create(ctx context.Context, u *domain.User) (userID uuid.UUID, err error) {
 	if u.Role == "" {
-		u.Role = domain.RoleCustomer
+		u.Role = roles.RoleCustomer
 	}
 
 	userID = uuid.Must(uuid.NewV7())
@@ -151,7 +152,7 @@ func (r *UserRepo) GetByID(ctx context.Context, userID string) (*domain.User, er
 
 func (r *UserRepo) CreateWithOauth(ctx context.Context, u *domain.User) (userID uuid.UUID, err error) {
 	if u.Role == "" {
-		u.Role = domain.RoleCustomer
+		u.Role = roles.RoleCustomer
 	}
 
 	userID = uuid.Must(uuid.NewV7())
@@ -482,7 +483,7 @@ func (r *UserRepo) GetPassByUserID(ctx context.Context, userID string) (string, 
 	return pass, nil
 }
 
-func (r *UserRepo) UpdateRole(ctx context.Context, userID string, role domain.Role) error {
+func (r *UserRepo) UpdateRole(ctx context.Context, userID string, role roles.Role) error {
 	const query = `UPDATE users SET role = $1 WHERE id = $2`
 
 	result, err := r.pg.ExecContext(ctx, query, role, userID)

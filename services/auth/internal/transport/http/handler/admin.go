@@ -7,6 +7,7 @@ import (
 	"shop/auth/internal/application"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/transport/http/dto"
+	"shop/shared/roles"
 
 	"github.com/labstack/echo/v4"
 )
@@ -43,7 +44,7 @@ func (ah *AdminHandler) UpdateRole(c echo.Context, adminID string) error {
 		c.Request().Context(),
 		targetUserID,
 		adminID,
-		domain.Role(req.Role),
+		roles.Role(req.Role),
 	); err != nil {
 		switch {
 		case errors.Is(err, domain.ErrUserNotFound):

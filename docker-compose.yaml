@@ -2,6 +2,7 @@ name: shop-global
 
 include:
   - services/auth/docker-compose.prod.yaml
+  - services/notification/docker-compose.prod.yaml
 
 services:
   global-nginx:

@@ -7,6 +7,7 @@ import (
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
+	"shop/shared/events"
 	"time"
 )
 
@@ -91,7 +92,7 @@ func (ps *ProfileService) PatchUserProfile(
 			return fmt.Errorf("error saving verification code: %w", err)
 		}
 
-		payload, err := json.Marshal(domain.UserRegisteredEvent{
+		payload, err := json.Marshal(events.UserRegisteredEvent{
 			Email: email,
 			Code:  code,
 		})
@@ -99,7 +100,7 @@ func (ps *ProfileService) PatchUserProfile(
 			return fmt.Errorf("error while creating json struct for event: %w", err)
 		}
 
-		err = ps.publisher.PublishEvent(domain.UserRegistredEventKey, payload)
+		err = ps.publisher.PublishEvent(events.UserRegisteredEventKey, payload)
 		if err != nil {
 			return fmt.Errorf("error while publishing event: %w", err)
 		}

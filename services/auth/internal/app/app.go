@@ -8,17 +8,18 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
+
 	"shop/auth/internal/application"
 	"shop/auth/internal/config"
-	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/infra/db"
-	"shop/auth/internal/infra/logger"
 	"shop/auth/internal/infra/oauth"
 	"shop/auth/internal/infra/rabbitmq"
 	"shop/auth/internal/infra/repository"
 	"shop/auth/internal/transport/http/handler"
-	"shop/auth/internal/transport/http/middleware"
-	"syscall"
+	"shop/shared/jwt"
+	"shop/shared/logger"
+	"shop/shared/middleware"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -72,7 +73,7 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to connect to rabbitmq: %w", err)
 	}
 
-	tokenManager := crypto.NewJWTManager(cfg.RSAPrivateKey())
+	tokenManager := jwt.NewJWTManager(cfg.RSAPublicKey(), cfg.RSAPrivateKey())
 	sessionRepo := repository.NewSessionRepo(rdb)
 	userRepo := repository.NewUserRepo(pg)
 	oauthClient := oauth.NewGoogleClient(cfg.OAuthStateGoogle())
@@ -103,7 +104,7 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	middlewares := transporthttp.Middlewares{
-		AuthCheck: middleware.AuthCheck(tokenManager, sessionRepo),
+		AuthCheck: middleware.AuthCheck(tokenManager),
 		AdminOnly: middleware.AdminOnly,
 	}
 
