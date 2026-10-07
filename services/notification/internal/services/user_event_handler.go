@@ -4,7 +4,7 @@ import (
 	"context"
 	json "encoding/json/v2"
 	"fmt"
-	"shop/notification/internal/domain"
+	"shop/shared/events"
 )
 
 const verificationCodeTTLMinutes = 15
@@ -29,7 +29,7 @@ func (h *UserEventHandler) HandleUserRegistered(
 	ctx context.Context,
 	body []byte,
 ) error {
-	var event domain.UserRegisteredEvent
+	var event events.UserRegisteredEvent
 
 	if err := json.Unmarshal(body, &event); err != nil {
 		return fmt.Errorf(
@@ -47,9 +47,9 @@ func (h *UserEventHandler) HandleUserRegistered(
 	event.Code = ""
 
 	return h.dispatcher.dispatch(ctx, &emailMessage{
-		EventType: domain.UserRegisteredEventKey,
+		EventType: events.UserRegisteredEventKey,
 		To:        event.Email,
-		Subject:   domain.UserRegisteredSubject,
+		Subject:   events.UserRegisteredSubject,
 		Body:      mailBody,
 		Payload:   event,
 	})
@@ -59,7 +59,7 @@ func (h *UserEventHandler) HandleEmailVerified(
 	ctx context.Context,
 	body []byte,
 ) error {
-	var event domain.UserEmailVerifiedEvent
+	var event events.UserEmailVerifiedEvent
 
 	if err := json.Unmarshal(body, &event); err != nil {
 		return fmt.Errorf(
@@ -75,9 +75,9 @@ func (h *UserEventHandler) HandleEmailVerified(
 	}
 
 	return h.dispatcher.dispatch(ctx, &emailMessage{
-		EventType: domain.UserEmailVerifiedEventKey,
+		EventType: events.UserEmailVerifiedEventKey,
 		To:        event.Email,
-		Subject:   domain.UserEmailVerifiedSubject,
+		Subject:   events.UserEmailVerifiedSubject,
 		Body:      mailBody,
 		Payload:   event,
 	})

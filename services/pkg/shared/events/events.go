@@ -1,4 +1,4 @@
-package domain
+package events
 
 const (
 	UserRegisteredEventKey    = "user.registered"
@@ -37,4 +37,23 @@ type OrderCancelledPayload struct {
 	OrderID string `json:"order_id"`
 	Email   string `json:"email"`
 	Reason  string `json:"reason"`
+}
+
+const (
+	RoutingKeyUserRoleChanged = "user.role_changed"
+	RoutingKeyUserBanned      = "user.banned"
+)
+
+type UserRoleChangedEvent struct {
+	UserID    string `json:"user_id"`
+	AdminID   string `json:"admin_id"`
+	NewRole   string `json:"new_role"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+type UserBannedEvent struct {
+	UserID    string `json:"user_id"`
+	AdminID   string `json:"admin_id"`
+	IsBanned  bool   `json:"is_banned"`
+	Timestamp int64  `json:"timestamp"`
 }

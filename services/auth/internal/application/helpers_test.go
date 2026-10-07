@@ -12,6 +12,7 @@ import (
 
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
+	"shop/shared/roles"
 
 	"github.com/google/uuid"
 )
@@ -64,7 +65,7 @@ type publishedEvent struct {
 
 type tokenRequest struct {
 	userID string
-	role   []domain.Role
+	role   []roles.Role
 }
 
 // sessionWrite captures CreateSession / UpdateSessionTokens arguments.
@@ -122,7 +123,7 @@ func newFixture(t *testing.T) *fixture {
 			ID:       testUserID,
 			Email:    testEmail,
 			Password: testPasswordHash(t),
-			Role:     domain.RoleCustomer,
+			Role:     roles.RoleCustomer,
 			IsActive: true,
 		},
 		userActive: true,
@@ -290,12 +291,29 @@ func newFixture(t *testing.T) *fixture {
 	}
 
 	tokens := &MockTokenManager{
-		GenerateTokenFunc: func(userID string, role ...domain.Role) (string, error) {
-			f.tokenReqs = append(f.tokenReqs, tokenRequest{userID: userID, role: role})
+		GenerateTokenFunc: func(userID string, role ...roles.Role) (string, error) {
+			f.tokenReqs = append(
+				f.tokenReqs,
+				tokenRequest{userID: userID, role: role},
+			)
+
 			if err := f.hit("tokens.GenerateToken"); err != nil {
 				return "", err
 			}
+
 			return testAccessToken, nil
+		},
+
+		VerifyTokenFunc: func(token string) (string, roles.Role, error) {
+			if err := f.hit("tokens.VerifyToken"); err != nil {
+				return "", "", err
+			}
+
+			if token != testAccessToken {
+				return "", "", errors.New("invalid access token")
+			}
+
+			return testUserID, roles.RoleCustomer, nil
 		},
 	}
 
@@ -396,7 +414,7 @@ func assertNotCalled(t *testing.T, f *fixture, names ...string) {
 
 // assertTokenPair checks the returned pair against what was really stored
 // through CreateSession and what was requested from the token manager.
-func assertTokenPair(t *testing.T, f *fixture, got domain.TokenPair, userID string, role domain.Role) {
+func assertTokenPair(t *testing.T, f *fixture, got domain.TokenPair, userID string, role roles.Role) {
 	t.Helper()
 
 	if got.AccessToken != testAccessToken {
@@ -427,7 +445,7 @@ func assertTokenPair(t *testing.T, f *fixture, got domain.TokenPair, userID stri
 	assertLastTokenRequest(t, f, userID, role)
 }
 
-func assertLastTokenRequest(t *testing.T, f *fixture, userID string, role domain.Role) {
+func assertLastTokenRequest(t *testing.T, f *fixture, userID string, role roles.Role) {
 	t.Helper()
 	if len(f.tokenReqs) == 0 {
 		t.Fatal("token manager was not called")

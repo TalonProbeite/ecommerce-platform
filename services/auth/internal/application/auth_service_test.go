@@ -6,6 +6,8 @@ import (
 
 	"shop/auth/internal/domain"
 	"shop/auth/internal/transport/http/dto"
+	"shop/shared/events"
+	"shop/shared/roles"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -76,14 +78,14 @@ func TestAuthService_Registration(t *testing.T) {
 				return
 			}
 
-			assertTokenPair(t, f, tokens, testUserID, domain.RoleCustomer)
+			assertTokenPair(t, f, tokens, testUserID, roles.RoleCustomer)
 
 			u := f.createdUser
 			if u.Email != req.Email || u.FirstName != req.FirstName ||
 				u.LastName != req.LastName || u.Phone != req.Phone {
 				t.Errorf("unexpected created user: %+v", u)
 			}
-			if u.Role != domain.RoleCustomer || !u.IsActive || u.IsEmailVerified {
+			if u.Role != roles.RoleCustomer || !u.IsActive || u.IsEmailVerified {
 				t.Errorf("wrong defaults: role=%s active=%t verified=%t", u.Role, u.IsActive, u.IsEmailVerified)
 			}
 			if u.Password == "" || u.Password == req.Password {
@@ -95,7 +97,7 @@ func TestAuthService_Registration(t *testing.T) {
 				t.Errorf("verification entry = %+v (found=%t), want non-empty code with ttl %s", ver, ok, verificationCodeTTL)
 			}
 
-			ev := decode[domain.UserRegisteredEvent](t, f.eventPayload(t, domain.UserRegisteredEventKey))
+			ev := decode[events.UserRegisteredEvent](t, f.eventPayload(t, events.UserRegisteredEventKey))
 			if ev.Email != req.Email || ev.Code != ver.value {
 				t.Errorf("event %+v does not match email/saved code %q", ev, ver.value)
 			}
@@ -114,7 +116,7 @@ func TestAuthService_Login(t *testing.T) {
 		{
 			name:     "success",
 			password: testPassword,
-			setup:    func(f *fixture) { f.user.Role = domain.RoleAdmin }, // role must reach the token
+			setup:    func(f *fixture) { f.user.Role = roles.RoleAdmin }, // role must reach the token
 		},
 		{
 			name:     "repository error",
@@ -174,7 +176,7 @@ func TestAuthService_Login(t *testing.T) {
 				return
 			}
 
-			assertTokenPair(t, f, tokens, testUserID, domain.RoleAdmin)
+			assertTokenPair(t, f, tokens, testUserID, roles.RoleAdmin)
 		})
 	}
 }
@@ -235,7 +237,7 @@ func TestAuthService_VerifyEmail(t *testing.T) {
 			if !slices.Contains(f.deleted, verKey) {
 				t.Errorf("verification code %q must be deleted; deleted: %v", verKey, f.deleted)
 			}
-			ev := decode[domain.UserEmailVerifiedEvent](t, f.eventPayload(t, domain.UserEmailVerifiedEventKey))
+			ev := decode[events.UserEmailVerifiedEvent](t, f.eventPayload(t, events.UserEmailVerifiedEventKey))
 			if ev.Email != testEmail || ev.Name != "John" {
 				t.Errorf("unexpected event: %+v", ev)
 			}
@@ -252,7 +254,7 @@ func TestAuthService_Refresh(t *testing.T) {
 	}{
 		{
 			name:  "success",
-			setup: func(f *fixture) { f.user.Role = domain.RoleAdmin }, // role comes from the user, not the session
+			setup: func(f *fixture) { f.user.Role = roles.RoleAdmin }, // role comes from the user, not the session
 		},
 		{
 			name:      "session not found",
@@ -324,7 +326,7 @@ func TestAuthService_Refresh(t *testing.T) {
 			if u.accessTTL != accessTokenTTL || u.refreshTTL != refreshTokenTTL {
 				t.Errorf("TTLs = %s/%s, want %s/%s", u.accessTTL, u.refreshTTL, accessTokenTTL, refreshTokenTTL)
 			}
-			assertLastTokenRequest(t, f, testUserID, domain.RoleAdmin)
+			assertLastTokenRequest(t, f, testUserID, roles.RoleAdmin)
 		})
 	}
 }
@@ -466,7 +468,7 @@ func TestAuthService_GoogleCallback(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture(t)
 			f.store[stateKey] = ""
-			f.user.Role = domain.RoleAnalyst
+			f.user.Role = roles.RoleAnalyst
 			tt.arm(f)
 			if tt.setup != nil {
 				tt.setup(f)
@@ -489,7 +491,7 @@ func TestAuthService_GoogleCallback(t *testing.T) {
 				if res.Tokens == nil || res.RegistrationKey != "" {
 					t.Fatalf("expected tokens only, got %+v", res)
 				}
-				assertTokenPair(t, f, *res.Tokens, testUserID, domain.RoleAnalyst)
+				assertTokenPair(t, f, *res.Tokens, testUserID, roles.RoleAnalyst)
 				return
 			}
 
@@ -594,7 +596,7 @@ func TestAuthService_CompleteOAuthRegistration(t *testing.T) {
 			if !slices.Contains(f.deleted, pendingKey) {
 				t.Errorf("pending profile must be deleted; deleted: %v", f.deleted)
 			}
-			assertTokenPair(t, f, tokens, testUserID, domain.RoleCustomer)
+			assertTokenPair(t, f, tokens, testUserID, roles.RoleCustomer)
 		})
 	}
 }
@@ -639,7 +641,7 @@ func TestAuthService_ResendVerCode(t *testing.T) {
 			if !ok || ver.value == "" || ver.ttl != verificationCodeTTL {
 				t.Fatalf("verification entry = %+v (found=%t), want non-empty code with ttl %s", ver, ok, verificationCodeTTL)
 			}
-			ev := decode[domain.UserRegisteredEvent](t, f.eventPayload(t, domain.UserRegisteredEventKey))
+			ev := decode[events.UserRegisteredEvent](t, f.eventPayload(t, events.UserRegisteredEventKey))
 			if ev.Email != testEmail || ev.Code != ver.value {
 				t.Errorf("event %+v does not match email/saved code %q", ev, ver.value)
 			}

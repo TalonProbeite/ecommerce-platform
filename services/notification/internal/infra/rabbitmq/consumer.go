@@ -2,7 +2,7 @@ package rabbitmq
 
 import (
 	"fmt"
-	"shop/notification/internal/domain"
+	"shop/shared/events"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -48,17 +48,17 @@ var queues = []queueSpec{
 		Name:     QueueUserNotifications,
 		Exchange: ExchangeUser,
 		Keys: []string{
-			domain.UserRegisteredEventKey,
-			domain.UserEmailVerifiedEventKey,
+			events.UserRegisteredEventKey,
+			events.UserEmailVerifiedEventKey,
 		},
 	},
 	{
 		Name:     QueueOrderProcessing,
 		Exchange: ExchangeOrder,
 		Keys: []string{
-			domain.OrderPaidEventKey,
-			domain.OrderConfirmedEventKey,
-			domain.OrderCancelledEventKey,
+			events.OrderPaidEventKey,
+			events.OrderConfirmedEventKey,
+			events.OrderCancelledEventKey,
 		},
 	},
 }

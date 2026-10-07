@@ -20,6 +20,7 @@ import (
 	"shop/notification/internal/infra/repository"
 	"shop/notification/internal/infra/template"
 	"shop/notification/internal/services"
+	"shop/shared/events"
 	"strings"
 	"testing"
 	"time"
@@ -65,11 +66,11 @@ func newStack(t *testing.T, sender services.MailSender) *stack {
 	orderHandler := services.NewOrderEventHandler(renderer, sender, repo)
 
 	handlers := map[string]services.HandlerFunc{
-		domain.UserRegisteredEventKey:    userHandler.HandleUserRegistered,
-		domain.UserEmailVerifiedEventKey: userHandler.HandleEmailVerified,
-		domain.OrderConfirmedEventKey:    orderHandler.HandleOrderConfirmed,
-		domain.OrderPaidEventKey:         orderHandler.HandleOrderPaid,
-		domain.OrderCancelledEventKey:    orderHandler.HandleOrderCancelled,
+		events.UserRegisteredEventKey:    userHandler.HandleUserRegistered,
+		events.UserEmailVerifiedEventKey: userHandler.HandleEmailVerified,
+		events.OrderConfirmedEventKey:    orderHandler.HandleOrderConfirmed,
+		events.OrderPaidEventKey:         orderHandler.HandleOrderPaid,
+		events.OrderCancelledEventKey:    orderHandler.HandleOrderCancelled,
 	}
 
 	router := services.NewEventRouter(consumer.ConsumerList, handlers, newLogger())

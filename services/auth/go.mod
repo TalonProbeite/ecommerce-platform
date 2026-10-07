@@ -1,24 +1,6 @@
 module shop/auth
 
-go 1.27
-
-require (
-	github.com/coreos/go-oidc/v3 v3.21.0
-	github.com/go-playground/validator/v10 v10.30.3
-	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/golang-migrate/migrate/v4 v4.19.1
-	github.com/google/uuid v1.6.0
-	github.com/ilyakaznacheev/cleanenv v1.5.0
-	github.com/jackc/pgx/v5 v5.10.0
-	github.com/jmoiron/sqlx v1.4.0
-	github.com/labstack/echo/v4 v4.15.4
-	github.com/lib/pq v1.10.9
-	github.com/rabbitmq/amqp091-go v1.14.0
-	github.com/redis/go-redis/v9 v9.22.0
-	golang.org/x/crypto v0.53.0
-	golang.org/x/oauth2 v0.37.0
-	golang.org/x/sync v0.21.0
-)
+go 1.27.0
 
 require (
 	cloud.google.com/go/compute/metadata v0.8.0 // indirect
@@ -43,8 +25,29 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3 // indirect
 )
+
+require (
+	github.com/coreos/go-oidc/v3 v3.21.0
+	github.com/go-playground/validator/v10 v10.30.3
+	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/golang-migrate/migrate/v4 v4.19.1
+	github.com/google/uuid v1.6.0
+	github.com/ilyakaznacheev/cleanenv v1.5.0
+	github.com/jackc/pgx/v5 v5.10.0
+	github.com/jmoiron/sqlx v1.4.0
+	github.com/labstack/echo/v4 v4.16.0
+	github.com/lib/pq v1.10.9
+	github.com/rabbitmq/amqp091-go v1.14.0
+	github.com/redis/go-redis/v9 v9.22.0
+	golang.org/x/crypto v0.53.0
+	golang.org/x/oauth2 v0.37.0
+	golang.org/x/sync v0.22.0
+	shop/shared v0.0.0
+)
+
+replace shop/shared => ../pkg/shared

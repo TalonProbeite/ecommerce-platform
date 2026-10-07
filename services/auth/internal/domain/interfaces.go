@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"shop/shared/roles"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,7 +28,7 @@ type ProfileUserRepository interface {
 
 type AdminUserRepository interface {
 	GetByID(ctx context.Context, userID string) (*User, error)
-	UpdateRole(ctx context.Context, userID string, role Role) error
+	UpdateRole(ctx context.Context, userID string, role roles.Role) error
 	UpdateBanStatus(ctx context.Context, userID string, isActive bool) error
 }
 
@@ -73,9 +74,15 @@ type EventPublisher interface {
 }
 
 type TokenManager interface {
-	GenerateToken(userID string, role ...Role) (string, error)
-}
+	GenerateToken(
+		userID string,
+		role ...roles.Role,
+	) (string, error)
 
+	VerifyToken(
+		tokenString string,
+	) (string, roles.Role, error)
+}
 type GoogleClient interface {
 	AuthURL(state string) string
 	GetProfile(ctx context.Context, code string) (*OAuthProfile, error)

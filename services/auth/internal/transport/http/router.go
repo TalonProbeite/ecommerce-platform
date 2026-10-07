@@ -7,7 +7,7 @@ import (
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/validator"
 	"shop/auth/internal/transport/http/handler"
-	"shop/auth/internal/transport/http/middleware"
+	"shop/shared/middleware"
 
 	json "encoding/json/v2"
 

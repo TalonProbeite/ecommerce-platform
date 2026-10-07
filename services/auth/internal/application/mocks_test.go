@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"shop/auth/internal/domain"
+	"shop/shared/roles"
 
 	"github.com/google/uuid"
 )
@@ -191,14 +192,29 @@ func (m *MockPublisher) PublishEvent(eventKey string, payload []byte) error {
 }
 
 type MockTokenManager struct {
-	GenerateTokenFunc func(string, ...domain.Role) (string, error)
+	GenerateTokenFunc func(string, ...roles.Role) (string, error)
+	VerifyTokenFunc   func(string) (string, roles.Role, error)
 }
 
-func (m *MockTokenManager) GenerateToken(userID string, role ...domain.Role) (string, error) {
+func (m *MockTokenManager) GenerateToken(
+	userID string,
+	role ...roles.Role,
+) (string, error) {
 	if m.GenerateTokenFunc == nil {
 		unset("GenerateTokenFunc")
 	}
+
 	return m.GenerateTokenFunc(userID, role...)
+}
+
+func (m *MockTokenManager) VerifyToken(
+	token string,
+) (string, roles.Role, error) {
+	if m.VerifyTokenFunc == nil {
+		unset("VerifyTokenFunc")
+	}
+
+	return m.VerifyTokenFunc(token)
 }
 
 type MockGoogleClient struct {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"shop/auth/internal/domain"
+	"shop/shared/events"
+	"shop/shared/roles"
 	"time"
 )
 
@@ -26,7 +28,7 @@ func NewAdminService(
 	}
 }
 
-func (ads *AdminService) UpdateRole(ctx context.Context, userID, adminID string, newRole domain.Role) error {
+func (ads *AdminService) UpdateRole(ctx context.Context, userID, adminID string, newRole roles.Role) error {
 	err := ads.userRepo.UpdateRole(ctx, userID, newRole)
 	if err != nil {
 		return fmt.Errorf("error updating role: %w", err)
@@ -37,7 +39,7 @@ func (ads *AdminService) UpdateRole(ctx context.Context, userID, adminID string,
 		return fmt.Errorf("error occurred while revoking all auth sessions: %w", err)
 	}
 
-	payload, err := json.Marshal(domain.UserRoleChangedEvent{
+	payload, err := json.Marshal(events.UserRoleChangedEvent{
 		UserID:    userID,
 		AdminID:   adminID,
 		NewRole:   string(newRole),
@@ -47,7 +49,7 @@ func (ads *AdminService) UpdateRole(ctx context.Context, userID, adminID string,
 		return fmt.Errorf("error while creating json struct for event: %w", err)
 	}
 
-	err = ads.publisher.PublishEvent(domain.RoutingKeyUserRoleChanged, payload)
+	err = ads.publisher.PublishEvent(events.RoutingKeyUserRoleChanged, payload)
 	if err != nil {
 		return fmt.Errorf("error while publishing event: %w", err)
 	}
@@ -68,7 +70,7 @@ func (ads *AdminService) BanUser(ctx context.Context, userID, adminID string, is
 		}
 	}
 
-	payload, err := json.Marshal(domain.UserBannedEvent{
+	payload, err := json.Marshal(events.UserBannedEvent{
 		UserID:    userID,
 		AdminID:   adminID,
 		IsBanned:  isBanned,
@@ -78,7 +80,7 @@ func (ads *AdminService) BanUser(ctx context.Context, userID, adminID string, is
 		return fmt.Errorf("error while creating json struct for event: %w", err)
 	}
 
-	err = ads.publisher.PublishEvent(domain.RoutingKeyUserBanned, payload)
+	err = ads.publisher.PublishEvent(events.RoutingKeyUserBanned, payload)
 	if err != nil {
 		return fmt.Errorf("error while publishing event: %w", err)
 	}

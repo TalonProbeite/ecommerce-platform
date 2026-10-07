@@ -23,8 +23,8 @@ services:
   notification-app:
     image: shop-notification-app:latest
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: notification/Dockerfile
     container_name: notification-app-prod
     restart: always
     env_file:
@@ -76,7 +76,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
-    
+
   mailhog:
     image: mailhog/mailhog:v1.0.1
     container_name: notification-mailhog

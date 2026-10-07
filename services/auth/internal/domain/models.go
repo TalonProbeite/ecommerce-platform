@@ -1,17 +1,19 @@
 package domain
 
+import "shop/shared/roles"
+
 type User struct {
-	ID              string   `db:"id"`
-	Email           string   `db:"email"`
-	Password        string   `db:"password_hash"`
-	Role            Role     `db:"role"`
-	FirstName       string   `db:"first_name"`
-	LastName        string   `db:"last_name"`
-	Phone           string   `db:"phone"`
-	Provider        Provider `db:"provider"`
-	ProviderUserID  string   `db:"provider_user_id"`
-	IsActive        bool     `db:"is_active"`
-	IsEmailVerified bool     `db:"is_email_verified"`
+	ID              string     `db:"id"`
+	Email           string     `db:"email"`
+	Password        string     `db:"password_hash"`
+	Role            roles.Role `db:"role"`
+	FirstName       string     `db:"first_name"`
+	LastName        string     `db:"last_name"`
+	Phone           string     `db:"phone"`
+	Provider        Provider   `db:"provider"`
+	ProviderUserID  string     `db:"provider_user_id"`
+	IsActive        bool       `db:"is_active"`
+	IsEmailVerified bool       `db:"is_email_verified"`
 }
 type TokenPair struct {
 	AccessToken  string
