@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
+	"time"
+
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
 	"shop/shared/events"
-	"time"
 )
 
 type ProfileService struct {
@@ -41,10 +42,12 @@ func (ps *ProfileService) GetUserProfile(ctx context.Context, userID string) (do
 	}
 
 	return domain.UserProfile{
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		Phone:     user.Phone,
+		Email:      user.Email,
+		FirstName:  user.FirstName,
+		LastName:   user.LastName,
+		Phone:      user.Phone,
+		Role:       user.Role,
+		IsVerified: user.IsEmailVerified,
 	}, nil
 }
 
