@@ -132,3 +132,14 @@ Browser tools were available in this session. Vite MOCK served port 3000; REAL s
 The full REAL integration is **not complete**. Confirmed transport and defensive state/UI improvements are reviewable; the missing contracts above prevent honest end-to-end completion. No backend changes, commits, new dependencies or publishing occurred.
 
 Temporary MOCK/REAL dev servers were stopped. Generated builds and browser evidence were moved to `/tmp/rentify-validated-real-build-20261009` and `/tmp/rentify-browser-evidence-20261009`; the originally tracked `dist/` was restored without changing source edits. Test/build logs are in `/tmp/rentify-suite-full.log`, `/tmp/rentify-typecheck.log` and `/tmp/rentify-build-{mock,real}.log`.
+
+
+## Profile and account navigation update — 2026-10-12
+
+The backend `UserProfile` now returns `email`, `first_name`, `last_name`, `phone`, `role` and `is_verified`. The frontend maps the last two fields to `User.role` and `User.emailVerified`, validates supplied values, and leaves undocumented ID/OAuth/ban fields unset. Earlier missing-role/verification limitations in this report are superseded by this update.
+
+The profile shows role badges only for admins and analysts, displays email verification status, and links unverified accounts to `/verify-email`. The account menu uses the required Base UI menu group, includes a profile entry for every role, and replaces the separate profile navigation tab. Staff returning from login can also reach their profile.
+
+Profile rental cards are available without a backend user ID. REAL profiles show explicitly labelled demo orders; no orders endpoint is called and the existing live orders page remains unavailable. Seed orders now live in `src/data/orders.ts` and are shared with the mock orders store.
+
+Verification: profile contract regression tests, TypeScript check, production build, and browser checks of account menu navigation, customer/admin badges, verified/unverified email states, demo orders and a 390px mobile viewport. Browser checks used injected account state; live cookie issuance and email delivery were not exercised. Backend files were not modified.

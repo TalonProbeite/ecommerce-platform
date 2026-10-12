@@ -1,4 +1,4 @@
-import { LogOut, Menu, Package, Search, ShoppingBag } from 'lucide-react'
+import { LogOut, Menu, Package, Search, ShoppingBag, UserRound, ChevronDown } from 'lucide-react'
 import { useRef, useState, type FormEvent } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -33,7 +34,7 @@ export function SiteHeader() {
   const logoutPending = useRef(false)
 
   const isCustomer = user?.role === 'customer'
-  const navLinks = user ? (user.role ? NAV_BY_ROLE[user.role] : [{ to: ROUTES.profile, label: 'Profile' }]) : []
+  const navLinks = user ? (user.role ? NAV_BY_ROLE[user.role] : []) : []
 
   function handleSearch(event: FormEvent) {
     event.preventDefault()
@@ -113,18 +114,25 @@ export function SiteHeader() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="flex items-center gap-1 rounded-full border p-1 pr-2 transition-colors hover:bg-accent outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 aria-label="Account menu"
               >
                 <Avatar>
-                  <AvatarFallback className="bg-secondary font-bold text-secondary-foreground">{initials(user)}</AvatarFallback>
+                  <AvatarFallback className="bg-secondary font-bold text-secondary-foreground">{initials(user) || user.email[0]?.toUpperCase()}</AvatarFallback>
                 </Avatar>
+                <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="flex flex-col">
-                  <span className="font-semibold text-foreground">{fullName(user)}</span>
-                  <span className="text-xs font-normal capitalize text-muted-foreground">{user.role}</span>
-                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="flex min-w-0 flex-col gap-1 px-3 py-2">
+                    <span className="font-semibold text-foreground">{fullName(user)}</span>
+                    <span className="truncate text-xs font-normal text-muted-foreground">{user.email}</span>
+                    {user.role === 'admin' || user.role === 'analyst' ? <span className="text-xs capitalize">{user.role}</span> : null}
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem className="rounded-lg px-3 py-2" onClick={() => navigate(ROUTES.profile)}>
+                    <UserRound /> My profile
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 {isCustomer ? (
                   <DropdownMenuItem onClick={() => navigate(ROUTES.orders)}>

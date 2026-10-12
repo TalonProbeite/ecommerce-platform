@@ -13,7 +13,15 @@ export async function loadAccountProfile(): Promise<User> {
   for (const field of ['email', 'first_name', 'last_name', 'phone']) {
     if (typeof profile[field] !== 'string') throw new Error('The server returned an invalid profile response.')
   }
+  if (profile.role !== undefined && !['customer', 'analyst', 'admin'].includes(profile.role as string)) {
+    throw new Error('The server returned an invalid profile response.')
+  }
+  if (profile.is_verified !== undefined && typeof profile.is_verified !== 'boolean') {
+    throw new Error('The server returned an invalid profile response.')
+  }
   return {
+    ...(profile.role === undefined ? {} : { role: profile.role as User['role'] }),
+    ...(profile.is_verified === undefined ? {} : { emailVerified: profile.is_verified as boolean }),
     email: profile.email as string,
     firstName: profile.first_name as string,
     lastName: profile.last_name as string,

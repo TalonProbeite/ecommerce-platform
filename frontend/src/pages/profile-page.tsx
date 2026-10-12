@@ -90,14 +90,14 @@ export function ProfilePage() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
           <p className="text-sm font-medium text-muted-foreground">Account details</p>
           <div className="flex flex-wrap items-center gap-2">
-            {user.role ? <Badge className="rounded-full bg-secondary px-3 capitalize text-secondary-foreground">{user.role}</Badge> : null}
+            {user.role === 'admin' || user.role === 'analyst' ? <Badge className="rounded-full bg-secondary px-3 capitalize text-secondary-foreground">{user.role}</Badge> : null}
             {isVerified ? (
               <Badge className="flex items-center gap-1 rounded-full bg-success/15 px-3 font-medium text-success">
-                <CheckCircle2 className="size-3.5" aria-hidden="true" /> Verified
+                <CheckCircle2 className="size-3.5" aria-hidden="true" /> Email verified
               </Badge>
             ) : user.emailVerified === false ? (
               <Badge variant="outline" className="rounded-full border-amber-500/40 bg-amber-500/10 px-3 font-medium text-amber-600 dark:text-amber-400">
-                Unverified
+                Email unverified
               </Badge>
             ) : null}
             {isOAuth ? (
@@ -162,7 +162,7 @@ export function ProfilePage() {
         </Button>
       </form>
       <PasswordSecurity isOAuth={isOAuth} />
-      {user.id ? <RecentRentals userId={user.id} /> : null}
+      <RecentRentals userId={user.id} showOrdersLink={user.role === 'customer'} />
     </div>
   )
 }

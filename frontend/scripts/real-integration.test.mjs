@@ -59,17 +59,22 @@ test('REAL profile restoration refreshes expired access and preserves exact prof
   } finally { await server.close() }
 })
 
-test('REAL rejects malformed profile responses and does not trust extra privilege fields', async () => {
+test('REAL validates profile roles and verification flags and ignores undocumented fields', async () => {
   const { server, api } = await context()
   try {
     const { loadAccountProfile } = await server.ssrLoadModule('/src/services/auth.ts')
     const profile = { email: user.email, first_name: user.firstName, last_name: '', phone: '' }
-    for (const data of [null, [], {}, { user }, { ...profile, phone: null }, { ...profile, first_name: 123 }]) {
+    for (const data of [null, [], {}, { user }, { ...profile, phone: null }, { ...profile, first_name: 123 }, { ...profile, role: 'root' }, { ...profile, is_verified: 'true' }]) {
       api.defaults.adapter = async config => ({ status: 200, data, headers: {}, config })
       await assert.rejects(loadAccountProfile(), /invalid profile response/)
     }
-    api.defaults.adapter = async config => ({ status: 200, data: { ...profile, role: 'admin', id: 'invented', emailVerified: true }, headers: {}, config })
-    assert.deepEqual(await loadAccountProfile(), { email: user.email, firstName: user.firstName, lastName: '', phone: '' })
+    api.defaults.adapter = async config => ({ status: 200, data: { ...profile, role: 'admin', is_verified: false, id: 'invented', emailVerified: true }, headers: {}, config })
+    assert.deepEqual(await loadAccountProfile(), { email: user.email, firstName: user.firstName, lastName: '', phone: '', role: 'admin', emailVerified: false })
+    for (const role of ['customer', 'analyst', 'admin']) {
+      api.defaults.adapter = async config => ({ status: 200, data: { ...profile, role, is_verified: true }, headers: {}, config })
+      assert.equal((await loadAccountProfile()).role, role)
+      assert.equal((await loadAccountProfile()).emailVerified, true)
+    }
   } finally { await server.close() }
 })
 

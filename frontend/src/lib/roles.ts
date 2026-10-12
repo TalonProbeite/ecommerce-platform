@@ -9,7 +9,6 @@ export interface NavItem {
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   customer: [
     { to: ROUTES.catalog, label: 'Catalog' },
-    { to: ROUTES.profile, label: 'Profile' },
   ],
   analyst: [{ to: ROUTES.notifications, label: 'Notifications' }],
   admin: [
@@ -26,10 +25,10 @@ export function loginDestination(role: Role | undefined, from?: string): string 
   if (!role) return from === ROUTES.profile ? ROUTES.profile : ROUTES.home
   if (!from || !from.startsWith('/') || from.startsWith('//') || from.includes('\\')) return roleHome(role)
   const pathname = from.split(/[?#]/)[0]
-  const allowed = role === 'customer'
+  const allowed = pathname === ROUTES.profile || (role === 'customer'
     ? [ROUTES.catalog, ROUTES.profile, ROUTES.orders, ROUTES.checkout, ROUTES.checkoutCart, ROUTES.checkoutDelivery, `${ROUTES.checkout}/success`].includes(pathname)
       || /^\/equipment\/[^/]+$/.test(pathname)
-    : pathname === ROUTES.notifications || pathname === ROUTES.analytics || (role === 'admin' && pathname === ROUTES.admin)
+    : pathname === ROUTES.notifications || pathname === ROUTES.analytics || (role === 'admin' && pathname === ROUTES.admin))
   return allowed ? from : roleHome(role)
 }
 
