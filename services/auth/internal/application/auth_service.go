@@ -39,10 +39,10 @@ func NewAuthService(
 func (as *AuthService) Registration(
 	ctx context.Context,
 	userData *dto.RegisterRequest,
-) (domain.TokenPair, error) {
+) (domain.TokenPair, domain.UserProfile, error) {
 	hashPassword, err := crypto.HashPassword(userData.Password)
 	if err != nil {
-		return domain.TokenPair{}, fmt.Errorf("error while hashing password: %w", err)
+		return domain.TokenPair{}, domain.UserProfile{}, fmt.Errorf("error while hashing password: %w", err)
 	}
 
 	userID, err := as.userRepo.Create(ctx, &domain.User{
@@ -58,43 +58,35 @@ func (as *AuthService) Registration(
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return domain.TokenPair{}, fmt.Errorf(
+			return domain.TokenPair{}, domain.UserProfile{}, fmt.Errorf(
 				"registration failed: %w",
 				domain.ErrEmailAlreadyExists,
 			)
 		}
-		return domain.TokenPair{}, fmt.Errorf(
+		return domain.TokenPair{}, domain.UserProfile{}, fmt.Errorf(
 			"error while trying to save user: %w",
 			err,
 		)
 	}
 
 	if userID == uuid.Nil {
-		return domain.TokenPair{}, fmt.Errorf("user repository returned empty user id")
+		return domain.TokenPair{}, domain.UserProfile{}, fmt.Errorf("user repository returned empty user id")
 	}
 
-	code, err := crypto.GenerateCode(10)
-	if err != nil {
-		return domain.TokenPair{}, fmt.Errorf(
-			"error generating confirmation code: %w",
-			err,
-		)
-	}
-
-	payload, err := json.Marshal(events.UserRegisteredEvent{
+	payload, err := json.Marshal(events.WelcomeEmailRequestedEvent{
 		Email: userData.Email,
-		Code:  code,
+		Name:  userData.FirstName,
 	})
 	if err != nil {
-		return domain.TokenPair{}, fmt.Errorf(
+		return domain.TokenPair{}, domain.UserProfile{}, fmt.Errorf(
 			"error while creating json struct for event: %w",
 			err,
 		)
 	}
 
-	err = as.publisher.PublishEvent(events.UserRegisteredEventKey, payload)
+	err = as.publisher.PublishEvent(events.WelcomeEmailRequestedEventKey, payload)
 	if err != nil {
-		return domain.TokenPair{}, fmt.Errorf(
+		return domain.TokenPair{}, domain.UserProfile{}, fmt.Errorf(
 			"error while publishing event: %w",
 			err,
 		)
@@ -108,52 +100,43 @@ func (as *AuthService) Registration(
 		roles.RoleCustomer,
 	)
 	if err != nil {
-		return domain.TokenPair{}, err
+		return domain.TokenPair{}, domain.UserProfile{}, err
 	}
 
-	verKey := fmt.Sprintf("ver:%s", userIDString)
-
-	err = as.sessRepo.SaveEntry(
-		ctx,
-		verKey,
-		code,
-		15*time.Minute,
-	)
-	if err != nil {
-		return domain.TokenPair{}, fmt.Errorf(
-			"error saving verification code: %w",
-			err,
-		)
-	}
-
-	return tokens, nil
+	return tokens, domain.UserProfile{
+		Email:     userData.Email,
+		FirstName: userData.FirstName,
+		LastName:  userData.LastName,
+		Phone:     userData.Phone,
+		Role:      roles.RoleCustomer,
+	}, nil
 }
 
 func (as *AuthService) Login(
 	ctx context.Context,
 	userData *dto.LoginRequest,
-) (domain.TokenPair, error) {
+) (domain.TokenPair, domain.UserProfile, error) {
 	user, err := as.userRepo.GetByEmail(ctx, userData.Email)
 	if err != nil {
-		return domain.TokenPair{}, fmt.Errorf(
+		return domain.TokenPair{}, domain.UserProfile{}, fmt.Errorf(
 			"error while searching for user: %w",
 			err,
 		)
 	}
 
 	if user == nil {
-		return domain.TokenPair{}, fmt.Errorf("user not found error")
+		return domain.TokenPair{}, domain.UserProfile{}, fmt.Errorf("user not found error")
 	}
 
 	if user.Password == "" {
-		return domain.TokenPair{}, fmt.Errorf("user registered via oauth")
+		return domain.TokenPair{}, domain.UserProfile{}, fmt.Errorf("user registered via oauth")
 	}
 
 	if isValid := crypto.CheckPasswordHash(
 		userData.Password,
 		user.Password,
 	); !isValid {
-		return domain.TokenPair{}, fmt.Errorf(
+		return domain.TokenPair{}, domain.UserProfile{}, fmt.Errorf(
 			"incorrect password: %w",
 			domain.ErrInvalidCredentials,
 		)
@@ -161,21 +144,29 @@ func (as *AuthService) Login(
 
 	status, err := as.userRepo.GetStatus(ctx, user.ID)
 	if err != nil {
-		return domain.TokenPair{}, fmt.Errorf(
+		return domain.TokenPair{}, domain.UserProfile{}, fmt.Errorf(
 			"error checking user status: %w",
 			err,
 		)
 	}
 
 	if !status {
-		return domain.TokenPair{}, domain.ErrUserNotActive
+		return domain.TokenPair{}, domain.UserProfile{}, domain.ErrUserNotActive
 	}
 
-	return as.CreateSession(
-		ctx,
-		user.ID,
-		user.Role,
-	)
+	tokens, err := as.CreateSession(ctx, user.ID, user.Role)
+	if err != nil {
+		return domain.TokenPair{}, domain.UserProfile{}, err
+	}
+
+	return tokens, domain.UserProfile{
+		Email:      user.Email,
+		FirstName:  user.FirstName,
+		LastName:   user.LastName,
+		Phone:      user.Phone,
+		Role:       user.Role,
+		IsVerified: user.IsEmailVerified,
+	}, nil
 }
 
 func (as *AuthService) VerifyEmail(
@@ -196,7 +187,7 @@ func (as *AuthService) VerifyEmail(
 		return fmt.Errorf("invalid verification code")
 	}
 
-	email, name, err := as.userRepo.SetVerified(ctx, userID)
+	_, _, err = as.userRepo.SetVerified(ctx, userID)
 	if err != nil {
 		return fmt.Errorf(
 			"error updating email confirmation field: %w",
@@ -208,28 +199,6 @@ func (as *AuthService) VerifyEmail(
 	if err != nil {
 		return fmt.Errorf(
 			"error deleting verification code from redis: %w",
-			err,
-		)
-	}
-
-	payload, err := json.Marshal(events.UserEmailVerifiedEvent{
-		Email: email,
-		Name:  name,
-	})
-	if err != nil {
-		return fmt.Errorf(
-			"error while creating json struct for event: %w",
-			err,
-		)
-	}
-
-	err = as.publisher.PublishEvent(
-		events.UserEmailVerifiedEventKey,
-		payload,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"error while publishing verified event: %w",
 			err,
 		)
 	}
@@ -534,7 +503,7 @@ func (as *AuthService) CompleteOAuthRegistration(
 	)
 }
 
-func (as *AuthService) ResendVerCode(
+func (as *AuthService) SendVerificationEmail(
 	ctx context.Context,
 	userID string,
 ) error {
@@ -569,7 +538,7 @@ func (as *AuthService) ResendVerCode(
 		)
 	}
 
-	payload, err := json.Marshal(events.UserRegisteredEvent{
+	payload, err := json.Marshal(events.EmailVerificationRequestedEvent{
 		Email: email,
 		Code:  code,
 	})
@@ -581,7 +550,7 @@ func (as *AuthService) ResendVerCode(
 	}
 
 	err = as.publisher.PublishEvent(
-		events.UserRegisteredEventKey,
+		events.EmailVerificationRequestedEventKey,
 		payload,
 	)
 	if err != nil {

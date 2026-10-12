@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
-
 	"shop/auth/internal/application"
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/db"
@@ -20,6 +18,7 @@ import (
 	"shop/shared/jwt"
 	"shop/shared/logger"
 	"shop/shared/middleware"
+	"syscall"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"

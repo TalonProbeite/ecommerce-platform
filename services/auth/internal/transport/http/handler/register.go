@@ -22,7 +22,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 	}
 
-	tokens, err := h.authService.Registration(c.Request().Context(), &req)
+	tokens, profile, err := h.authService.Registration(c.Request().Context(), &req)
 	if err != nil {
 		h.log.Error("registration failed", slog.Any("error", err), slog.String("email", req.Email))
 
@@ -55,5 +55,5 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	return c.JSON(http.StatusCreated, map[string]string{"message": "successfully registered"})
+	return c.JSON(http.StatusCreated, profile)
 }

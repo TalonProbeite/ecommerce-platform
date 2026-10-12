@@ -21,7 +21,6 @@ func TestAuthService_Registration(t *testing.T) {
 		LastName:  "Doe",
 		Phone:     "+123456789",
 	}
-	verKey := "ver:" + testUserID
 
 	tests := []struct {
 		name      string
@@ -58,10 +57,6 @@ func TestAuthService_Registration(t *testing.T) {
 			name:    "session creation error",
 			errCase: errCase{failAt: "sess.CreateSession", wantMsg: "error saving auth session"},
 		},
-		{
-			name:    "verification code save error",
-			errCase: errCase{failAt: "sess.SaveEntry", wantMsg: "error saving verification code"},
-		},
 	}
 
 	for _, tt := range tests {
@@ -72,13 +67,17 @@ func TestAuthService_Registration(t *testing.T) {
 				tt.setup(f)
 			}
 
-			tokens, err := f.svc.Registration(testCtx(), req)
+			tokens, profile, err := f.svc.Registration(testCtx(), req)
 			if tt.check(t, err) {
 				assertNotCalled(t, f, tt.notCalled...)
 				return
 			}
 
 			assertTokenPair(t, f, tokens, testUserID, roles.RoleCustomer)
+			wantProfile := domain.UserProfile{Email: testEmail, FirstName: "John", LastName: "Doe", Phone: "+123456789", Role: roles.RoleCustomer}
+			if profile != wantProfile {
+				t.Errorf("profile = %+v, want %+v", profile, wantProfile)
+			}
 
 			u := f.createdUser
 			if u.Email != req.Email || u.FirstName != req.FirstName ||
@@ -92,14 +91,13 @@ func TestAuthService_Registration(t *testing.T) {
 				t.Error("password must be stored hashed")
 			}
 
-			ver, ok := f.saved[verKey]
-			if !ok || ver.value == "" || ver.ttl != verificationCodeTTL {
-				t.Errorf("verification entry = %+v (found=%t), want non-empty code with ttl %s", ver, ok, verificationCodeTTL)
+			assertNotCalled(t, f, "sess.SaveEntry")
+			if len(f.events) != 1 {
+				t.Fatalf("expected one welcome event, got %d", len(f.events))
 			}
-
-			ev := decode[events.UserRegisteredEvent](t, f.eventPayload(t, events.UserRegisteredEventKey))
-			if ev.Email != req.Email || ev.Code != ver.value {
-				t.Errorf("event %+v does not match email/saved code %q", ev, ver.value)
+			ev := decode[events.WelcomeEmailRequestedEvent](t, f.eventPayload(t, events.WelcomeEmailRequestedEventKey))
+			if ev.Email != req.Email || ev.Name != req.FirstName {
+				t.Errorf("unexpected welcome event: %+v", ev)
 			}
 		})
 	}
@@ -116,7 +114,13 @@ func TestAuthService_Login(t *testing.T) {
 		{
 			name:     "success",
 			password: testPassword,
-			setup:    func(f *fixture) { f.user.Role = roles.RoleAdmin }, // role must reach the token
+			setup: func(f *fixture) {
+				f.user.Role = roles.RoleAdmin
+				f.user.FirstName = "Jane"
+				f.user.LastName = "Smith"
+				f.user.Phone = "+48123456789"
+				f.user.IsEmailVerified = true
+			},
 		},
 		{
 			name:     "repository error",
@@ -170,13 +174,17 @@ func TestAuthService_Login(t *testing.T) {
 				tt.setup(f)
 			}
 
-			tokens, err := f.svc.Login(testCtx(), &dto.LoginRequest{Email: testEmail, Password: tt.password})
+			tokens, profile, err := f.svc.Login(testCtx(), &dto.LoginRequest{Email: testEmail, Password: tt.password})
 			if tt.check(t, err) {
 				assertNotCalled(t, f, tt.notCalled...)
 				return
 			}
 
 			assertTokenPair(t, f, tokens, testUserID, roles.RoleAdmin)
+			wantProfile := domain.UserProfile{Email: testEmail, FirstName: "Jane", LastName: "Smith", Phone: "+48123456789", Role: roles.RoleAdmin, IsVerified: true}
+			if profile != wantProfile {
+				t.Errorf("profile = %+v, want %+v", profile, wantProfile)
+			}
 		})
 	}
 }
@@ -215,11 +223,6 @@ func TestAuthService_VerifyEmail(t *testing.T) {
 			errCase:   errCase{failAt: "sess.DeleteEntry", wantMsg: "error deleting verification code"},
 			notCalled: []string{"pub.PublishEvent"},
 		},
-		{
-			name:    "publisher error",
-			code:    "123456",
-			errCase: errCase{failAt: "pub.PublishEvent", wantMsg: "error while publishing verified event"},
-		},
 	}
 
 	for _, tt := range tests {
@@ -237,10 +240,7 @@ func TestAuthService_VerifyEmail(t *testing.T) {
 			if !slices.Contains(f.deleted, verKey) {
 				t.Errorf("verification code %q must be deleted; deleted: %v", verKey, f.deleted)
 			}
-			ev := decode[events.UserEmailVerifiedEvent](t, f.eventPayload(t, events.UserEmailVerifiedEventKey))
-			if ev.Email != testEmail || ev.Name != "John" {
-				t.Errorf("unexpected event: %+v", ev)
-			}
+			assertNotCalled(t, f, "pub.PublishEvent")
 		})
 	}
 }
@@ -601,7 +601,7 @@ func TestAuthService_CompleteOAuthRegistration(t *testing.T) {
 	}
 }
 
-func TestAuthService_ResendVerCode(t *testing.T) {
+func TestAuthService_SendVerificationEmail(t *testing.T) {
 	verKey := "ver:" + testUserID
 
 	tests := []struct {
@@ -631,7 +631,7 @@ func TestAuthService_ResendVerCode(t *testing.T) {
 			f := newFixture(t)
 			tt.arm(f)
 
-			err := f.svc.ResendVerCode(testCtx(), testUserID)
+			err := f.svc.SendVerificationEmail(testCtx(), testUserID)
 			if tt.check(t, err) {
 				assertNotCalled(t, f, tt.notCalled...)
 				return
@@ -641,7 +641,7 @@ func TestAuthService_ResendVerCode(t *testing.T) {
 			if !ok || ver.value == "" || ver.ttl != verificationCodeTTL {
 				t.Fatalf("verification entry = %+v (found=%t), want non-empty code with ttl %s", ver, ok, verificationCodeTTL)
 			}
-			ev := decode[events.UserRegisteredEvent](t, f.eventPayload(t, events.UserRegisteredEventKey))
+			ev := decode[events.EmailVerificationRequestedEvent](t, f.eventPayload(t, events.EmailVerificationRequestedEventKey))
 			if ev.Email != testEmail || ev.Code != ver.value {
 				t.Errorf("event %+v does not match email/saved code %q", ev, ver.value)
 			}

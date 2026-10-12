@@ -35,7 +35,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 	}
 
-	tokens, err := h.authService.Login(c.Request().Context(), &req)
+	tokens, profile, err := h.authService.Login(c.Request().Context(), &req)
 	if err != nil {
 		h.log.Error("login failed", slog.Any("error", err), slog.String("email", req.Email))
 
@@ -71,5 +71,5 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "successfully logged in"})
+	return c.JSON(http.StatusOK, profile)
 }

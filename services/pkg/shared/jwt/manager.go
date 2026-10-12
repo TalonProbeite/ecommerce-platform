@@ -4,11 +4,10 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"shop/shared/roles"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-
-	"shop/shared/roles"
 )
 
 const defaultTokenTTL = 15 * time.Minute

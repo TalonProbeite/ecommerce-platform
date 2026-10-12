@@ -25,7 +25,14 @@ func NewUserRepo(pg *sqlx.DB) *UserRepo {
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var u domain.User
 
-	query := `SELECT id, email, password_hash, role, is_active FROM users WHERE email = $1`
+	query := `
+		SELECT u.id, u.email, u.password_hash, u.role, u.is_active, u.is_email_verified,
+		       p.first_name, COALESCE(p.last_name, '') AS last_name,
+		       COALESCE(p.phone, '') AS phone
+		FROM users u
+		JOIN profiles p ON p.user_id = u.id
+		WHERE u.email = $1
+	`
 
 	err := r.pg.GetContext(ctx, &u, query, email)
 	if err != nil {

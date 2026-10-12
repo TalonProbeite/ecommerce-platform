@@ -29,21 +29,21 @@ func TestNotificationFlow_EventProducesEmailAndAuditLog(t *testing.T) {
 		bodyMarker string
 	}{
 		{
-			name:       "user registered sends verification code",
+			name:       "verification request sends verification code",
 			exchange:   rabbitmq.ExchangeUser,
-			key:        events.UserRegisteredEventKey,
+			key:        events.EmailVerificationRequestedEventKey,
 			recipient:  "registered@example.com",
-			event:      events.UserRegisteredEvent{Email: "registered@example.com", Code: "482913"},
-			subject:    events.UserRegisteredSubject,
+			event:      events.EmailVerificationRequestedEvent{Email: "registered@example.com", Code: "482913"},
+			subject:    events.EmailVerificationSubject,
 			bodyMarker: "482913",
 		},
 		{
-			name:       "email verified sends welcome mail",
+			name:       "welcome request sends welcome mail",
 			exchange:   rabbitmq.ExchangeUser,
-			key:        events.UserEmailVerifiedEventKey,
+			key:        events.WelcomeEmailRequestedEventKey,
 			recipient:  "verified@example.com",
-			event:      events.UserEmailVerifiedEvent{Email: "verified@example.com", Name: "Alice"},
-			subject:    events.UserEmailVerifiedSubject,
+			event:      events.WelcomeEmailRequestedEvent{Email: "verified@example.com", Name: "Alice"},
+			subject:    events.WelcomeEmailSubject,
 			bodyMarker: "Alice",
 		},
 		{
@@ -102,7 +102,7 @@ func TestNotificationFlow_InvalidPayloadGoesToDeadLetterQueue(t *testing.T) {
 	s := newStack(t, nil)
 
 	body := []byte("{definitely not json")
-	s.publish(t, rabbitmq.ExchangeUser, events.UserRegisteredEventKey, body)
+	s.publish(t, rabbitmq.ExchangeUser, events.EmailVerificationRequestedEventKey, body)
 
 	dead := s.waitForDeadLetter(t)
 	assert.Equal(t, body, dead.Body)
@@ -118,8 +118,8 @@ func TestNotificationFlow_SMTPFailureIsRetriedThenDeadLettered(t *testing.T) {
 	errSMTP := errors.New("smtp unavailable")
 	s := newStack(t, failingSender{err: errSMTP})
 
-	event := events.UserRegisteredEvent{Email: recipient, Code: "111222"}
-	sent := s.publishJSON(t, rabbitmq.ExchangeUser, events.UserRegisteredEventKey, event)
+	event := events.EmailVerificationRequestedEvent{Email: recipient, Code: "111222"}
+	sent := s.publishJSON(t, rabbitmq.ExchangeUser, events.EmailVerificationRequestedEventKey, event)
 
 	dead := s.waitForDeadLetter(t)
 	assert.JSONEq(t, string(sent), string(dead.Body))

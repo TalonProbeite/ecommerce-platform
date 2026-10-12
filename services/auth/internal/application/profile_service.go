@@ -4,12 +4,11 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
-	"time"
-
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
 	"shop/auth/internal/transport/http/dto"
 	"shop/shared/events"
+	"time"
 )
 
 type ProfileService struct {
@@ -95,7 +94,7 @@ func (ps *ProfileService) PatchUserProfile(
 			return fmt.Errorf("error saving verification code: %w", err)
 		}
 
-		payload, err := json.Marshal(events.UserRegisteredEvent{
+		payload, err := json.Marshal(events.EmailVerificationRequestedEvent{
 			Email: email,
 			Code:  code,
 		})
@@ -103,7 +102,7 @@ func (ps *ProfileService) PatchUserProfile(
 			return fmt.Errorf("error while creating json struct for event: %w", err)
 		}
 
-		err = ps.publisher.PublishEvent(events.UserRegisteredEventKey, payload)
+		err = ps.publisher.PublishEvent(events.EmailVerificationRequestedEventKey, payload)
 		if err != nil {
 			return fmt.Errorf("error while publishing event: %w", err)
 		}

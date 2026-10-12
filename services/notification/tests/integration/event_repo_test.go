@@ -32,7 +32,7 @@ func TestEventRepo_GetHistory_Filters(t *testing.T) {
 
 	seed := []domain.EventLog{
 		{
-			Type:      events.UserRegisteredEventKey,
+			Type:      events.EmailVerificationRequestedEventKey,
 			Channel:   "email",
 			Recipient: "a@example.com",
 			Status:    mailer.SendStatusSent,
@@ -144,7 +144,7 @@ func TestEventRepo_GetHistory_Pagination(t *testing.T) {
 	totalEvents := 550
 	for i := 0; i < totalEvents; i++ {
 		require.NoError(t, repo.SaveEvent(t.Context(), domain.EventLog{
-			Type:      events.UserRegisteredEventKey,
+			Type:      events.EmailVerificationRequestedEventKey,
 			Channel:   "email",
 			Recipient: "page@example.com",
 			Status:    mailer.SendStatusSent,
