@@ -4,12 +4,21 @@ import type { ChangePasswordPayload, LoginPayload, ProfileChanges, RegisterPaylo
 
 const PROFILE_PATH = '/auth/api/private/profile'
 
-// Mock envelopes are deliberately confined to this branch. A profile DTO mapper
-// must be added from a confirmed backend schema, never derived from our fixtures.
+// services/auth/internal/domain/models.go: UserProfile (returned directly).
 export async function loadAccountProfile(): Promise<User> {
   if (isMockApi) return (await api.get<{ user: User }>('/auth/me')).data.user
-  await api.get<unknown>(PROFILE_PATH)
-  throw new Error('The backend profile response schema is not documented. Account access cannot be restored until this contract is confirmed.')
+  const { data } = await api.get<unknown>(PROFILE_PATH)
+  if (!data || typeof data !== 'object') throw new Error('The server returned an invalid profile response.')
+  const profile = data as Record<string, unknown>
+  for (const field of ['email', 'first_name', 'last_name', 'phone']) {
+    if (typeof profile[field] !== 'string') throw new Error('The server returned an invalid profile response.')
+  }
+  return {
+    email: profile.email as string,
+    firstName: profile.first_name as string,
+    lastName: profile.last_name as string,
+    phone: profile.phone as string,
+  }
 }
 
 export async function loginAccount(payload: LoginPayload): Promise<User | undefined> {

@@ -18,6 +18,11 @@ export const router = createBrowserRouter([
           { path: '/equipment/:id', lazy: async () => ({ Component: (await import('@/pages/equipment-page')).EquipmentPage }) },
           { path: `${ROUTES.checkout}/*`, lazy: async () => ({ Component: (await import('@/pages/checkout-page')).CheckoutPage }) },
           { path: ROUTES.orders, lazy: async () => ({ Component: (await import('@/pages/orders-page')).OrdersPage }) },
+        ],
+      },
+      {
+        element: <ProtectedRoute />,
+        children: [
           { path: ROUTES.profile, lazy: async () => ({ Component: (await import('@/pages/profile-page')).ProfilePage }) },
         ],
       },

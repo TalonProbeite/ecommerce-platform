@@ -28,7 +28,7 @@ export function ProfilePage() {
   if (!user) return null
 
   const isOAuth = Boolean(user.isOAuth)
-  const isVerified = user.emailVerified !== false
+  const isVerified = user.emailVerified === true
 
   const errors = {
     firstName: validateFirstName(firstName),
@@ -64,7 +64,7 @@ export function ProfilePage() {
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
       <PageHeader title="Profile" description="Manage your personal details." />
 
-      {!isVerified ? (
+      {user.emailVerified === false ? (
         <div className="mt-6 flex flex-col gap-4 rounded-3xl border border-amber-500/30 bg-amber-500/10 p-5 sm:flex-row sm:items-center sm:justify-between" role="alert">
           <div className="flex min-w-0 items-start gap-3">
             <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
@@ -90,16 +90,16 @@ export function ProfilePage() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
           <p className="text-sm font-medium text-muted-foreground">Account details</p>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className="rounded-full bg-secondary px-3 capitalize text-secondary-foreground">{user.role}</Badge>
+            {user.role ? <Badge className="rounded-full bg-secondary px-3 capitalize text-secondary-foreground">{user.role}</Badge> : null}
             {isVerified ? (
               <Badge className="flex items-center gap-1 rounded-full bg-success/15 px-3 font-medium text-success">
                 <CheckCircle2 className="size-3.5" aria-hidden="true" /> Verified
               </Badge>
-            ) : (
+            ) : user.emailVerified === false ? (
               <Badge variant="outline" className="rounded-full border-amber-500/40 bg-amber-500/10 px-3 font-medium text-amber-600 dark:text-amber-400">
                 Unverified
               </Badge>
-            )}
+            ) : null}
             {isOAuth ? (
               <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 px-3 font-medium text-primary">
                 Google OAuth
@@ -162,7 +162,7 @@ export function ProfilePage() {
         </Button>
       </form>
       <PasswordSecurity isOAuth={isOAuth} />
-      <RecentRentals userId={user.id} />
+      {user.id ? <RecentRentals userId={user.id} /> : null}
     </div>
   )
 }

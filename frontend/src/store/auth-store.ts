@@ -41,7 +41,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ status: 'loading', sessionError: null })
     try {
       const user = await loadAccountProfile()
-      if (requestGeneration === generation) set({ user, status: 'authenticated', sessionError: null })
+      if (requestGeneration === generation) set({ user, status: 'authenticated', sessionExpired: false, sessionError: null })
     } catch (error) {
       // Expiry may already have advanced the generation via the interceptor.
       if (requestGeneration !== generation) return

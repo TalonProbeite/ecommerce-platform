@@ -18,11 +18,12 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   ],
 }
 
-export function roleHome(role: Role): string {
-  return NAV_BY_ROLE[role][0].to
+export function roleHome(role?: Role): string {
+  return role ? NAV_BY_ROLE[role][0].to : ROUTES.home
 }
 
-export function loginDestination(role: Role, from?: string): string {
+export function loginDestination(role: Role | undefined, from?: string): string {
+  if (!role) return from === ROUTES.profile ? ROUTES.profile : ROUTES.home
   if (!from || !from.startsWith('/') || from.startsWith('//') || from.includes('\\')) return roleHome(role)
   const pathname = from.split(/[?#]/)[0]
   const allowed = role === 'customer'

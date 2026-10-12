@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth-store'
 import { ROUTES } from '@/app/routes'
 import { isMockApi } from '@/api/client'
@@ -8,17 +8,10 @@ import { SiteHeader } from './site-header'
 
 export function AppLayout() {
   const { pathname } = useLocation()
-  const navigate = useNavigate()
-  const sessionExpired = useAuthStore(state => state.sessionExpired)
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
   }, [pathname])
-
-  useEffect(() => {
-    // Redirect when expiry occurs, then allow navigation to public pages.
-    if (sessionExpired) navigate(ROUTES.login, { replace: true })
-  }, [sessionExpired, navigate])
 
   useEffect(() => {
     if (!isMockApi && useAuthStore.getState().status === 'authenticated') void useAuthStore.getState().reloadProfile()

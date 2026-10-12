@@ -9,7 +9,7 @@ export function mockNotifications(config: InternalAxiosRequestConfig, actor: Use
   const path = config.url ?? ''
   const base = '/notification/api/private/notifications'
   if ((config.method ?? 'get').toLowerCase() !== 'get' || (path !== base && !path.startsWith(`${base}/`))) return null
-  if (!actor) return { status: 401, data: { error: 'Not authenticated.' } }
+  if (!actor || !actor.role) return { status: 401, data: { error: 'Not authenticated.' } }
   if (!['admin', 'analyst'].includes(actor.role) || actor.isBanned) return { status: 403, data: { error: 'Forbidden. Only active admins and analysts can view notifications.' } }
   if (path !== base) {
     let id: string

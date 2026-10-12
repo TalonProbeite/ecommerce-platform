@@ -29,7 +29,7 @@ export function ProtectedRoute({ roles }: ProtectedRouteProps) {
     return <Navigate to={ROUTES.login} replace state={{ from: location.pathname + location.search }} />
   }
 
-  if (user.isBanned || (roles && !roles.includes(user.role))) {
+  if (user.isBanned || (roles && (!user.role || !roles.includes(user.role)))) {
     return <div className="mx-auto max-w-3xl px-4 py-16" role="alert"><h1 className="text-3xl font-bold">Forbidden</h1><p className="mt-3 text-muted-foreground">Your account does not have permission to access this page.</p></div>
   }
 

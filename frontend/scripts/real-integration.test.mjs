@@ -6,11 +6,11 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
-async function context() {
+async function context(mode = 'real') {
   const server = await createServer({
     configFile: false, envDir: false,
     resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
-    define: { 'import.meta.env.VITE_API_MODE': '"real"', 'import.meta.env.VITE_API_URL': '"https://example.invalid"' },
+    define: { 'import.meta.env.VITE_API_MODE': JSON.stringify(mode), 'import.meta.env.VITE_API_URL': '"https://example.invalid"' },
     server: { middlewareMode: true, watch: null, ws: false }, appType: 'custom',
   })
   const client = await server.ssrLoadModule('/src/api/client.ts')
@@ -20,6 +20,77 @@ function failure(config, status) {
   return new AxiosError(`HTTP ${status}`, String(status), config, null, { status, data: { error: `HTTP ${status}` }, headers: {}, config })
 }
 const user = { id: 'u', email: 'user@example.com', firstName: 'User', lastName: 'Name', phone: '1234567890', role: 'customer', isOAuth: false }
+
+for (const mode of ['real', 'mock']) test(`${mode}: home renders immediately for guests, expired sessions, account errors and every role`, async () => {
+  const { server } = await context(mode)
+  try {
+    const { useAuthStore } = await server.ssrLoadModule('/src/store/auth-store.ts')
+    const { RootPage } = await server.ssrLoadModule('/src/pages/root-page.tsx')
+    const states = [
+      ...['idle', 'loading', 'unauthenticated', 'error'].map(status => ({ status, user: null })),
+      { status: 'unauthenticated', user: null, sessionExpired: true },
+      ...['customer', 'admin', 'analyst'].map(role => ({ status: 'authenticated', user: { ...user, role } })),
+    ]
+    for (const state of states) {
+      useAuthStore.setState(state)
+      Object.assign(useAuthStore.getInitialState(), useAuthStore.getState())
+      const html = renderToStaticMarkup(createElement(MemoryRouter, null, createElement(RootPage)))
+      assert.match(html, /Premium gear, without the price tag/, JSON.stringify(state))
+    }
+  } finally { await server.close() }
+})
+
+test('REAL profile restoration refreshes expired access and preserves exact profile fields', async () => {
+  const { server, api } = await context()
+  try {
+    const { useAuthStore } = await server.ssrLoadModule('/src/store/auth-store.ts')
+    const paths = []
+    api.defaults.adapter = async config => {
+      paths.push(config.url)
+      if (config.url === '/auth/api/refresh') return { status: 200, data: { message: 'successfully refreshed' }, headers: {}, config }
+      if (!config._retry) throw failure(config, 401)
+      return { status: 200, data: { email: user.email, first_name: user.firstName, last_name: '', phone: '' }, headers: {}, config }
+    }
+    await useAuthStore.getState().initialize()
+    assert.equal(useAuthStore.getState().status, 'authenticated')
+    assert.deepEqual(useAuthStore.getState().user, { email: user.email, firstName: user.firstName, lastName: '', phone: '' })
+    assert.deepEqual(paths, ['/auth/api/private/profile', '/auth/api/refresh', '/auth/api/private/profile'])
+    assert.equal(useAuthStore.getState().sessionExpired, false)
+  } finally { await server.close() }
+})
+
+test('REAL rejects malformed profile responses and does not trust extra privilege fields', async () => {
+  const { server, api } = await context()
+  try {
+    const { loadAccountProfile } = await server.ssrLoadModule('/src/services/auth.ts')
+    const profile = { email: user.email, first_name: user.firstName, last_name: '', phone: '' }
+    for (const data of [null, [], {}, { user }, { ...profile, phone: null }, { ...profile, first_name: 123 }]) {
+      api.defaults.adapter = async config => ({ status: 200, data, headers: {}, config })
+      await assert.rejects(loadAccountProfile(), /invalid profile response/)
+    }
+    api.defaults.adapter = async config => ({ status: 200, data: { ...profile, role: 'admin', id: 'invented', emailVerified: true }, headers: {}, config })
+    assert.deepEqual(await loadAccountProfile(), { email: user.email, firstName: user.firstName, lastName: '', phone: '' })
+  } finally { await server.close() }
+})
+
+test('REAL expired access refreshes once and returns the successful protected response', async () => {
+  const { server, api, onSessionExpired } = await context()
+  try {
+    const paths = []
+    let expired = 0
+    onSessionExpired(() => { expired++ })
+    api.defaults.adapter = async config => {
+      paths.push(config.url)
+      assert.equal(config.withCredentials, true)
+      if (config.url === '/auth/api/refresh') return { status: 200, data: { message: 'successfully refreshed' }, headers: {}, config }
+      if (!config._retry) throw failure(config, 401)
+      return { status: 200, data: { email: user.email, first_name: user.firstName }, headers: {}, config }
+    }
+    assert.equal((await api.get('/auth/api/private/profile')).data.email, user.email)
+    assert.deepEqual(paths, ['/auth/api/private/profile', '/auth/api/refresh', '/auth/api/private/profile'])
+    assert.equal(expired, 0)
+  } finally { await server.close() }
+})
 
 test('REAL auth mutations map documented bodies and never use legacy mock paths', async () => {
   const { server, api } = await context()
@@ -75,28 +146,28 @@ test('REAL message validation rejects malformed successes; HTTP failures never b
   } finally { await server.close() }
 })
 
-test('REAL bootstrap and login read actual profile but cannot invent roles from an undocumented response', async () => {
+test('REAL bootstrap, login and registration restore the actual backend profile without inventing roles', async () => {
   const { server, api } = await context()
   try {
     const { useAuthStore } = await server.ssrLoadModule('/src/store/auth-store.ts')
     const paths = []
     api.defaults.adapter = async config => {
       paths.push(config.url)
-      return { status: 200, data: config.method === 'get' ? { user } : { message: 'confirmed' }, headers: {}, config }
+      return { status: 200, data: config.method === 'get' ? { email: user.email, first_name: user.firstName, last_name: user.lastName, phone: user.phone } : { message: 'confirmed' }, headers: {}, config }
     }
     await useAuthStore.getState().initialize()
     assert.deepEqual(paths, ['/auth/api/private/profile'])
-    assert.equal(useAuthStore.getState().status, 'error')
-    assert.equal(useAuthStore.getState().user, null)
-    assert.match(useAuthStore.getState().sessionError, /schema/i)
-    await assert.rejects(useAuthStore.getState().login({ email: user.email, password: 'password123' }), /schema/i)
+    assert.equal(useAuthStore.getState().status, 'authenticated')
+    assert.deepEqual(useAuthStore.getState().user, { email: user.email, firstName: user.firstName, lastName: user.lastName, phone: user.phone })
+    assert.equal(useAuthStore.getState().sessionError, null)
+    await useAuthStore.getState().login({ email: user.email, password: 'password123' })
     assert.deepEqual(paths.slice(1), ['/auth/api/login', '/auth/api/private/profile'])
-    assert.equal(useAuthStore.getState().user, null)
+    assert.equal(useAuthStore.getState().user.role, undefined)
     await useAuthStore.getState().register({ email: user.email, password: 'password123', firstName: 'User', phone: user.phone })
     assert.deepEqual(paths.slice(3), ['/auth/api/register', '/auth/api/private/profile'])
-    assert.equal(useAuthStore.getState().status, 'error')
+    assert.equal(useAuthStore.getState().status, 'authenticated')
     await useAuthStore.getState().verifyEmail({ email: '', code: '1234567890' })
-    assert.equal(paths.at(-1), '/auth/api/private/email/verify')
+    assert.deepEqual(paths.slice(-2), ['/auth/api/private/email/verify', '/auth/api/private/profile'])
   } finally { await server.close() }
 })
 
@@ -191,6 +262,12 @@ test('guards show retryable session errors and deny mismatched roles without pri
     }
     useAuthStore.setState({ status: 'authenticated', user: { ...user, isBanned: true } })
     assert.doesNotMatch(render(['customer']), /Secret content/)
+    useAuthStore.setState({ status: 'authenticated', user: { email: user.email, firstName: user.firstName } })
+    assert.match(render(undefined), /Secret content/)
+    for (const roles of [['customer'], ['admin'], ['admin', 'analyst']]) {
+      assert.match(render(roles), /Forbidden/)
+      assert.doesNotMatch(render(roles), /Secret content/)
+    }
   } finally { await server.close() }
 })
 
@@ -198,6 +275,9 @@ test('post-login destinations respect roles and reject external or public auth t
   const { server } = await context()
   try {
     const { loginDestination } = await server.ssrLoadModule('/src/lib/roles.ts')
+    assert.equal(loginDestination(undefined), '/')
+    assert.equal(loginDestination(undefined, '/profile'), '/profile')
+    for (const from of ['/admin', '//evil.invalid', '/notifications']) assert.equal(loginDestination(undefined, from), '/')
     for (const from of ['https://evil.invalid', '//evil.invalid', '/login', '/register', '/admin', '/notifications', '/missing']) {
       assert.equal(loginDestination('customer', from), '/catalog')
     }

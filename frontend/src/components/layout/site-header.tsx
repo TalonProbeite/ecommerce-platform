@@ -33,7 +33,7 @@ export function SiteHeader() {
   const logoutPending = useRef(false)
 
   const isCustomer = user?.role === 'customer'
-  const navLinks = user ? NAV_BY_ROLE[user.role] : []
+  const navLinks = user ? (user.role ? NAV_BY_ROLE[user.role] : [{ to: ROUTES.profile, label: 'Profile' }]) : []
 
   function handleSearch(event: FormEvent) {
     event.preventDefault()

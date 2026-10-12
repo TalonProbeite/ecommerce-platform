@@ -4,12 +4,12 @@ export interface UpdateRolePayload { role: Role }
 export interface UpdateBanPayload { is_banned: boolean }
 
 export interface User {
-  id: string
+  id?: string
   email: string
   firstName: string
   lastName?: string
   phone?: string
-  role: Role
+  role?: Role
   emailVerified?: boolean
   isOAuth?: boolean
   isBanned?: boolean

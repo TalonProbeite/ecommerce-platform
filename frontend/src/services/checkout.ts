@@ -57,7 +57,7 @@ export async function placeMockOrder(details: CheckoutDetails): Promise<Order> {
   if (!isMockApi) throw new Error('Rental checkout is unavailable until the backend order contract is confirmed. No order has been placed.')
   if (inFlight) throw new Error('An order is already in progress. Please wait.')
   const user = useAuthStore.getState().user
-  if (!user) throw new Error('Your session expired. Please sign in again.')
+  if (!user || !user.id) throw new Error('Your session expired. Please sign in again.')
   if (user.role !== 'customer' || user.isBanned) throw new Error('Only active customer accounts can rent equipment.')
   if (hasErrors(validateCheckoutDetails(details))) throw new Error('Check your delivery details before confirming.')
   const items = useCartStore.getState().items.map((item) => ({ ...item }))
