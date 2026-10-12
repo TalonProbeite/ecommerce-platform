@@ -143,3 +143,14 @@ The profile shows role badges only for admins and analysts, displays email verif
 Profile rental cards are available without a backend user ID. REAL profiles show explicitly labelled demo orders; no orders endpoint is called and the existing live orders page remains unavailable. Seed orders now live in `src/data/orders.ts` and are shared with the mock orders store.
 
 Verification: profile contract regression tests, TypeScript check, production build, and browser checks of account menu navigation, customer/admin badges, verified/unverified email states, demo orders and a 390px mobile viewport. Browser checks used injected account state; live cookie issuance and email delivery were not exercised. Backend files were not modified.
+
+
+## Password authentication and optional verification — 2026-10-12
+
+Login and registration now return the direct UserProfile JSON rather than a message. A shared frontend mapper handles all three profile responses. The auth store authenticates from the mutation response, with no immediate GET or code request. Registration enters the customer catalog; email confirmation is optional. The mock adapter also authenticates new and unverified password accounts.
+
+The profile's neutral email status panel sends POST `/auth/api/private/email/send-verification` without a body only after an explicit click, then opens the OTP screen. Failure keeps the user in the profile with a retryable error. Direct visits to the OTP screen offer Send code without automatically sending email. Successful verification returns to the profile with the existing session. The previous `/email/resend` endpoint and automatic registration-to-OTP flow are superseded.
+
+GET profile remains for initial session restoration, account updates and periodic/focus revalidation. Navigation alone no longer reloads the profile. A regression test covers a late guest bootstrap 401 racing with registration, preventing it from cancelling the new session.
+
+Browser verification covered form registration, optional confirmation, sending failure and retry, cooldown, OTP success and profile return. MOCK and REAL transport with intercepted HTTP fixture responses were exercised; no live email delivery or backend containers were used.

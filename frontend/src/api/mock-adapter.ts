@@ -85,9 +85,6 @@ export const mockAdapter: AxiosAdapter = async (config) => {
       return reply(config, 401, { message: 'Incorrect email or password.' })
     }
     if (account.isBanned) return reply(config, 403, { error: 'This account is banned.' })
-    if (!account.verified) {
-      return reply(config, 403, { code: 'EMAIL_NOT_VERIFIED', message: 'Please verify your email before signing in.' })
-    }
     const user = toPublicUser(account)
     writeSession(user)
     return reply(config, 200, { user })
@@ -98,7 +95,7 @@ export const mockAdapter: AxiosAdapter = async (config) => {
     if (findAccount(email)) {
       return reply(config, 409, { message: 'An account with this email already exists.' })
     }
-    accounts.push({
+    const account: MockAccount = {
       id: `u-${Date.now()}`,
       firstName: firstName.trim(),
       lastName: lastName?.trim() || undefined,
@@ -107,8 +104,11 @@ export const mockAdapter: AxiosAdapter = async (config) => {
       role: 'customer',
       password,
       verified: false,
-    })
-    return reply(config, 201, { message: 'Verification code sent.' })
+    }
+    accounts.push(account)
+    const user = toPublicUser(account)
+    writeSession(user)
+    return reply(config, 201, { user })
   }
 
   if (method === 'post' && path === '/auth/verify-email') {
@@ -126,7 +126,7 @@ export const mockAdapter: AxiosAdapter = async (config) => {
     return reply(config, 200, { ok: true })
   }
 
-  if (method === 'post' && path === '/auth/resend-verification') {
+  if (method === 'post' && path === '/auth/send-verification') {
     const { email } = body as { email: string }
     if (!findAccount(email)) return reply(config, 404, { message: 'No account found for this email.' })
     return reply(config, 200, { ok: true })

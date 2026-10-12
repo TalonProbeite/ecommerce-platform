@@ -19,6 +19,7 @@ async function context(mode = 'real') {
 function failure(config, status) {
   return new AxiosError(`HTTP ${status}`, String(status), config, null, { status, data: { error: `HTTP ${status}` }, headers: {}, config })
 }
+const backendProfile = { email: 'user@example.com', first_name: 'User', last_name: 'Name', phone: '1234567890', role: 'customer', is_verified: false }
 const user = { id: 'u', email: 'user@example.com', firstName: 'User', lastName: 'Name', phone: '1234567890', role: 'customer', isOAuth: false }
 
 for (const mode of ['real', 'mock']) test(`${mode}: home renders immediately for guests, expired sessions, account errors and every role`, async () => {
@@ -104,12 +105,12 @@ test('REAL auth mutations map documented bodies and never use legacy mock paths'
     const requests = []
     api.defaults.adapter = async config => {
       requests.push({ method: config.method, path: config.url, body: config.data === undefined ? undefined : JSON.parse(config.data), credentials: config.withCredentials })
-      return { status: config.url.endsWith('/register') || config.url.endsWith('/complete') ? 201 : 200, data: { message: 'confirmed' }, headers: {}, config }
+      return { status: config.url.endsWith('/register') || config.url.endsWith('/complete') ? 201 : 200, data: ['/auth/api/login', '/auth/api/register'].includes(config.url) ? backendProfile : { message: 'confirmed' }, headers: {}, config }
     }
     await auth.loginAccount({ email: user.email, password: 'password123' })
     await auth.registerAccount({ email: user.email, password: 'password123', firstName: 'User', phone: user.phone })
     await auth.verifyAccountEmail({ email: user.email, code: ' 1234567890 ' })
-    await auth.resendAccountVerification(user.email)
+    await auth.sendAccountVerification(user.email)
     await auth.patchAccountProfile({ ...user, firstName: 'Updated' }, user)
     await auth.completeOAuthProfile({ firstName: 'User', lastName: 'Name', phone: user.phone })
     await auth.changeAccountPassword({ old_pass: 'password123', new_pass: 'password456' })
@@ -118,7 +119,7 @@ test('REAL auth mutations map documented bodies and never use legacy mock paths'
       { method: 'post', path: '/auth/api/login', body: { email: user.email, password: 'password123' }, credentials: true },
       { method: 'post', path: '/auth/api/register', body: { email: user.email, password: 'password123', first_name: 'User', phone: user.phone }, credentials: true },
       { method: 'post', path: '/auth/api/private/email/verify', body: { code: '1234567890' }, credentials: true },
-      { method: 'post', path: '/auth/api/private/email/resend', body: undefined, credentials: true },
+      { method: 'post', path: '/auth/api/private/email/send-verification', body: undefined, credentials: true },
       { method: 'patch', path: '/auth/api/private/profile', body: { first_name: 'Updated' }, credentials: true },
       { method: 'post', path: '/auth/api/oauth/complete', body: { first_name: 'User', last_name: 'Name', phone: user.phone }, credentials: true },
       { method: 'put', path: '/auth/api/private/profile/password', body: { old_pass: 'password123', new_pass: 'password456' }, credentials: true },
@@ -151,26 +152,27 @@ test('REAL message validation rejects malformed successes; HTTP failures never b
   } finally { await server.close() }
 })
 
-test('REAL bootstrap, login and registration restore the actual backend profile without inventing roles', async () => {
+test('REAL login and registration use returned profiles without extra GET requests or verification sends', async () => {
   const { server, api } = await context()
   try {
     const { useAuthStore } = await server.ssrLoadModule('/src/store/auth-store.ts')
     const paths = []
     api.defaults.adapter = async config => {
       paths.push(config.url)
-      return { status: 200, data: config.method === 'get' ? { email: user.email, first_name: user.firstName, last_name: user.lastName, phone: user.phone } : { message: 'confirmed' }, headers: {}, config }
+      return { status: 200, data: config.url.endsWith('/email/verify') ? { message: 'confirmed' } : backendProfile, headers: {}, config }
     }
     await useAuthStore.getState().initialize()
     assert.deepEqual(paths, ['/auth/api/private/profile'])
     assert.equal(useAuthStore.getState().status, 'authenticated')
-    assert.deepEqual(useAuthStore.getState().user, { email: user.email, firstName: user.firstName, lastName: user.lastName, phone: user.phone })
+    assert.deepEqual(useAuthStore.getState().user, { email: user.email, firstName: user.firstName, lastName: user.lastName, phone: user.phone, role: 'customer', emailVerified: false })
     assert.equal(useAuthStore.getState().sessionError, null)
     await useAuthStore.getState().login({ email: user.email, password: 'password123' })
-    assert.deepEqual(paths.slice(1), ['/auth/api/login', '/auth/api/private/profile'])
-    assert.equal(useAuthStore.getState().user.role, undefined)
+    assert.deepEqual(paths.slice(1), ['/auth/api/login'])
+    assert.equal(useAuthStore.getState().user.role, 'customer')
     await useAuthStore.getState().register({ email: user.email, password: 'password123', firstName: 'User', phone: user.phone })
-    assert.deepEqual(paths.slice(3), ['/auth/api/register', '/auth/api/private/profile'])
+    assert.deepEqual(paths.slice(2), ['/auth/api/register'])
     assert.equal(useAuthStore.getState().status, 'authenticated')
+    assert.equal(useAuthStore.getState().user.emailVerified, false)
     await useAuthStore.getState().verifyEmail({ email: '', code: '1234567890' })
     assert.deepEqual(paths.slice(-2), ['/auth/api/private/email/verify', '/auth/api/private/profile'])
   } finally { await server.close() }
@@ -396,5 +398,40 @@ test('aborting one protected request during a shared refresh does not cancel the
     assert.equal(outcomes[1].status, 'fulfilled')
     assert.equal(refreshes, 1)
     assert.equal(expired, 0)
+  } finally { await server.close() }
+})
+
+for (const registrationFails of [false, true]) test(`late guest bootstrap 401 preserves ${registrationFails ? 'retryable failed' : 'successful'} registration`, async () => {
+  const { server, api } = await context()
+  try {
+    const { useAuthStore } = await server.ssrLoadModule('/src/store/auth-store.ts')
+    let finishBootstrap, finishRegistration
+    const bootstrapGate = new Promise(resolve => { finishBootstrap = resolve })
+    const registrationGate = new Promise(resolve => { finishRegistration = resolve })
+    api.defaults.adapter = async config => {
+      if (config.url === '/auth/api/register') {
+        await registrationGate
+        if (registrationFails) throw failure(config, 409)
+        return { status: 201, data: backendProfile, headers: {}, config }
+      }
+      if (config.url.endsWith('/profile')) await bootstrapGate
+      throw failure(config, 401)
+    }
+    const initializing = useAuthStore.getState().initialize()
+    const registering = useAuthStore.getState().register({ email: user.email, password: 'password123', firstName: 'User', phone: user.phone })
+    finishBootstrap()
+    await initializing
+    finishRegistration()
+    if (registrationFails) {
+      await assert.rejects(registering, error => error.response.status === 409)
+      assert.equal(useAuthStore.getState().status, 'unauthenticated')
+      assert.equal(useAuthStore.getState().user, null)
+    } else {
+      await registering
+      assert.equal(useAuthStore.getState().status, 'authenticated')
+      assert.equal(useAuthStore.getState().user.email, user.email)
+      assert.equal(useAuthStore.getState().user.emailVerified, false)
+    }
+    assert.equal(useAuthStore.getState().sessionExpired, false)
   } finally { await server.close() }
 })

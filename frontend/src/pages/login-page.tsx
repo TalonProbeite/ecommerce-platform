@@ -3,7 +3,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { DEMO_ACCOUNTS } from '@/api/mock-adapter'
-import { getErrorCode, getErrorMessage, GOOGLE_OAUTH_URL, isMockApi } from '@/api/client'
+import { getErrorMessage, GOOGLE_OAUTH_URL, isMockApi } from '@/api/client'
 import { ROUTES } from '@/app/routes'
 import { AuthShell } from '@/components/auth/auth-shell'
 import { FormField } from '@/components/auth/form-field'
@@ -58,10 +58,6 @@ export function LoginPage() {
       toast.success(`Welcome back, ${fullName(signedIn).split(' ')[0]}!`)
       navigate(loginDestination(signedIn.role, from), { replace: true })
     } catch (caught) {
-      if (getErrorCode(caught) === 'EMAIL_NOT_VERIFIED') {
-        navigate(ROUTES.verifyEmail, { state: { email: credentials.email.trim() } })
-        return
-      }
       setApiError(getErrorMessage(caught))
     } finally {
       pending.current = false

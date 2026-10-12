@@ -23,8 +23,11 @@ export function VerifyEmailPage() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const verifyEmail = useAuthStore((state) => state.verifyEmail)
-  const resendVerification = useAuthStore((state) => state.resendVerification)
-  const userEmail = useAuthStore((state) => state.user?.email)
+  const sendVerification = useAuthStore((state) => state.sendVerification)
+  const user = useAuthStore((state) => state.user)
+  const authStatus = useAuthStore((state) => state.status)
+  const sessionLoading = authStatus === 'idle' || authStatus === 'loading'
+  const userEmail = user?.email
 
   const knownEmail = userEmail ?? (isMockApi ? (location.state as { email?: string } | null)?.email ?? searchParams.get('email') ?? '' : '')
   const [email, setEmail] = useState(knownEmail)
@@ -33,7 +36,9 @@ export function VerifyEmailPage() {
   const [error, setError] = useState<VerificationError | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [resending, setResending] = useState(false)
-  const [cooldown, setCooldown] = useState(0)
+  const sentAt = (location.state as { verificationSentAt?: number } | null)?.verificationSentAt
+  const [codeSent, setCodeSent] = useState(Boolean(sentAt))
+  const [cooldown, setCooldown] = useState(() => sentAt ? Math.max(0, RESEND_COOLDOWN_SECONDS - Math.floor((Date.now() - sentAt) / 1000)) : 0)
   const [verified, setVerified] = useState(false)
   const requestPending = useRef(false)
 
@@ -43,7 +48,8 @@ export function VerifyEmailPage() {
     return () => clearTimeout(timer)
   }, [cooldown])
 
-  const emailError = isMockApi ? validateEmail(email) : undefined
+  const accountEmail = userEmail ?? email
+  const emailError = isMockApi ? validateEmail(accountEmail) : undefined
   const codeComplete = code.length === OTP_LENGTH
 
   async function handleSubmit(event: FormEvent) {
@@ -55,7 +61,7 @@ export function VerifyEmailPage() {
     setSubmitting(true)
     setError(null)
     try {
-      await verifyEmail({ email: email.trim(), code })
+      await verifyEmail({ email: accountEmail.trim(), code })
       setVerified(true)
     } catch (caught) {
       const errorCode = getErrorCode(caught)
@@ -78,10 +84,11 @@ export function VerifyEmailPage() {
     setResending(true)
     setError(null)
     try {
-      await resendVerification(email.trim())
+      await sendVerification(accountEmail.trim())
       setCode('')
+      setCodeSent(true)
       setCooldown(RESEND_COOLDOWN_SECONDS)
-      toast.success('A new verification code is on its way.')
+      toast.success('Verification code sent.')
     } catch (caught) {
       setError({ kind: 'other', message: getErrorMessage(caught) })
     } finally {
@@ -90,14 +97,14 @@ export function VerifyEmailPage() {
     }
   }
 
-  if (verified) {
+  if (verified || user?.emailVerified === true) {
     return (
       <AuthShell
         title="Email verified"
         description="Your account is ready to use."
         footer={
-          <Link to={ROUTES.login} className="font-semibold text-primary hover:underline">
-            Back to login
+          <Link to={user ? ROUTES.profile : ROUTES.login} className="font-semibold text-primary hover:underline">
+            {user ? 'Back to profile' : 'Back to login'}
           </Link>
         }
       >
@@ -106,10 +113,10 @@ export function VerifyEmailPage() {
             <CheckCircle2 className="size-7" aria-hidden="true" />
           </span>
           <p className="text-sm text-muted-foreground">
-            {email.trim() ? <>Thanks for confirming <span className="font-semibold text-foreground">{email.trim()}</span>.</> : 'Thanks for confirming your email.'} You can continue with your account.
+            {accountEmail.trim() ? <>Thanks for confirming <span className="font-semibold text-foreground">{accountEmail.trim()}</span>.</> : 'Thanks for confirming your email.'} You can continue with your account.
           </p>
-          <LinkButton to={ROUTES.login} size="lg" className="h-11 w-full rounded-full">
-            Continue to login
+          <LinkButton to={user ? ROUTES.profile : ROUTES.login} size="lg" className="h-11 w-full rounded-full">
+            {user ? 'Return to profile' : 'Continue to login'}
           </LinkButton>
         </div>
       </AuthShell>
@@ -120,15 +127,15 @@ export function VerifyEmailPage() {
     <AuthShell
       title="Verify your email"
       description={
-        knownEmail
+        !codeSent ? 'Send a verification code when you’re ready to confirm your email.' : knownEmail
           ? `Enter the ${OTP_LENGTH}-character code we sent to ${knownEmail}.`
           : isMockApi ? `Enter your email and the ${OTP_LENGTH}-character code we sent you.` : `Enter the ${OTP_LENGTH}-character code we sent to your account email.`
       }
       footer={
         <>
-          Wrong account?{' '}
-          <Link to={ROUTES.login} className="font-semibold text-primary hover:underline">
-            Back to login
+          Want to continue later?{' '}
+          <Link to={user ? ROUTES.profile : ROUTES.login} className="font-semibold text-primary hover:underline">
+            {user ? 'Back to profile' : 'Back to login'}
           </Link>
         </>
       }
@@ -161,7 +168,7 @@ export function VerifyEmailPage() {
               setCode(isMockApi ? value.toUpperCase() : value)
               setError(null)
             }}
-            disabled={submitting || resending}
+            disabled={sessionLoading || submitting || resending}
             aria-invalid={Boolean(error)}
             aria-describedby={error ? 'otp-error' : undefined}
             containerClassName="w-full min-w-0 justify-center gap-1"
@@ -189,15 +196,15 @@ export function VerifyEmailPage() {
           </div>
         ) : null}
 
-        <Button type="submit" size="lg" className="h-11 w-full rounded-full" disabled={submitting || resending || !codeComplete}>
+        <Button type="submit" size="lg" className="h-11 w-full rounded-full" disabled={sessionLoading || submitting || resending || !codeComplete}>
           {submitting ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
           {submitting ? 'Verifying...' : 'Verify email'}
         </Button>
 
         <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
-          <span>Didn&apos;t get a code?</span>
-          <Button type="button" variant="link" className="h-auto p-0 font-semibold" onClick={() => void handleResend()} disabled={submitting || resending || cooldown > 0}>
-            {resending ? 'Sending...' : cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
+          <span>{codeSent ? 'Didn’t get a code?' : 'Ready to verify?'}</span>
+          <Button type="button" variant="link" className="h-auto p-0 font-semibold" onClick={() => void handleResend()} disabled={sessionLoading || submitting || resending || cooldown > 0}>
+            {resending ? 'Sending...' : cooldown > 0 ? `Resend in ${cooldown}s` : codeSent ? 'Resend code' : 'Send code'}
           </Button>
         </div>
       </form>

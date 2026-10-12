@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import { useAuthStore } from '@/store/auth-store'
 import { ROUTES } from '@/app/routes'
 import { isMockApi } from '@/api/client'
 import { SiteFooter } from './site-footer'
@@ -11,10 +10,6 @@ export function AppLayout() {
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
-  }, [pathname])
-
-  useEffect(() => {
-    if (!isMockApi && useAuthStore.getState().status === 'authenticated') void useAuthStore.getState().reloadProfile()
   }, [pathname])
 
   return (

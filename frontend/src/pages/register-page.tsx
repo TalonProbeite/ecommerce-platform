@@ -87,15 +87,15 @@ export function RegisterPage() {
     setApiError(null)
     try {
       const email = values.email.trim()
-      await register({
+      const registered = await register({
         email,
         password: values.password,
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim() || undefined,
         phone: values.phone.trim(),
       })
-      toast.success('Account created. Check your email for a verification code.')
-      navigate(ROUTES.verifyEmail, { state: { email } })
+      toast.success('Account created. Welcome to Rentify!')
+      navigate(roleHome(registered.role), { replace: true })
     } catch (caught) {
       setApiError(getErrorMessage(caught))
     } finally {

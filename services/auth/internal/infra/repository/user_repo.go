@@ -293,11 +293,13 @@ func (r *UserRepo) GetByIDProfile(ctx context.Context, userID string) (*domain.U
 	var u domain.User
 
 	const query = `SELECT
-						email ,
-						is_active ,
-						first_name,
-						last_name,
-						phone
+						u.email,
+						u.is_active,
+						u.role,
+						u.is_email_verified,
+						p.first_name,
+						COALESCE(p.last_name, '') AS last_name,
+						COALESCE(p.phone, '') AS phone
 					FROM users u
 					JOIN profiles p ON u.id = p.user_id
 					WHERE u.id = $1`

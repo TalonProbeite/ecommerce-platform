@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { isAxiosError } from 'axios'
 import { getErrorMessage, isMockApi, onSessionExpired } from '@/api/client'
-import { changeAccountPassword, loadAccountProfile, loginAccount, logoutAccount, patchAccountProfile, registerAccount, resendAccountVerification, verifyAccountEmail } from '@/services/auth'
+import { changeAccountPassword, loadAccountProfile, loginAccount, logoutAccount, patchAccountProfile, registerAccount, sendAccountVerification, verifyAccountEmail } from '@/services/auth'
 import type { ChangePasswordPayload, LoginPayload, ProfileChanges, RegisterPayload, User, VerifyEmailPayload } from '@/types'
 
 type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated' | 'error'
@@ -16,9 +16,9 @@ interface AuthState {
   initialize: () => Promise<void>
   reloadProfile: () => Promise<void>
   login: (payload: LoginPayload) => Promise<User>
-  register: (payload: RegisterPayload) => Promise<void>
+  register: (payload: RegisterPayload) => Promise<User>
   verifyEmail: (payload: VerifyEmailPayload) => Promise<void>
-  resendVerification: (email: string) => Promise<void>
+  sendVerification: (email: string) => Promise<void>
   logout: () => Promise<void>
   updateProfile: (changes: ProfileChanges) => Promise<void>
   changePassword: (payload: ChangePasswordPayload) => Promise<void>
@@ -59,9 +59,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const requestGeneration = ++generation
     let credentialsAccepted = false
     try {
-      const loginUser = await loginAccount(payload)
+      const user = await loginAccount(payload)
       credentialsAccepted = true
-      const user = loginUser ?? await loadAccountProfile()
       if (requestGeneration !== generation) throw new Error('Your session changed. Please sign in again.')
       set({ user, status: 'authenticated', sessionExpired: false, sessionError: null })
       return user
@@ -70,7 +69,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ user: null, status: 'error', sessionError: getErrorMessage(error) })
       }
       throw error
-    } finally { accountPending = false }
+    } finally {
+      // A superseded guest probe cannot settle state after an unsuccessful auth request.
+      if (requestGeneration === generation && get().status === 'loading' && !get().user) {
+        set({ status: 'unauthenticated', sessionError: null })
+      }
+      accountPending = false
+    }
   },
 
   register: async (payload) => {
@@ -78,11 +83,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     accountPending = true
     const requestGeneration = ++generation
     try {
-      await registerAccount(payload)
-      // REAL registration establishes cookies immediately. Profile mapping may
-      // remain blocked; do not undo a confirmed registration or assign a role.
-      if (!isMockApi && requestGeneration === generation) await get().reloadProfile()
-    } finally { accountPending = false }
+      const user = await registerAccount(payload)
+      if (requestGeneration !== generation) throw new Error('Your session changed. Please sign in again.')
+      set({ user, status: 'authenticated', sessionExpired: false, sessionError: null })
+      return user
+    } finally {
+      // A superseded guest probe cannot settle state after an unsuccessful auth request.
+      if (requestGeneration === generation && get().status === 'loading' && !get().user) {
+        set({ status: 'unauthenticated', sessionError: null })
+      }
+      accountPending = false
+    }
   },
 
   verifyEmail: async (payload) => {
@@ -93,8 +104,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } else if (!isMockApi && user) await get().reloadProfile()
   },
 
-  resendVerification: async (email) => {
-    await resendAccountVerification(email)
+  sendVerification: async (email) => {
+    await sendAccountVerification(email)
   },
 
   logout: async () => {
@@ -130,6 +141,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 onSessionExpired(() => {
   const state = useAuthStore.getState()
   const probingGuestSession = state.status === 'loading' && !state.user
+  // An older guest probe must not cancel a login/registration that superseded it.
+  if (probingGuestSession && accountPending) return
   ++generation
   useAuthStore.setState({ user: null, status: 'unauthenticated', sessionExpired: !probingGuestSession, sessionError: null })
 })

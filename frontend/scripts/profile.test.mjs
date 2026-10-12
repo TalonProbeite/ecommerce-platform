@@ -57,10 +57,10 @@ test('profile sends changed fields only, verification updates session, logout cl
     const unverified = { ...original, id: 'u-unverified', email: 'unverified@rentify.dev', emailVerified: false }
     sessionStorage.setItem('rentify_mock_session', JSON.stringify(unverified))
     useAuthStore.setState({ user: unverified, status: 'authenticated' })
-    assert.match(renderProfile(), /Email verification required/)
+    assert.match(renderProfile(), /Email not verified/)
     await useAuthStore.getState().verifyEmail({ email: unverified.email, code: '1234567890' })
     assert.equal(useAuthStore.getState().user.emailVerified, true)
-    assert.doesNotMatch(renderProfile(), /Email verification required/)
+    assert.doesNotMatch(renderProfile(), /Email not verified/)
     assert.equal((await api.get('/auth/me')).data.user.emailVerified, true)
     await useAuthStore.getState().logout()
     assert.equal(useAuthStore.getState().user, null)

@@ -1,12 +1,11 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/api/client'
-import { ROUTES } from '@/app/routes'
 import { FormField } from '@/components/auth/form-field'
 import { PasswordSecurity } from '@/components/auth/password-security'
 import { RecentRentals } from '@/components/profile/recent-rentals'
-import { LinkButton } from '@/components/common/link-button'
+import { EmailVerificationPrompt } from '@/components/profile/email-verification-prompt'
 import { PageHeader } from '@/components/common/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -64,27 +63,7 @@ export function ProfilePage() {
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
       <PageHeader title="Profile" description="Manage your personal details." />
 
-      {user.emailVerified === false ? (
-        <div className="mt-6 flex flex-col gap-4 rounded-3xl border border-amber-500/30 bg-amber-500/10 p-5 sm:flex-row sm:items-center sm:justify-between" role="alert">
-          <div className="flex min-w-0 items-start gap-3">
-            <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-            <div className="min-w-0 break-words">
-              <p className="font-semibold text-amber-900 dark:text-amber-200">Email verification required</p>
-              <p className="text-sm text-amber-800/90 dark:text-amber-300/90">
-                Please verify <span className="font-medium">{user.email}</span> to ensure full access and rental updates.
-              </p>
-            </div>
-          </div>
-          <LinkButton
-            to={`${ROUTES.verifyEmail}?email=${encodeURIComponent(user.email)}`}
-            state={{ email: user.email }}
-            size="sm"
-            className="shrink-0 rounded-full bg-amber-600 text-white hover:bg-amber-700"
-          >
-            Verify email
-          </LinkButton>
-        </div>
-      ) : null}
+      {user.emailVerified === false ? <EmailVerificationPrompt key={user.email} email={user.email} disabled={saving} /> : null}
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-5 rounded-3xl border bg-card p-6 sm:p-8" noValidate>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">

@@ -93,7 +93,7 @@ test('REAL auth store refuses malformed successes without populating mock users'
       () => useAuthStore.getState().login({ email: 'user@example.com', password: 'password123' }),
       () => useAuthStore.getState().register({ email: 'user@example.com', password: 'password123', firstName: 'User', phone: '1234567890' }),
       () => useAuthStore.getState().verifyEmail({ email: 'user@example.com', code: '1234567890' }),
-      () => useAuthStore.getState().resendVerification('user@example.com'),
+      () => useAuthStore.getState().sendVerification('user@example.com'),
     ]) {
       await assert.rejects(action(), error => /response/i.test(getErrorMessage(error)))
     }

@@ -745,10 +745,17 @@ Success:
 `201`
 
 ```json
-{"message": "successfully registered"}
+{
+  "email": "user@example.com",
+  "first_name": "User",
+  "last_name": "",
+  "phone": "+48 123456789",
+  "role": "customer",
+  "is_verified": false
+}
 ```
 
-The user is immediately authenticated and authentication cookies are set.
+The user is immediately authenticated and authentication cookies are set. The response body is the UserProfile returned by GET profile. Registration requests a welcome email, without generating a verification code or requiring confirmation.
 
 Possible errors:
 
@@ -777,7 +784,14 @@ Success:
 `200`
 
 ```json
-{"message": "successfully logged in"}
+{
+  "email": "user@example.com",
+  "first_name": "User",
+  "last_name": "",
+  "phone": "+48 123456789",
+  "role": "customer",
+  "is_verified": false
+}
 ```
 
 Errors:
@@ -940,14 +954,14 @@ Possible errors:
 
 ---
 
-## POST `/auth/api/private/email/resend`
+## POST `/auth/api/private/email/send-verification`
 
 No body.
 
 Success:
 
 ```json
-{"message": "code was resend successfully"}
+{"message": "verification email sent successfully"}
 ```
 
 Failure:
@@ -955,7 +969,7 @@ Failure:
 `422`
 
 ```json
-{"error": "failed to resend code"}
+{"error": "failed to send verification email"}
 ```
 
 ---
@@ -1111,18 +1125,20 @@ Possible errors:
 
 ## Email registration
 
-1. register
-2. user becomes authenticated
-3. email verification screen
-4. user enters OTP
-5. allow resend if necessary
+1. register; receive UserProfile and authentication cookies
+2. store the returned profile and enter the authenticated application
+3. show email status and an optional verification button in the profile
+4. only on user request, send a code and open the verification screen
+5. after verification, refresh the profile and return there without logging in again
 
 ## Login
 
 1. login
 2. authentication cookies are set
-3. load profile
-4. enter authenticated application
+3. store UserProfile from the login response; no extra GET required
+4. enter authenticated application, including accounts with unverified email
+
+GET profile restores the session on page reload and updates account details after mutations.
 
 ## Google OAuth
 

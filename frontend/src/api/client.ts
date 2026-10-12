@@ -17,7 +17,7 @@ export const api = axios.create({
 })
 
 const REFRESH_PATH = '/auth/api/refresh'
-const MOCK_PROTECTED_PATHS = ['/auth/me', '/auth/verify-email', '/auth/resend-verification']
+const MOCK_PROTECTED_PATHS = ['/auth/me', '/auth/verify-email', '/auth/send-verification']
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean; _refreshVersion?: number }
 

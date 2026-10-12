@@ -5,9 +5,7 @@ import type { ChangePasswordPayload, LoginPayload, ProfileChanges, RegisterPaylo
 const PROFILE_PATH = '/auth/api/private/profile'
 
 // services/auth/internal/domain/models.go: UserProfile (returned directly).
-export async function loadAccountProfile(): Promise<User> {
-  if (isMockApi) return (await api.get<{ user: User }>('/auth/me')).data.user
-  const { data } = await api.get<unknown>(PROFILE_PATH)
+function accountProfile(data: unknown): User {
   if (!data || typeof data !== 'object') throw new Error('The server returned an invalid profile response.')
   const profile = data as Record<string, unknown>
   for (const field of ['email', 'first_name', 'last_name', 'phone']) {
@@ -29,15 +27,20 @@ export async function loadAccountProfile(): Promise<User> {
   }
 }
 
-export async function loginAccount(payload: LoginPayload): Promise<User | undefined> {
-  if (isMockApi) return (await api.post<{ user: User }>('/auth/login', payload)).data.user
-  messageResponse((await api.post<unknown>('/auth/api/login', payload)).data)
+export async function loadAccountProfile(): Promise<User> {
+  if (isMockApi) return (await api.get<{ user: User }>('/auth/me')).data.user
+  return accountProfile((await api.get<unknown>(PROFILE_PATH)).data)
 }
 
-export async function registerAccount(payload: RegisterPayload): Promise<void> {
-  if (isMockApi) { await api.post('/auth/register', payload); return }
+export async function loginAccount(payload: LoginPayload): Promise<User> {
+  if (isMockApi) return (await api.post<{ user: User }>('/auth/login', payload)).data.user
+  return accountProfile((await api.post<unknown>('/auth/api/login', payload)).data)
+}
+
+export async function registerAccount(payload: RegisterPayload): Promise<User> {
+  if (isMockApi) return (await api.post<{ user: User }>('/auth/register', payload)).data.user
   const { email, password, firstName, lastName, phone } = payload
-  messageResponse((await api.post<unknown>('/auth/api/register', {
+  return accountProfile((await api.post<unknown>('/auth/api/register', {
     email, password, first_name: firstName, ...(lastName === undefined ? {} : { last_name: lastName }), phone,
   })).data)
 }
@@ -57,9 +60,9 @@ export async function verifyAccountEmail(payload: VerifyEmailPayload): Promise<v
   messageResponse((await api.post<unknown>('/auth/api/private/email/verify', { code })).data)
 }
 
-export async function resendAccountVerification(email: string): Promise<void> {
-  if (isMockApi) { await api.post('/auth/resend-verification', { email }); return }
-  messageResponse((await api.post<unknown>('/auth/api/private/email/resend')).data)
+export async function sendAccountVerification(email: string): Promise<void> {
+  if (isMockApi) { await api.post('/auth/send-verification', { email }); return }
+  messageResponse((await api.post<unknown>('/auth/api/private/email/send-verification')).data)
 }
 
 export async function patchAccountProfile(changes: ProfileChanges, user: User): Promise<User | undefined> {
