@@ -1,0 +1,27 @@
+name: shop-frontend-prod
+
+services:
+  frontend:
+    image: shop-frontend:real
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_MODE: real
+        VITE_API_URL: ${FRONTEND_API_URL:-https://localhost}
+    restart: unless-stopped
+    expose:
+      - "8080"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - shop_global
+
+networks:
+  shop_global:
+    name: shop_global
