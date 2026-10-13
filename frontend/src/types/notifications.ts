@@ -1,14 +1,14 @@
-// Temporary UI/mock model. These fields, enums and envelope are NOT a backend contract.
-export const NOTIFICATION_STATUSES = ['pending', 'sent', 'failed'] as const
-export const NOTIFICATION_CHANNELS = ['email', 'sms'] as const
+export const NOTIFICATION_STATUSES = ['sent', 'failed'] as const
+export const NOTIFICATION_CHANNELS = ['email'] as const
 export interface NotificationRecord {
   id: string
   recipient: string
   status: typeof NOTIFICATION_STATUSES[number]
   channel: typeof NOTIFICATION_CHANNELS[number]
-  createdAt: string
-  title: string
-  body: string
+  created_at: string
+  type: string
+  payload: unknown
+  attempts: number
   error?: string
 }
 export interface NotificationFilters {
@@ -22,7 +22,7 @@ export interface NotificationFilters {
 }
 export interface NotificationPage {
   items: NotificationRecord[]
-  total: number
+  hasNext: boolean
   limit: number
   offset: number
 }

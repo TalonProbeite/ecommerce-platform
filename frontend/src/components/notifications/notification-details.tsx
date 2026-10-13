@@ -11,11 +11,11 @@ function DetailContent({ id }: { id: string }) {
   return <>
     <ResourceFeedback resource={resource} retry={() => setRetry(value => value + 1)} />
     {resource.state === 'success' ? <div className="space-y-5">
-      <h2 className="font-semibold">{resource.data.title}</h2>
+      <h2 className="font-semibold">{resource.data.type}</h2>
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3">
-        {Object.entries({ ID: resource.data.id, Recipient: resource.data.recipient, Status: resource.data.status, Channel: resource.data.channel, Date: new Date(resource.data.createdAt).toLocaleString(), ...(resource.data.error ? { 'Delivery error': resource.data.error } : {}) }).map(([label, value]) => <div key={label} className="contents"><dt className="text-muted-foreground">{label}</dt><dd className="break-words">{value}</dd></div>)}
+        {Object.entries({ ID: resource.data.id, Attempts: resource.data.attempts, Recipient: resource.data.recipient, Status: resource.data.status, Channel: resource.data.channel, Date: new Date(resource.data.created_at).toLocaleString(), ...(resource.data.error ? { 'Delivery error': resource.data.error } : {}) }).map(([label, value]) => <div key={label} className="contents"><dt className="text-muted-foreground">{label}</dt><dd className="break-words">{value}</dd></div>)}
       </dl>
-      <p className="whitespace-pre-wrap break-words rounded-xl bg-muted p-4">{resource.data.body}</p>
+      <div><h3 className="mb-2 font-medium">Event payload</h3><pre className="whitespace-pre-wrap break-words rounded-xl bg-muted p-4 text-sm">{JSON.stringify(resource.data.payload, null, 2)}</pre></div>
     </div> : null}
   </>
 }

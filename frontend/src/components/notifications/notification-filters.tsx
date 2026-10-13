@@ -12,7 +12,7 @@ export function NotificationFilterControls({ filters, change, error }: { filters
           {(key === 'status' ? NOTIFICATION_STATUSES : NOTIFICATION_CHANNELS).map(value => <option key={value} value={value}>{value}</option>)}
         </select>
       </div>)}
-      <FormField id="notification-recipient" label="Recipient" value={filters.recipient ?? ''} onChange={event => change({ recipient: event.target.value })} placeholder="Email or phone" />
+      <FormField id="notification-recipient" label="Recipient" value={filters.recipient ?? ''} onChange={event => change({ recipient: event.target.value })} placeholder="Exact email address" />
       <FormField id="notification-start" label="Start date" type="datetime-local" value={filters.start_date ?? ''} onChange={event => change({ start_date: event.target.value })} error={error} />
       <FormField id="notification-end" label="End date" type="datetime-local" value={filters.end_date ?? ''} onChange={event => change({ end_date: event.target.value })} error={error} />
     </div>

@@ -43,15 +43,15 @@ test('mock notification list, pagination, details and access restrictions', asyn
       const first = await listNotifications({ limit: 20, offset: 0 })
       const next = await listNotifications({ limit: 20, offset: 20 })
       assert.equal(first.items.length, 20)
-      assert.ok(first.total > 20)
+      assert.equal(first.hasNext, true)
       assert.ok(next.items.every(item => !first.items.some(other => other.id === item.id)))
       const item = first.items[0]
       assert.deepEqual(await getNotification(item.id), item)
-      const filtered = await listNotifications({ status: item.status, channel: item.channel, recipient: item.recipient, start_date: item.createdAt, end_date: item.createdAt })
+      const filtered = await listNotifications({ status: item.status, channel: item.channel, recipient: item.recipient, start_date: item.created_at, end_date: item.created_at })
       assert.ok(filtered.items.length > 0)
-      assert.ok(filtered.items.every(n => n.status === item.status && n.channel === item.channel && n.recipient === item.recipient && n.createdAt === item.createdAt))
-      assert.equal((await listNotifications({ recipient: 'nonexistent' })).total, 0)
-      assert.equal((await listNotifications({ limit: 0 })).items.length, 0)
+      assert.ok(filtered.items.every(n => n.status === item.status && n.channel === item.channel && n.recipient === item.recipient && n.created_at === item.created_at))
+      assert.equal((await listNotifications({ recipient: 'nonexistent' })).items.length, 0)
+      assert.equal((await listNotifications({ limit: 0 })).items.length, 53)
       assert.equal((await listNotifications({ offset: 1000 })).items.length, 0)
       await assert.rejects(getNotification('missing'), e => e.response.status === 404)
       await assert.rejects(api.get(path, { params: { start_date: 'invalid' } }), e => e.response.status === 400)
@@ -72,16 +72,33 @@ test('mock notification list, pagination, details and access restrictions', asyn
   } finally { await server.close(); delete globalThis.sessionStorage }
 })
 
-test('notification service never sends real requests', async () => {
+test('real notifications consume backend arrays and event records', async () => {
   const server = await setup(true)
   try {
     const { api } = await server.ssrLoadModule('/src/api/client.ts')
-    let requests = 0
-    api.interceptors.request.use(config => { requests++; return config })
     const { listNotifications, getNotification } = await server.ssrLoadModule('/src/services/notifications.ts')
-    await assert.rejects(listNotifications({}), /mock/i)
-    await assert.rejects(getNotification('n-1'), /mock/i)
-    assert.equal(requests, 0)
+    const record = { id: '507f1f77bcf86cd799439011', created_at: '2026-10-09T10:00:00Z', type: 'order.confirmed', channel: 'email', recipient: 'maya@example.com', status: 'failed', payload: { order_id: '123' }, attempts: 3, error: 'SMTP unavailable' }
+    const requests = []
+    let response = [record]
+    api.defaults.adapter = async config => {
+      requests.push(config)
+      return { data: response, status: 200, statusText: 'OK', headers: {}, config }
+    }
+    const controller = new AbortController()
+    const page = await listNotifications({ limit: 1, offset: 20, status: 'failed' }, controller.signal)
+    assert.deepEqual(page.items, [record])
+    assert.equal(page.hasNext, true)
+    assert.equal(requests[0].url, '/notification/api/private/notifications')
+    assert.equal(requests[0].params.toString(), 'status=failed&limit=1&offset=20')
+    assert.equal(requests[0].signal, controller.signal)
+    assert.equal(requests[0].withCredentials, true)
+    response = record
+    assert.deepEqual(await getNotification(record.id), record)
+    assert.equal(requests.at(-1).url, `/notification/api/private/notifications/${record.id}`)
+    response = []
+    assert.equal((await listNotifications({})).hasNext, false)
+    response = { items: [record], total: 1 }
+    await assert.rejects(listNotifications({}), /invalid notification response/i)
   } finally { await server.close() }
 })
 

@@ -4,7 +4,7 @@ import { NOTIFICATION_CHANNELS, NOTIFICATION_STATUSES } from '../types/notificat
 import type { InternalAxiosRequestConfig } from 'axios'
 import type { User } from '../types'
 
-// Only handles documented GET paths; response shape and matching semantics are local fixtures.
+// Mirrors the read-only backend EventLog response and exact recipient matching.
 export function mockNotifications(config: InternalAxiosRequestConfig, actor: User | undefined) {
   const path = config.url ?? ''
   const base = '/notification/api/private/notifications'
@@ -29,11 +29,11 @@ export function mockNotifications(config: InternalAxiosRequestConfig, actor: Use
     if (channel && !NOTIFICATION_CHANNELS.some(value => value === channel)) throw new Error('Invalid mock channel.')
     const items = STAFF_NOTIFICATIONS.filter(item =>
       (!status || item.status === status) && (!channel || item.channel === channel) &&
-      (!query.has('recipient') || item.recipient.toLowerCase().includes(query.get('recipient')!.toLowerCase())) &&
-      (!query.has('start_date') || item.createdAt >= query.get('start_date')!) &&
-      (!query.has('end_date') || item.createdAt <= query.get('end_date')!),
+      (!query.has('recipient') || item.recipient === query.get('recipient')!) &&
+      (!query.has('start_date') || item.created_at >= query.get('start_date')!) &&
+      (!query.has('end_date') || item.created_at <= query.get('end_date')!),
     )
-    const limit = Number(query.get('limit')), offset = Number(query.get('offset'))
-    return { status: 200, data: { items: items.slice(offset, offset + limit), total: items.length, limit, offset } }
+    const limit = Number(query.get('limit')) || 100, offset = Number(query.get('offset'))
+    return { status: 200, data: items.slice(offset, offset + limit) }
   } catch (error) { return { status: 400, data: { error: error instanceof Error ? error.message : 'Invalid filters.' } } }
 }

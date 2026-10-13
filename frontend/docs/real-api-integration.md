@@ -154,3 +154,14 @@ The profile's neutral email status panel sends POST `/auth/api/private/email/sen
 GET profile remains for initial session restoration, account updates and periodic/focus revalidation. Navigation alone no longer reloads the profile. A regression test covers a late guest bootstrap 401 racing with registration, preventing it from cancelling the new session.
 
 Browser verification covered form registration, optional confirmation, sending failure and retry, cooldown, OTP success and profile return. MOCK and REAL transport with intercepted HTTP fixture responses were exercised; no live email delivery or backend containers were used.
+
+
+## Notification integration — 2026-10-13
+
+The notification schema blockers in the original integration report above are resolved by inspecting `services/notification/internal/domain/models.go`, the HTTP analytics handlers, the event repository, and the email dispatcher.
+
+Both notification GET routes now work in REAL mode through the shared credentialed Axios client and existing refresh handling. The list response is an array of EventLog records; details return one record. Fields are `id`, `created_at`, `type`, `channel`, `recipient`, `status`, `payload`, `attempts`, and optional `error`. Current delivery statuses are `sent`/`failed` and the implemented channel is `email`. Recipient filtering is exact. Payload is rendered as text JSON, without assuming a specific event shape.
+
+The backend returns no total or pagination metadata. The UI shows the current range and enables Next for a full page. At an exact page boundary, Next can reach an empty page; Previous remains available. Requests retain `limit`/`offset`, reset offset on filter changes, omit empty filters, and use RFC3339 dates. A zero API limit uses the backend default of 100. Mock responses now use the same array/record contract and matching semantics.
+
+Verification: notification service and role/error tests, the full frontend test suite, TypeScript, production build, and browser checks for mock list pagination and the detail dialog. A live notification backend was not used for this verification. Backend files were not modified.
