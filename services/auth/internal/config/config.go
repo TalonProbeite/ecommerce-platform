@@ -24,9 +24,7 @@ type RedisConfig struct {
 	RedisURL string `env:"REDIS_URL" env-required:"true"`
 }
 type RabbitConfig struct {
-	RabbitURL    string `env:"RABBITMQ_URL" env-default:"amqp://guest:guest@auth-rabbitmq:5672/"`
-	ExchangeName string `env:"EXCHANGE_NAME" env-default:"events_exchange"`
-	ExchangeType string `env:"EXCHANGE_TYPE" env-default:"direct"`
+	RabbitURL string `env:"RABBITMQ_URL" env-default:"amqp://guest:guest@auth-rabbitmq:5672/"`
 }
 type JWTConfig struct {
 	JwtPrivateKeyBase64 string `env:"JWT_PRIVATE_KEY_BASE64" env-required:"true"`

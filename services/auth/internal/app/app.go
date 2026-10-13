@@ -76,7 +76,7 @@ func New(cfg *config.Config) (*App, error) {
 	sessionRepo := repository.NewSessionRepo(rdb)
 	userRepo := repository.NewUserRepo(pg)
 	oauthClient := oauth.NewGoogleClient(cfg.OAuthStateGoogle())
-	eventPublisher, err := rabbitmq.NewEventPublisher(rabbit, cfg.Rabbit.ExchangeName, cfg.Rabbit.ExchangeType)
+	eventPublisher, err := rabbitmq.NewEventPublisher(rabbit)
 	if err != nil {
 		if closeErr := pg.Close(); closeErr != nil {
 			log.Error("failed to close postgres", slog.Any("err", closeErr))
