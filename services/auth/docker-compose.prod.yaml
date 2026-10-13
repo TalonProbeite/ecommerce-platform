@@ -13,6 +13,8 @@ services:
       POSTGRES_DB: ${DB_NAME:-shop_auth}
     volumes:
       - auth_pg_data:/var/lib/postgresql
+    ports:
+      - "5432:5432"
     networks:
       - auth_internal
     healthcheck:
