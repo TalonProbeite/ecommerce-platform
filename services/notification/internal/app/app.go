@@ -108,11 +108,11 @@ func eventHandlers(
 	order *services.OrderEventHandler,
 ) map[string]services.HandlerFunc {
 	return map[string]services.HandlerFunc{
-		events.UserRegisteredEventKey:    user.HandleUserRegistered,
-		events.UserEmailVerifiedEventKey: user.HandleEmailVerified,
-		events.OrderPaidEventKey:         order.HandleOrderPaid,
-		events.OrderConfirmedEventKey:    order.HandleOrderConfirmed,
-		events.OrderCancelledEventKey:    order.HandleOrderCancelled,
+		events.EmailVerificationRequestedEventKey: user.HandleEmailVerificationRequested,
+		events.WelcomeEmailRequestedEventKey:      user.HandleWelcomeEmailRequested,
+		events.OrderPaidEventKey:                  order.HandleOrderPaid,
+		events.OrderConfirmedEventKey:             order.HandleOrderConfirmed,
+		events.OrderCancelledEventKey:             order.HandleOrderCancelled,
 	}
 }
 

@@ -391,9 +391,9 @@ func TestProfileService_PatchUserProfile(t *testing.T) {
 					t.Fatalf("verification entry = %+v (found=%t), want non-empty code with ttl 15m", entry, ok)
 				}
 
-				event := decode[events.UserRegisteredEvent](
+				event := decode[events.EmailVerificationRequestedEvent](
 					t,
-					profileEventPayload(t, f, events.UserRegisteredEventKey),
+					profileEventPayload(t, f, events.EmailVerificationRequestedEventKey),
 				)
 				if event.Email != tt.want.email || event.Code != entry.value {
 					t.Errorf("event %+v does not match email/saved code %q", event, entry.value)

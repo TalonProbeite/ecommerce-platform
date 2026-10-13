@@ -4,6 +4,7 @@ include:
   - services/auth/docker-compose.prod.yaml
   - services/notification/docker-compose.prod.yaml
   - services/catalog/docker-compose.prod.yaml
+  - frontend/docker-compose.prod.yaml
 
 services:
   global-nginx:
@@ -17,7 +18,11 @@ services:
       - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
       - ./docker/nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
+      frontend:
+        condition: service_healthy
       auth-nginx:
+        condition: service_healthy
+      notification-nginx:
         condition: service_healthy
     networks:
       - shop_global

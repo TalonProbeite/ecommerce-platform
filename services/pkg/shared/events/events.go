@@ -1,26 +1,26 @@
 package events
 
 const (
-	UserRegisteredEventKey    = "user.registered"
-	UserEmailVerifiedEventKey = "user.email_verified"
-	OrderPaidEventKey         = "order.paid"
-	OrderConfirmedEventKey    = "order.confirmed"
-	OrderCancelledEventKey    = "order.cancelled"
+	EmailVerificationRequestedEventKey = "user.email_verification_requested"
+	WelcomeEmailRequestedEventKey      = "user.welcome_email_requested"
+	OrderPaidEventKey                  = "order.paid"
+	OrderConfirmedEventKey             = "order.confirmed"
+	OrderCancelledEventKey             = "order.cancelled"
 )
 
 const (
-	UserRegisteredSubject    = "Welcome aboard"
-	UserEmailVerifiedSubject = "Email verified"
+	EmailVerificationSubject = "Verify your email"
+	WelcomeEmailSubject      = "Welcome aboard"
 	OrderPaidSubject         = "Payment confirmed"
 	OrderConfirmedSubject    = "Order confirmed"
 	OrderCancelledSubject    = "Order canceled"
 )
 
-type UserRegisteredEvent struct {
+type EmailVerificationRequestedEvent struct {
 	Email string `json:"email"`
 	Code  string `json:"code"`
 }
-type UserEmailVerifiedEvent struct {
+type WelcomeEmailRequestedEvent struct {
 	Email string `json:"email"`
 	Name  string `json:"name"`
 }

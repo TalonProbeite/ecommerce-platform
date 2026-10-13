@@ -5,9 +5,11 @@ package integration
 import (
 	"cmp"
 	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mailer"
-	"shop/notification/internal/infra/rabbitmq"
 	"shop/shared/events"
 	"slices"
 	"testing"
@@ -15,6 +17,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// Run auth's real publisher in its own module because its implementation is internal.
+func TestNotificationFlow_AuthPublisherProducesEmail(t *testing.T) {
+	s := newStack(t, nil)
+	cmd := exec.CommandContext(t.Context(), "go", "test", "-tags=integration", "-count=1", "-run=^TestPublisherDeliversUserEvent$", "./internal/infra/rabbitmq")
+	cmd.Dir = filepath.Join("..", "auth")
+	cmd.Env = append(os.Environ(), "TEST_RABBITMQ_URL="+env.amqpURL)
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, "auth publisher test: %s", output)
+
+	msg := waitForMail(t, "test@example.com")
+	assert.Equal(t, events.EmailVerificationSubject, msg.subject())
+	assert.Contains(t, msg.body(t), "123456")
+	logs := s.waitForLogs(t, "test@example.com", 1)
+	require.Len(t, logs, 1)
+	assert.Equal(t, mailer.SendStatusSent, logs[0].Status)
+}
 
 func TestNotificationFlow_EventProducesEmailAndAuditLog(t *testing.T) {
 	s := newStack(t, nil)
@@ -29,26 +48,26 @@ func TestNotificationFlow_EventProducesEmailAndAuditLog(t *testing.T) {
 		bodyMarker string
 	}{
 		{
-			name:       "user registered sends verification code",
-			exchange:   rabbitmq.ExchangeUser,
-			key:        events.UserRegisteredEventKey,
+			name:       "verification request sends verification code",
+			exchange:   events.ExchangeUser,
+			key:        events.EmailVerificationRequestedEventKey,
 			recipient:  "registered@example.com",
-			event:      events.UserRegisteredEvent{Email: "registered@example.com", Code: "482913"},
-			subject:    events.UserRegisteredSubject,
+			event:      events.EmailVerificationRequestedEvent{Email: "registered@example.com", Code: "482913"},
+			subject:    events.EmailVerificationSubject,
 			bodyMarker: "482913",
 		},
 		{
-			name:       "email verified sends welcome mail",
-			exchange:   rabbitmq.ExchangeUser,
-			key:        events.UserEmailVerifiedEventKey,
+			name:       "welcome request sends welcome mail",
+			exchange:   events.ExchangeUser,
+			key:        events.WelcomeEmailRequestedEventKey,
 			recipient:  "verified@example.com",
-			event:      events.UserEmailVerifiedEvent{Email: "verified@example.com", Name: "Alice"},
-			subject:    events.UserEmailVerifiedSubject,
+			event:      events.WelcomeEmailRequestedEvent{Email: "verified@example.com", Name: "Alice"},
+			subject:    events.WelcomeEmailSubject,
 			bodyMarker: "Alice",
 		},
 		{
 			name:       "order confirmed",
-			exchange:   rabbitmq.ExchangeOrder,
+			exchange:   events.ExchangeOrder,
 			key:        events.OrderConfirmedEventKey,
 			recipient:  "confirmed@example.com",
 			event:      events.OrderConfirmedEvent{OrderID: "order-1001", Email: "confirmed@example.com"},
@@ -57,7 +76,7 @@ func TestNotificationFlow_EventProducesEmailAndAuditLog(t *testing.T) {
 		},
 		{
 			name:       "order paid",
-			exchange:   rabbitmq.ExchangeOrder,
+			exchange:   events.ExchangeOrder,
 			key:        events.OrderPaidEventKey,
 			recipient:  "paid@example.com",
 			event:      events.OrderPaidEvent{OrderID: "order-1002", Email: "paid@example.com", Amount: 149.9},
@@ -66,7 +85,7 @@ func TestNotificationFlow_EventProducesEmailAndAuditLog(t *testing.T) {
 		},
 		{
 			name:       "order cancelled",
-			exchange:   rabbitmq.ExchangeOrder,
+			exchange:   events.ExchangeOrder,
 			key:        events.OrderCancelledEventKey,
 			recipient:  "cancelled@example.com",
 			event:      events.OrderCancelledPayload{OrderID: "order-1003", Email: "cancelled@example.com", Reason: "out of stock"},
@@ -102,7 +121,7 @@ func TestNotificationFlow_InvalidPayloadGoesToDeadLetterQueue(t *testing.T) {
 	s := newStack(t, nil)
 
 	body := []byte("{definitely not json")
-	s.publish(t, rabbitmq.ExchangeUser, events.UserRegisteredEventKey, body)
+	s.publish(t, events.ExchangeUser, events.EmailVerificationRequestedEventKey, body)
 
 	dead := s.waitForDeadLetter(t)
 	assert.Equal(t, body, dead.Body)
@@ -118,8 +137,8 @@ func TestNotificationFlow_SMTPFailureIsRetriedThenDeadLettered(t *testing.T) {
 	errSMTP := errors.New("smtp unavailable")
 	s := newStack(t, failingSender{err: errSMTP})
 
-	event := events.UserRegisteredEvent{Email: recipient, Code: "111222"}
-	sent := s.publishJSON(t, rabbitmq.ExchangeUser, events.UserRegisteredEventKey, event)
+	event := events.EmailVerificationRequestedEvent{Email: recipient, Code: "111222"}
+	sent := s.publishJSON(t, events.ExchangeUser, events.EmailVerificationRequestedEventKey, event)
 
 	dead := s.waitForDeadLetter(t)
 	assert.JSONEq(t, string(sent), string(dead.Body))

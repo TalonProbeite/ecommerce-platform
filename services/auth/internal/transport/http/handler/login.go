@@ -7,7 +7,6 @@ import (
 	"shop/auth/internal/application"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/transport/http/dto"
-	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -15,12 +14,18 @@ import (
 type AuthHandler struct {
 	authService *application.AuthService
 	log         *slog.Logger
+	frontendURL string
 }
 
-func NewAuthHandler(authService *application.AuthService, log *slog.Logger) *AuthHandler {
+func NewAuthHandler(authService *application.AuthService, log *slog.Logger, frontendURL ...string) *AuthHandler {
+	origin := "https://localhost"
+	if len(frontendURL) > 0 {
+		origin = frontendURL[0]
+	}
 	return &AuthHandler{
 		authService: authService,
 		log:         log,
+		frontendURL: origin,
 	}
 }
 
@@ -35,7 +40,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 	}
 
-	tokens, err := h.authService.Login(c.Request().Context(), &req)
+	tokens, profile, err := h.authService.Login(c.Request().Context(), &req)
 	if err != nil {
 		h.log.Error("login failed", slog.Any("error", err), slog.String("email", req.Email))
 
@@ -51,25 +56,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		}
 	}
 
-	c.SetCookie(&http.Cookie{
-		Name:     "access_token",
-		Value:    tokens.AccessToken,
-		Path:     "/",
-		Expires:  time.Now().Add(15 * time.Minute),
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-	})
+	setAuthCookies(c, tokens)
 
-	c.SetCookie(&http.Cookie{
-		Name:     "refresh_token",
-		Value:    tokens.RefreshToken,
-		Path:     "/",
-		Expires:  time.Now().Add(7 * 24 * time.Hour),
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-	})
-
-	return c.JSON(http.StatusOK, map[string]string{"message": "successfully logged in"})
+	return c.JSON(http.StatusOK, profile)
 }

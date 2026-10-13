@@ -36,6 +36,9 @@ type SessionRepository interface {
 	SaveEntry(ctx context.Context, key, value string, ttl time.Duration) error
 	DeleteEntry(ctx context.Context, key string) error
 	GetValue(ctx context.Context, key string) (string, error)
+	ConsumeEntry(ctx context.Context, key string) (string, error)
+	AcquireLock(ctx context.Context, key, owner string, ttl time.Duration) (bool, error)
+	ReleaseLock(ctx context.Context, key, owner string) error
 
 	CreateSession(
 		ctx context.Context,
@@ -84,6 +87,6 @@ type TokenManager interface {
 	) (string, roles.Role, error)
 }
 type GoogleClient interface {
-	AuthURL(state string) string
-	GetProfile(ctx context.Context, code string) (*OAuthProfile, error)
+	AuthURL(state, verifier, nonce string) string
+	GetProfile(ctx context.Context, code, verifier, nonce string) (*OAuthProfile, error)
 }

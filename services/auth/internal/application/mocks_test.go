@@ -104,6 +104,9 @@ type MockSessionRepo struct {
 	SaveEntryFunc                func(context.Context, string, string, time.Duration) error
 	DeleteEntryFunc              func(context.Context, string) error
 	GetValueFunc                 func(context.Context, string) (string, error)
+	ConsumeEntryFunc             func(context.Context, string) (string, error)
+	AcquireLockFunc              func(context.Context, string, string, time.Duration) (bool, error)
+	ReleaseLockFunc              func(context.Context, string, string) error
 	CreateSessionFunc            func(context.Context, *domain.Session, time.Duration, time.Duration) error
 	GetSessionByRefreshTokenFunc func(context.Context, string) (*domain.Session, error)
 	UpdateSessionTokensFunc      func(context.Context, *domain.Session, string, string, time.Duration, time.Duration) error
@@ -218,20 +221,30 @@ func (m *MockTokenManager) VerifyToken(
 }
 
 type MockGoogleClient struct {
-	AuthURLFunc    func(string) string
-	GetProfileFunc func(context.Context, string) (*domain.OAuthProfile, error)
+	AuthURLFunc    func(string, string, string) string
+	GetProfileFunc func(context.Context, string, string, string) (*domain.OAuthProfile, error)
 }
 
-func (m *MockGoogleClient) AuthURL(state string) string {
+func (m *MockGoogleClient) AuthURL(state, verifier, nonce string) string {
 	if m.AuthURLFunc == nil {
 		unset("AuthURLFunc")
 	}
-	return m.AuthURLFunc(state)
+	return m.AuthURLFunc(state, verifier, nonce)
 }
 
-func (m *MockGoogleClient) GetProfile(ctx context.Context, code string) (*domain.OAuthProfile, error) {
+func (m *MockGoogleClient) GetProfile(ctx context.Context, code, verifier, nonce string) (*domain.OAuthProfile, error) {
 	if m.GetProfileFunc == nil {
 		unset("GetProfileFunc")
 	}
-	return m.GetProfileFunc(ctx, code)
+	return m.GetProfileFunc(ctx, code, verifier, nonce)
+}
+
+func (m *MockSessionRepo) ConsumeEntry(ctx context.Context, key string) (string, error) {
+	return m.ConsumeEntryFunc(ctx, key)
+}
+func (m *MockSessionRepo) AcquireLock(ctx context.Context, key, owner string, ttl time.Duration) (bool, error) {
+	return m.AcquireLockFunc(ctx, key, owner, ttl)
+}
+func (m *MockSessionRepo) ReleaseLock(ctx context.Context, key, owner string) error {
+	return m.ReleaseLockFunc(ctx, key, owner)
 }

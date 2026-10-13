@@ -8,13 +8,6 @@ import (
 )
 
 const (
-	ExchangeUser  = "user.events"
-	ExchangeOrder = "order.events"
-	ExchangeDLX   = "dlx.exchange"
-
-	exchangeKindTopic  = "topic"
-	exchangeKindFanout = "fanout"
-
 	QueueUserNotifications = "user.notifications.q"
 	QueueOrderProcessing   = "order.processing.q"
 	QueueFailedMessages    = "failed.messages"
@@ -38,23 +31,23 @@ type queueSpec struct {
 }
 
 var exchanges = []exchangeSpec{
-	{Name: ExchangeUser, Kind: exchangeKindTopic},
-	{Name: ExchangeOrder, Kind: exchangeKindTopic},
-	{Name: ExchangeDLX, Kind: exchangeKindFanout},
+	{Name: events.ExchangeUser, Kind: events.ExchangeKindTopic},
+	{Name: events.ExchangeOrder, Kind: events.ExchangeKindTopic},
+	{Name: events.ExchangeDLX, Kind: events.ExchangeKindFanout},
 }
 
 var queues = []queueSpec{
 	{
 		Name:     QueueUserNotifications,
-		Exchange: ExchangeUser,
+		Exchange: events.ExchangeUser,
 		Keys: []string{
-			events.UserRegisteredEventKey,
-			events.UserEmailVerifiedEventKey,
+			events.EmailVerificationRequestedEventKey,
+			events.WelcomeEmailRequestedEventKey,
 		},
 	},
 	{
 		Name:     QueueOrderProcessing,
-		Exchange: ExchangeOrder,
+		Exchange: events.ExchangeOrder,
 		Keys: []string{
 			events.OrderPaidEventKey,
 			events.OrderConfirmedEventKey,
@@ -138,8 +131,8 @@ func (c *Consumer) declareDLQ() error {
 		return fmt.Errorf("declare queue %s: %w", QueueFailedMessages, err)
 	}
 
-	if err := c.client.Chan.QueueBind(q.Name, "", ExchangeDLX, false, nil); err != nil {
-		return fmt.Errorf("bind queue %s to %s: %w", q.Name, ExchangeDLX, err)
+	if err := c.client.Chan.QueueBind(q.Name, "", events.ExchangeDLX, false, nil); err != nil {
+		return fmt.Errorf("bind queue %s to %s: %w", q.Name, events.ExchangeDLX, err)
 	}
 
 	return nil
@@ -174,6 +167,6 @@ func workQueueArgs() amqp.Table {
 	return amqp.Table{
 		amqp.QueueTypeArg: amqp.QueueTypeQuorum,
 		argDeliveryLimit:  deliveryLimit,
-		argDeadLetterExc:  ExchangeDLX,
+		argDeadLetterExc:  events.ExchangeDLX,
 	}
 }
