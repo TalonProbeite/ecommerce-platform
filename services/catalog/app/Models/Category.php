@@ -11,14 +11,15 @@ use Ramsey\Uuid\Uuid;
 
 class Category extends Model
 {
-    use HasUuids, SoftDeletes;
+    use HasUuids;
+    use SoftDeletes;
 
     public function newUniqueId(): string
     {
         return (string) Uuid::uuid7();
     }
 
-    protected $guarded = [];
+    protected $fillable = ['name', 'slug', 'parent_id', 'store_id'];
 
 
     protected function casts(): array

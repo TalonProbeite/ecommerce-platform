@@ -2,10 +2,10 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class () extends Migration {
     public function up(): void
     {
         Schema::create('product_images', function (Blueprint $table) {
@@ -18,6 +18,9 @@ return new class extends Migration
 
             $table->index(['product_id', 'is_main']);
         });
+
+        DB::statement('CREATE UNIQUE INDEX product_images_one_main_per_product
+            ON product_images (product_id) WHERE is_main = true');
     }
 
     public function down(): void

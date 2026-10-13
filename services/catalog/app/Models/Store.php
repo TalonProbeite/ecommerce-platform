@@ -10,21 +10,24 @@ use Ramsey\Uuid\Uuid;
 
 class Store extends Model
 {
-    use HasUuids, SoftDeletes;
+    use HasUuids;
+    use SoftDeletes;
 
     public function newUniqueId(): string
     {
         return (string) Uuid::uuid7();
     }
 
-    protected $guarded = [];
+    protected $fillable = ['name', 'active', 'description', 'location'];
 
 
     protected function casts(): array
     {
         return [
-            'name'=> 'string',
-            'active' => 'boolean'
+            'name' => 'string',
+            'active' => 'boolean',
+            'description' => 'string',
+            'location' => 'string',
         ];
     }
 
@@ -37,4 +40,9 @@ class Store extends Model
     {
         return $this->hasMany(Category::class);
     }
-} 
+
+    public function stocks(): HasMany
+    {
+        return $this->hasMany(Stock::class);
+    }
+}

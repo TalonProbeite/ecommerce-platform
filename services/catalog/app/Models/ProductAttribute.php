@@ -16,7 +16,7 @@ class ProductAttribute extends Model
         return (string) Uuid::uuid7();
     }
 
-    protected $guarded = [];
+    protected $fillable = ['product_id', 'name', 'value'];
 
     protected function casts(): array
     {

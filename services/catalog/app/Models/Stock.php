@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Ramsey\Uuid\Uuid;
 
 class Stock extends Model
@@ -15,7 +17,7 @@ class Stock extends Model
         return (string) Uuid::uuid7();
     }
 
-    protected $guarded = [];
+    protected $fillable = ['product_id', 'store_id', 'quantity', 'reserved'];
 
     protected function casts(): array
     {
@@ -24,10 +26,26 @@ class Stock extends Model
             'reserved' => 'integer',
         ];
     }
-    
+
 
     public function getAvailableAttribute(): int
     {
         return $this->quantity - $this->reserved;
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
+    }
+
+    public function stockReservations(): HasMany
+    {
+        // stocks.product_id is unique; composite FKs enforce the same store for this product.
+        return $this->hasMany(StockReservation::class, 'product_id', 'product_id');
     }
 }

@@ -16,7 +16,7 @@ class ProductImage extends Model
         return (string) Uuid::uuid7();
     }
 
-    protected $guarded = [];
+    protected $fillable = ['product_id', 'path', 'is_main', 'sort_order'];
 
     protected function casts(): array
     {

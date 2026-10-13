@@ -12,25 +12,31 @@ use Ramsey\Uuid\Uuid;
 
 class Product extends Model
 {
-    use HasUuids, SoftDeletes;
+    use HasUuids;
+    use SoftDeletes;
 
     public function newUniqueId(): string
     {
         return (string) Uuid::uuid7();
     }
 
-    protected $guarded = [];
+    protected $fillable = [
+        'name', 'slug', 'description', 'price_per_hour', 'deposit_amount',
+        'rating', 'reviews_count', 'is_active', 'store_id', 'category_id',
+    ];
 
 
     protected function casts(): array
     {
         return [
-            'name'=> 'string',
+            'name' => 'string',
             'is_active' => 'boolean',
             'slug' => 'string',
             'description' => 'string',
-            'price' => 'integer'
-
+            'price_per_hour' => 'integer',
+            'deposit_amount' => 'integer',
+            'rating' => 'decimal:2',
+            'reviews_count' => 'integer',
         ];
     }
 
@@ -57,5 +63,10 @@ class Product extends Model
     public function images(): HasMany
     {
         return $this->hasMany(ProductImage::class);
+    }
+
+    public function stockReservations(): HasMany
+    {
+        return $this->hasMany(StockReservation::class);
     }
 }
