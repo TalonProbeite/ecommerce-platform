@@ -3,6 +3,8 @@ package config
 import (
 	"crypto/rsa"
 	"encoding/base64"
+	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -31,6 +33,7 @@ type JWTConfig struct {
 	JwtPublicKeyBase64  string `env:"JWT_PUBLIC_KEY_BASE64" env-required:"true"`
 }
 type OAuthConfig struct {
+	FrontendURL  string `env:"FRONTEND_URL" env-default:"https://localhost"`
 	ClientID     string `env:"CLIENT_ID" env-required:"true"`
 	ClientSecret string `env:"CLIENT_SECRET" env-required:"true"`
 	RedirectURL  string `env:"REDIRECT_URL" env-required:"true"`
@@ -99,4 +102,13 @@ func (c *Config) OAuthStateGoogle() *oauth2.Config {
 	}
 
 	return &googleConfig
+}
+
+// FrontendURL is a trusted HTTPS origin, not an arbitrary redirect target.
+func (c *Config) ValidateOAuth() error {
+	u, err := url.Parse(c.OAuth.FrontendURL)
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.Hostname() == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.Opaque != "" {
+		return fmt.Errorf("FRONTEND_URL must be an HTTPS origin without credentials, path, query or fragment")
+	}
+	return nil
 }

@@ -10,6 +10,8 @@ export const router = createBrowserRouter([
       { path: ROUTES.home, lazy: async () => ({ Component: (await import('@/pages/root-page')).RootPage }) },
       { path: ROUTES.login, lazy: async () => ({ Component: (await import('@/pages/login-page')).LoginPage }) },
       { path: ROUTES.register, lazy: async () => ({ Component: (await import('@/pages/register-page')).RegisterPage }) },
+      { path: ROUTES.oauthSuccess, lazy: async () => ({ Component: (await import('@/pages/oauth-success-page')).OAuthSuccessPage }) },
+      { path: ROUTES.oauthComplete, lazy: async () => ({ Component: (await import('@/pages/oauth-complete-page')).OAuthCompletePage }) },
       { path: ROUTES.verifyEmail, lazy: async () => ({ Component: (await import('@/pages/verify-email-page')).VerifyEmailPage }) },
       {
         element: <ProtectedRoute roles={['customer']} />,

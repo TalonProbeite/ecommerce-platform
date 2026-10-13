@@ -10,8 +10,14 @@ export const ROUTES = {
   profile: '/profile',
   login: '/login',
   register: '/register',
+  oauthSuccess: '/oauth/success',
+  oauthComplete: '/register/complete',
   verifyEmail: '/verify-email',
   admin: '/admin',
   analytics: '/analytics',
   notifications: '/notifications',
 } as const
+
+export function isOAuthHandoffPath(pathname: string): boolean {
+  return pathname === ROUTES.oauthSuccess || pathname === ROUTES.oauthComplete
+}

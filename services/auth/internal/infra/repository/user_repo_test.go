@@ -33,6 +33,7 @@ func TestGetByIDProfile(t *testing.T) {
 	db.MustExec(`CREATE TEMP TABLE profiles (
 		user_id text, first_name text, last_name text, phone text
 	)`)
+	db.MustExec(`CREATE TEMP TABLE oauth_accounts (user_id text, provider text, provider_user_id text)`)
 	repo := repository.NewUserRepo(db)
 	service := application.NewProfileService(repo, nil, nil)
 
@@ -83,12 +84,12 @@ func TestGetByIDProfile(t *testing.T) {
 			if err := json.Unmarshal(body, &fields); err != nil {
 				t.Fatal(err)
 			}
-			for _, key := range []string{"email", "first_name", "last_name", "phone", "role", "is_verified"} {
+			for _, key := range []string{"email", "first_name", "last_name", "phone", "role", "is_verified", "is_oauth"} {
 				if _, ok := fields[key]; !ok {
 					t.Errorf("missing JSON field %s: %s", key, body)
 				}
 			}
-			if len(fields) != 6 {
+			if len(fields) != 7 {
 				t.Errorf("unexpected JSON contract: %s", body)
 			}
 		})

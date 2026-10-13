@@ -47,6 +47,7 @@ func (ps *ProfileService) GetUserProfile(ctx context.Context, userID string) (do
 		Phone:      user.Phone,
 		Role:       user.Role,
 		IsVerified: user.IsEmailVerified,
+		IsOAuth:    user.IsOAuth,
 	}, nil
 }
 

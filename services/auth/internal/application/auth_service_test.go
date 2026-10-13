@@ -396,7 +396,7 @@ func TestAuthService_Google(t *testing.T) {
 			f := newFixture(t)
 			tt.arm(f)
 
-			url, err := f.svc.Google(testCtx())
+			start, err := f.svc.Google(testCtx())
 			if tt.check(t, err) {
 				assertNotCalled(t, f, tt.notCalled...)
 				return
@@ -405,8 +405,8 @@ func TestAuthService_Google(t *testing.T) {
 			if f.authState == "" {
 				t.Fatal("state passed to AuthURL is empty")
 			}
-			if want := "https://accounts.example/auth?state=" + f.authState; url != want {
-				t.Errorf("url = %q, want %q", url, want)
+			if want := "https://accounts.example/auth?state=" + f.authState; start.URL != want {
+				t.Errorf("url = %q, want %q", start.URL, want)
 			}
 			if e, ok := f.saved["state:"+f.authState]; !ok || e.ttl != oauthStateTTL {
 				t.Errorf("state entry = %+v (found=%t), want ttl %s", e, ok, oauthStateTTL)
@@ -435,12 +435,12 @@ func TestAuthService_GoogleCallback(t *testing.T) {
 		{
 			name:      "state not found",
 			setup:     func(f *fixture) { delete(f.store, stateKey) },
-			errCase:   errCase{wantMsg: "error when searching for state"},
+			errCase:   errCase{wantIs: domain.ErrOAuthStateInvalid},
 			notCalled: []string{"google.GetProfile"},
 		},
 		{
-			name:      "state delete error",
-			errCase:   errCase{failAt: "sess.DeleteEntry", wantMsg: "error deleting used state"},
+			name:      "state consume error",
+			errCase:   errCase{failAt: "sess.ConsumeEntry", wantMsg: "error consuming state"},
 			notCalled: []string{"google.GetProfile"},
 		},
 		{
@@ -467,14 +467,14 @@ func TestAuthService_GoogleCallback(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture(t)
-			f.store[stateKey] = ""
+			f.store[stateKey] = mustJSON(t, domain.OAuthTransaction{Verifier: "verifier", Nonce: "nonce"})
 			f.user.Role = roles.RoleAnalyst
 			tt.arm(f)
 			if tt.setup != nil {
 				tt.setup(f)
 			}
 
-			res, err := f.svc.GoogleCallback(testCtx(), state, "auth-code")
+			res, err := f.svc.GoogleCallback(testCtx(), state, "auth-code", state)
 			if tt.check(t, err) {
 				assertNotCalled(t, f, tt.notCalled...)
 				return
@@ -529,7 +529,7 @@ func TestAuthService_CompleteOAuthRegistration(t *testing.T) {
 		{
 			name:          "pending profile not found",
 			removePending: true,
-			errCase:       errCase{wantMsg: "when completing the profile"},
+			errCase:       errCase{wantIs: domain.ErrOAuthRegistrationExpired},
 			notCalled:     []string{"users.CreateWithOauth"},
 		},
 		{
@@ -544,9 +544,8 @@ func TestAuthService_CompleteOAuthRegistration(t *testing.T) {
 			notCalled: []string{"sess.DeleteEntry", "sess.CreateSession"},
 		},
 		{
-			name:      "pending delete error",
-			errCase:   errCase{failAt: "sess.DeleteEntry"},
-			notCalled: []string{"sess.CreateSession"},
+			name:    "pending delete error",
+			errCase: errCase{failAt: "sess.DeleteEntry"},
 		},
 		{
 			name:    "session creation error",
@@ -557,6 +556,7 @@ func TestAuthService_CompleteOAuthRegistration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture(t)
+			f.oauthMissing = true
 			f.store[pendingKey] = mustJSON(t, f.profile)
 			if tt.pendingValue != "" {
 				f.store[pendingKey] = tt.pendingValue

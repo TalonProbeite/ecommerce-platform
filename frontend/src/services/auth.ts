@@ -17,7 +17,11 @@ function accountProfile(data: unknown): User {
   if (profile.is_verified !== undefined && typeof profile.is_verified !== 'boolean') {
     throw new Error('The server returned an invalid profile response.')
   }
+  if (profile.is_oauth !== undefined && typeof profile.is_oauth !== 'boolean') {
+    throw new Error('The server returned an invalid profile response.')
+  }
   return {
+    ...(profile.is_oauth === undefined ? {} : { isOAuth: profile.is_oauth }),
     ...(profile.role === undefined ? {} : { role: profile.role as User['role'] }),
     ...(profile.is_verified === undefined ? {} : { emailVerified: profile.is_verified as boolean }),
     email: profile.email as string,
@@ -46,7 +50,7 @@ export async function registerAccount(payload: RegisterPayload): Promise<User> {
 }
 
 export async function completeOAuthProfile(payload: Pick<RegisterPayload, 'firstName' | 'lastName' | 'phone'>): Promise<string> {
-  if (isMockApi) throw new Error('OAuth completion requires the backend profile_key cookie and a confirmed frontend handoff.')
+  if (isMockApi) throw new Error('Google registration requires the real backend.')
   const { firstName, lastName, phone } = payload
   return messageResponse((await api.post<unknown>('/auth/api/oauth/complete', {
     first_name: firstName, ...(lastName === undefined ? {} : { last_name: lastName }), phone,
@@ -90,4 +94,21 @@ export async function changeAccountPassword(payload: ChangePasswordPayload): Pro
 export async function logoutAccount(): Promise<void> {
   const { data } = await api.post<unknown>('/auth/api/logout')
   if (!isMockApi) messageResponse(data)
+}
+
+export interface PendingOAuthProfile {
+  email: string
+  firstName: string
+  lastName: string
+}
+
+export async function loadOAuthProfile(): Promise<PendingOAuthProfile> {
+  if (isMockApi) throw new Error('Google registration requires the real backend.')
+  const { data } = await api.get<unknown>('/auth/api/oauth/profile')
+  if (!data || typeof data !== 'object') throw new Error('The server returned an invalid Google profile.')
+  const profile = data as Record<string, unknown>
+  if (['email', 'first_name', 'last_name'].some(field => typeof profile[field] !== 'string')) {
+    throw new Error('The server returned an invalid Google profile.')
+  }
+  return { email: profile.email as string, firstName: profile.first_name as string, lastName: profile.last_name as string }
 }

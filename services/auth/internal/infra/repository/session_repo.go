@@ -51,7 +51,11 @@ func (s *SessionRepo) GetValue(
 	ctx context.Context,
 	key string,
 ) (string, error) {
-	return s.rdb.Get(ctx, key).Result()
+	value, err := s.rdb.Get(ctx, key).Result()
+	if errors.Is(err, redis.Nil) {
+		return "", domain.ErrEntryNotFound
+	}
+	return value, err
 }
 
 func (s *SessionRepo) CreateSession(
@@ -220,4 +224,22 @@ func (s *SessionRepo) RevokeAllSessions(
 	}
 
 	return nil
+}
+
+// ConsumeEntry makes OAuth transactions single use even across service replicas.
+func (s *SessionRepo) ConsumeEntry(ctx context.Context, key string) (string, error) {
+	value, err := s.rdb.GetDel(ctx, key).Result()
+	if errors.Is(err, redis.Nil) {
+		return "", domain.ErrEntryNotFound
+	}
+	return value, err
+}
+
+func (s *SessionRepo) AcquireLock(ctx context.Context, key, owner string, ttl time.Duration) (bool, error) {
+	return s.rdb.SetNX(ctx, key, owner, ttl).Result()
+}
+
+func (s *SessionRepo) ReleaseLock(ctx context.Context, key, owner string) error {
+	// Never delete a lease now owned by another request.
+	return s.rdb.Eval(ctx, `if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end`, []string{key}, owner).Err()
 }

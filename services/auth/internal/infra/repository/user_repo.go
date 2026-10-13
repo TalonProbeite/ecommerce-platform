@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )
@@ -26,7 +27,8 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 	var u domain.User
 
 	query := `
-		SELECT u.id, u.email, u.password_hash, u.role, u.is_active, u.is_email_verified,
+		SELECT u.id, u.email, COALESCE(u.password_hash, '') AS password_hash, u.role, u.is_active, u.is_email_verified,
+ EXISTS(SELECT 1 FROM oauth_accounts o WHERE o.user_id=u.id) AS is_oauth,
 		       p.first_name, COALESCE(p.last_name, '') AS last_name,
 		       COALESCE(p.phone, '') AS phone
 		FROM users u
@@ -191,7 +193,7 @@ func (r *UserRepo) CreateWithOauth(ctx context.Context, u *domain.User) (userID 
 		u.IsEmailVerified,
 	)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("insert user: %w", err)
+		return uuid.Nil, fmt.Errorf("insert user: %w", oauthCreateError(err))
 	}
 
 	profileQuery := `
@@ -225,7 +227,7 @@ func (r *UserRepo) CreateWithOauth(ctx context.Context, u *domain.User) (userID 
 		u.ProviderUserID,
 	)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("insert oauth account: %w", err)
+		return uuid.Nil, fmt.Errorf("insert oauth account: %w", oauthCreateError(err))
 	}
 
 	err = tx.Commit()
@@ -247,7 +249,7 @@ func (r *UserRepo) GetByOAuth(
         SELECT
             u.id,
             u.email,
-            u.password_hash,
+            COALESCE(u.password_hash, '') AS password_hash,
             u.role,
             u.is_active
         FROM users u
@@ -297,6 +299,7 @@ func (r *UserRepo) GetByIDProfile(ctx context.Context, userID string) (*domain.U
 						u.is_active,
 						u.role,
 						u.is_email_verified,
+ EXISTS(SELECT 1 FROM oauth_accounts o WHERE o.user_id=u.id) AS is_oauth,
 						p.first_name,
 						COALESCE(p.last_name, '') AS last_name,
 						COALESCE(p.phone, '') AS phone
@@ -532,4 +535,13 @@ func (r *UserRepo) UpdateBanStatus(ctx context.Context, userID string, isBanned 
 	}
 
 	return nil
+}
+
+func oauthCreateError(err error) error {
+	var pgErr *pgconn.PgError
+	var pqErr *pq.Error
+	if (errors.As(err, &pgErr) && pgErr.Code == "23505") || (errors.As(err, &pqErr) && string(pqErr.Code) == "23505") {
+		return domain.ErrEmailAlreadyExists
+	}
+	return err
 }

@@ -17,16 +17,16 @@ func NewGoogleClient(conf *oauth2.Config) *GoogleClient {
 	return &GoogleClient{conf}
 }
 
-func (gc *GoogleClient) AuthURL(state string) string {
-	url := gc.conf.AuthCodeURL(state)
+func (gc *GoogleClient) AuthURL(state, verifier, nonce string) string {
+	url := gc.conf.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier), oauth2.SetAuthURLParam("nonce", nonce))
 	return url
 }
 
 func (gc *GoogleClient) GetProfile(
 	ctx context.Context,
-	code string,
+	code, verifier, nonce string,
 ) (*domain.OAuthProfile, error) {
-	token, err := gc.conf.Exchange(ctx, code)
+	token, err := gc.conf.Exchange(ctx, code, oauth2.VerifierOption(verifier))
 	if err != nil {
 		return &domain.OAuthProfile{}, err
 	}
@@ -44,13 +44,17 @@ func (gc *GoogleClient) GetProfile(
 		return &domain.OAuthProfile{}, err
 	}
 
-	verifier := provider.Verifier(&oidc.Config{
+	idVerifier := provider.Verifier(&oidc.Config{
 		ClientID: gc.conf.ClientID,
 	})
 
-	idToken, err := verifier.Verify(ctx, rawIDToken)
+	idToken, err := idVerifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		return &domain.OAuthProfile{}, err
+	}
+
+	if nonce == "" || idToken.Nonce != nonce {
+		return nil, domain.ErrOAuthStateInvalid
 	}
 
 	var profile domain.OAuthProfile

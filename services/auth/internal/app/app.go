@@ -37,6 +37,9 @@ type App struct {
 }
 
 func New(cfg *config.Config) (*App, error) {
+	if err := cfg.ValidateOAuth(); err != nil {
+		return nil, err
+	}
 	log := logger.Init(cfg.App.Env)
 
 	pg, err := db.NewPostgresDB(cfg.Postgres.DatabaseURL)
@@ -97,7 +100,7 @@ func New(cfg *config.Config) (*App, error) {
 	handlers := transporthttp.Handlers{
 		HealthHandler:  handler.NewHealthHandler(),
 		ReadyzHandler:  handler.NewReadyzHandler(pg, rdb, rabbit),
-		AuthHandler:    handler.NewAuthHandler(authService, log),
+		AuthHandler:    handler.NewAuthHandler(authService, log, cfg.OAuth.FrontendURL),
 		ProfileHandler: handler.NewProfileHandlers(profileService, log),
 		AdminHandler:   handler.NewAdminHandlers(adminService, log),
 	}

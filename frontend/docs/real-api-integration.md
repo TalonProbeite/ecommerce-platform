@@ -1,5 +1,19 @@
 # REAL API integration audit
 
+## OAuth update — 2026-10-13
+
+OAuth handoff blockers listed in the historical audit below are resolved. The
+callback now returns 303 to `/oauth/success` or `/register/complete`; the latter
+reads `GET /auth/api/oauth/profile` through AuthService/SessionRepository and
+submits `POST /auth/api/oauth/complete`. Both use HttpOnly cookies, with safe
+DTOs and no key/token query parameters. `UserProfile.is_oauth` is documented and
+mapped. Active-account checks, final-form validation, browser-bound atomic state,
+PKCE/nonce, Origin validation and identity-based partial-failure recovery are
+implemented. See [OAuth implementation report](oauth-refactoring-report.md) for
+verification and runtime configuration. Earlier missing-schema and OAuth UI
+handoff statements describe the original audit, not the current implementation.
+
+
 ## Sources and limits
 
 Audited a clean working tree at `d076845` before changing code. Read `AGENTS.md`, both `.agents/rules/` files, `docs/README.md`, the entire master specification, every phase document and the Phase 09 report. Searched tracked and hidden project files, excluding dependencies and Git internals, for API maps, Swagger/OpenAPI, Postman, JSON/YAML specifications and endpoint references. No additional backend contract was found. `dist/docs/` contains copies of the same documentation, not a separate API map.
@@ -17,8 +31,9 @@ All paths below are relative to a configured backend **origin**, normally `https
 | Logout | POST `/auth/api/logout` | No body | message; clears cookies | Works without tokens | Common errors | Already REAL; validate message and clear local state even on failure |
 | Refresh | POST `/auth/api/refresh` | No body | 200 message | Refresh cookie | 401 | Already REAL; retain single-flight/retry limit, preserve session on transient failures |
 | Google entry | GET `/auth/api/oauth/google` | Browser navigation | Redirect to Google | Public | Not enumerated | Already full navigation |
-| Google callback | GET `/auth/api/oauth/google/callback` | Google code,state | 200 login message or 201 profile-key message/cookie | Backend handles | Not enumerated | Never call from frontend; frontend redirect/handoff missing |
-| OAuth completion | POST `/auth/api/oauth/complete` | first_name,last_name,phone | 201 registration message | profile_key cookie | 401 missing/expired profile key | Add confirmed service; UI handoff blocked |
+| Google callback | GET `/auth/api/oauth/google/callback` | Google code,state; browser state cookie | 303 frontend redirect + cookies | Backend handles | Safe login error redirect | Implemented; frontend never calls callback |
+| Pending OAuth profile | GET `/auth/api/oauth/profile` | No body | email,first_name,last_name; no-store | profile_key cookie | 401 missing/expired | Implemented; non-consuming read |
+| OAuth completion | POST `/auth/api/oauth/complete` | first_name,last_name,phone | 201 registration message; auth cookies | profile_key cookie + trusted Origin | 400,401,403,409,422,500 | Implemented page/service/store handoff |
 | Verify email | POST `/auth/api/private/email/verify` | code, trimmed, exactly 10 chars | message | Auth cookie | 400,422; common auth errors | MOCK-only; connect REAL without email payload |
 | Resend | POST `/auth/api/private/email/resend` | No body | message | Auth cookie | 422; common auth errors | MOCK-only; connect REAL |
 | Profile read | GET `/auth/api/private/profile` | No body | 200; **schema missing** | Auth cookie | 401,403 | MOCK-only; REAL request can discover auth errors, but cannot construct User safely |

@@ -38,6 +38,14 @@ export function LoginPage() {
   const pending = useRef(false)
   const { touch, touchAll, isTouched } = useTouchedFields()
 
+  const oauthError = new URLSearchParams(location.search).get('oauth_error')
+  const oauthMessage = oauthError ? ({
+    oauth_canceled: 'Google sign-in was canceled. You can try again.',
+    oauth_invalid_state: 'Google sign-in expired or could not be verified. Please start again.',
+    account_inactive: 'Your account is not active.',
+    oauth_failed: 'Could not sign in with Google. Please try again.',
+  } as Record<string, string>)[oauthError] ?? 'Could not sign in with Google. Please try again.' : null
+
   const errors = validate(values)
   const from = (location.state as { from?: string } | null)?.from
 
@@ -91,6 +99,7 @@ export function LoginPage() {
         </p>
       ) : null}
 
+      {oauthMessage ? <p role="alert" className="mb-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{oauthMessage}</p> : null}
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <FormField
           id="email"

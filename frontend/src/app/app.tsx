@@ -6,12 +6,6 @@ import { router } from './router'
 import { isMockApi } from '@/api/client'
 
 export function App() {
-  const initialize = useAuthStore((state) => state.initialize)
-
-  useEffect(() => {
-    void initialize()
-  }, [initialize])
-
   useEffect(() => {
     if (isMockApi) return
     const revalidate = () => {

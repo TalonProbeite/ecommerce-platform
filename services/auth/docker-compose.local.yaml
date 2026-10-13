@@ -83,6 +83,7 @@ services:
       JWT_PRIVATE_KEY_BASE64: ${JWT_PRIVATE_KEY_BASE64}
       JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
 
+      FRONTEND_URL: ${FRONTEND_URL:-https://localhost}
       CLIENT_ID: ${CLIENT_ID}
       CLIENT_SECRET: ${CLIENT_SECRET}
       REDIRECT_URL: ${REDIRECT_URL:-https://localhost:8443/api/oauth/google/callback}

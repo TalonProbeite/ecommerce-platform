@@ -1,12 +1,20 @@
 import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import { ROUTES } from '@/app/routes'
+import { ROUTES, isOAuthHandoffPath } from '@/app/routes'
+import { useAuthStore } from '@/store/auth-store'
 import { isMockApi } from '@/api/client'
 import { SiteFooter } from './site-footer'
 import { SiteHeader } from './site-header'
 
 export function AppLayout() {
   const { pathname } = useLocation()
+  const initialize = useAuthStore(state => state.initialize)
+
+  useEffect(() => {
+    // Handoff pages own their requests. Resume the guest/session probe if the
+    // user leaves one before authenticating, including client-side navigation.
+    if (!isOAuthHandoffPath(pathname)) void initialize()
+  }, [pathname, initialize])
 
   useEffect(() => {
     window.scrollTo({ top: 0 })

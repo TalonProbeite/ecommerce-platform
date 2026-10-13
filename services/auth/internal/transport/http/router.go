@@ -86,6 +86,7 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 	public.POST("/refresh", h.AuthHandler.Refresh)
 	public.GET("/oauth/google", h.AuthHandler.GoogleAuth)
 	public.GET("/oauth/google/callback", h.AuthHandler.GoogleCallback)
+	public.GET("/oauth/profile", h.AuthHandler.GetOAuthProfile)
 	public.POST("/oauth/complete", h.AuthHandler.CompleteOAuthRegistration)
 
 	return e

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { isAxiosError } from 'axios'
 import { getErrorMessage, isMockApi, onSessionExpired } from '@/api/client'
-import { changeAccountPassword, loadAccountProfile, loginAccount, logoutAccount, patchAccountProfile, registerAccount, sendAccountVerification, verifyAccountEmail } from '@/services/auth'
+import { completeOAuthProfile, changeAccountPassword, loadAccountProfile, loginAccount, logoutAccount, patchAccountProfile, registerAccount, sendAccountVerification, verifyAccountEmail } from '@/services/auth'
 import type { ChangePasswordPayload, LoginPayload, ProfileChanges, RegisterPayload, User, VerifyEmailPayload } from '@/types'
 
 type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated' | 'error'
@@ -17,6 +17,8 @@ interface AuthState {
   reloadProfile: () => Promise<void>
   login: (payload: LoginPayload) => Promise<User>
   register: (payload: RegisterPayload) => Promise<User>
+  completeOAuth: (payload: Pick<RegisterPayload, 'firstName' | 'lastName' | 'phone'>) => Promise<User>
+  restoreOAuthSession: () => Promise<User>
   verifyEmail: (payload: VerifyEmailPayload) => Promise<void>
   sendVerification: (email: string) => Promise<void>
   logout: () => Promise<void>
@@ -96,6 +98,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  completeOAuth: (payload) => oauthAccountRequest(async () => { await completeOAuthProfile(payload) }, true),
+  restoreOAuthSession: () => oauthAccountRequest(async () => {}),
+
   verifyEmail: async (payload) => {
     await verifyAccountEmail(payload)
     const user = get().user
@@ -146,3 +151,35 @@ onSessionExpired(() => {
   ++generation
   useAuthStore.setState({ user: null, status: 'unauthenticated', sessionExpired: !probingGuestSession, sessionError: null })
 })
+
+// OAuth completion and callback restoration supersede older guest probes.
+async function oauthAccountRequest(beforeProfile: () => Promise<void>, completing = false): Promise<User> {
+  if (accountPending) throw new Error('An account request is already in progress.')
+  accountPending = true
+  const requestGeneration = ++generation
+  useAuthStore.setState({ status: 'loading', sessionError: null })
+  let completed = false
+  try {
+    await beforeProfile()
+    completed = completing
+    const user = await loadAccountProfile()
+    if (requestGeneration !== generation) throw new Error('Your session changed. Please sign in again.')
+    useAuthStore.setState({ user, status: 'authenticated', sessionExpired: false, sessionError: null })
+    return user
+  } catch (error) {
+    if (requestGeneration === generation) {
+      useAuthStore.setState({ user: null, status: 'error', sessionError: getErrorMessage(error) })
+    }
+    if (completed) throw new OAuthSessionRestoreError(error)
+    throw error
+  } finally {
+    accountPending = false
+  }
+}
+
+export class OAuthSessionRestoreError extends Error {
+  constructor(cause: unknown) {
+    super('Your account was created, but we could not load your session. Please try again.', { cause })
+    this.name = 'OAuthSessionRestoreError'
+  }
+}

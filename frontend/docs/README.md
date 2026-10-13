@@ -41,9 +41,18 @@ REAL uses the documented auth, registration, email, profile mutation, password, 
 
 Refresh uses `POST /auth/api/refresh`, shares one in-flight refresh across concurrent failures (including late 401s from requests made before a completed refresh), and retries each request once. Only refresh/retry 401 expires local authentication; 403, server/network errors and cancellation remain visible without declaring the session expired. Password success ends local authentication; logout clears local state even if the server cannot confirm logout. OAuth uses full browser navigation to `/auth/api/oauth/google` at the configured REAL origin (the spec's localhost origin in MOCK).
 
-**End-to-end REAL account access is still blocked:** the project does not define the profile response schema (including role, verification, OAuth account status). Initialization and login request the actual profile but a 200 produces an explicit schema error rather than an invented User. Network/403/bootstrap errors show retryable feedback; guest 401 does not prevent public navigation. Confirm this schema before implementing the DTO mapper in `src/services/auth.ts`.
+REAL profiles are mapped from the backend `UserProfile` contract, including role,
+verification and `is_oauth`. Invalid responses produce a visible schema error;
+network/session failures remain retryable. Google callbacks redirect to public
+`/oauth/success` or `/register/complete`. The completion page reads
+`GET /auth/api/oauth/profile` using the HttpOnly registration cookie, then submits
+the existing completion API. JavaScript never accesses cookies or Google tokens.
 
-Notifications remain explicitly MOCK-only because list/detail schemas, enum values and pagination metadata are missing. OAuth completion has a confirmed service request but its frontend callback/handoff is unspecified, so no callback route or query flags were invented. Catalog remains visibly demo data in REAL; live reservation, checkout, order history, analytics and listing mutations are unavailable. MOCK retains the existing local business flows.
+Notifications remain explicitly MOCK-only because list/detail schemas, enum
+values and pagination metadata are missing. Catalog remains demo data in REAL;
+live reservation, checkout, order history, analytics and listing mutations are
+unavailable. MOCK retains existing local business flows; real Google OAuth
+requires a configured backend and Google client.
 
 See [REAL integration audit](real-api-integration.md) for the endpoint matrix, conflicts, blockers, changed files and verification evidence. Actual backend availability and cookie/TLS/OAuth behavior are not certified by fixtures.
 

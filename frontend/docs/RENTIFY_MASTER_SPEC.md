@@ -751,7 +751,8 @@ Success:
   "last_name": "",
   "phone": "+48 123456789",
   "role": "customer",
-  "is_verified": false
+  "is_verified": false,
+  "is_oauth": false
 }
 ```
 
@@ -790,7 +791,8 @@ Success:
   "last_name": "",
   "phone": "+48 123456789",
   "role": "customer",
-  "is_verified": false
+  "is_verified": false,
+  "is_oauth": false
 }
 ```
 
@@ -870,64 +872,90 @@ The backend redirects the browser to Google.
 
 ## GET `/auth/api/oauth/google/callback`
 
-Google redirects to this backend callback.
+Google redirects to this backend callback. The frontend never calls it directly.
+The backend verifies a browser-bound, single-use `state`, PKCE S256 and the ID
+token's signature, issuer, audience, expiry and transaction `nonce`.
 
-Required query parameters:
+Success returns **303 See Other**, after setting HttpOnly Secure cookies:
 
-* `code`
-* `state`
+* Existing active user: auth cookies, redirect to frontend `/oauth/success`.
+* New user: `profile_key` cookie (15 minutes), redirect to `/register/complete`.
+* Failure: redirect to `/login?oauth_error=<safe-code>` (`oauth_canceled`,
+  `oauth_invalid_state`, `account_inactive`, or `oauth_failed`).
 
-The frontend does not directly call this endpoint.
+`FRONTEND_URL` configures a trusted HTTPS origin without a path, query or
+fragment. `REDIRECT_URL` remains the Google backend callback URI. Both SPA
+routes are outside `/auth/`, which nginx reserves for backend requests.
+The temporary `oauth_state` cookie is HttpOnly Secure SameSite=Lax so it is
+sent on Google's top-level GET callback. Auth/profile cookies remain Strict.
+No token, Google profile, registration key or arbitrary return URL is placed
+in a frontend redirect URL.
 
-Possible results:
+## GET `/auth/api/oauth/profile`
 
-### Existing user
-
-`200`
+Requires only the temporary `profile_key` cookie, not an access session.
+AuthService reads the pending Redis entry through SessionRepository. Returns
+`200` and `Cache-Control: no-store`:
 
 ```json
-{"message": "successfully logged in"}
+{"email":"user@gmail.com","first_name":"Jane","last_name":"Doe"}
 ```
 
-### New user
+Read does not consume the entry or extend its 15-minute TTL. No provider
+identifiers, Google tokens or keys are exposed. Missing/expired keys return
+`401` with `code: "oauth_registration_expired"`.
 
-`201`
+## Frontend `/register/complete`
 
-```json
-{"message": "profile key successfully created"}
-```
-
-A temporary `profile_key` cookie is created.
-
-The frontend must then show the profile-completion flow.
-
----
+Public route. Load the pending profile through credentialed Axios; show Google
+email read-only, editable first/last names, and a required phone field. Display
+loading, validation, retryable API failure, expired registration and conflicting
+account states. An expired registration offers a fresh Google sign-in.
 
 ## POST `/auth/api/oauth/complete`
 
-Requires the `profile_key` cookie.
+Requires `profile_key` and an `Origin` equal to `FRONTEND_URL`. Request:
 
-Request:
+* `first_name`: optional; omitted uses Google name, explicit empty is invalid;
+  final trimmed name must be nonempty and at most 100 characters.
+* `last_name`: optional; omitted uses Google surname, explicit empty clears it;
+  at most 100 characters after trimming.
+* `phone`: required, 10–30 characters after trimming.
 
-* `first_name`
-* `last_name`
-* `phone`
+Email/provider/sub come exclusively from the verified server-side identity.
+New users are active customers. Google email is treated as verified only when
+`email_verified` is true and Google is authoritative (Gmail or a hosted Workspace
+identity). Other emails remain unverified and use existing email verification.
+Accounts are never automatically linked by matching email.
 
-Success:
+Concurrent completion uses an ownership-checked Redis lease (60 seconds) and a
+bounded 30-second operation. PostgreSQL identity uniqueness is the final guard.
+A retry after the account was created but session issuance failed recovers by
+provider/sub, not by email. Pending data is retained until session creation
+succeeds, then deleted; the response clears the `profile_key` cookie.
 
-`201`
+Success: `201`, auth cookies, JSON `{"message":"successfully registered"}`.
+The frontend loads `/auth/api/private/profile`, updates Zustand, and navigates
+by role. If that follow-up fails, `/oauth/success` retries session restoration
+without another completion POST. OAuth handoff pages own session loading;
+normal initialization resumes when navigating away.
 
-```json
-{"message": "successfully registered"}
-```
+Errors include an `error` message and stable `code`:
 
-If the `profile_key` is missing or expired:
+| Status | Code | Meaning |
+| --- | --- | --- |
+| 400 | invalid_request | Malformed request |
+| 401 | oauth_registration_expired | Missing or expired pending key |
+| 403 | invalid_origin | Missing or untrusted Origin |
+| 403 | account_inactive | Account blocked |
+| 409 | email_already_exists | Existing account conflict; sign in using its existing method |
+| 409 | oauth_registration_busy | Concurrent registration; retry shortly |
+| 422 | validation_failed | Invalid final profile fields |
+| 500 | internal_error | Retryable internal failure |
 
-`401`
-
-```json
-{"error": "missing profile key"}
-```
+Pending-profile/completion 401s do not trigger the access-session refresh
+interceptor. OAuth HTTP responses use `Cache-Control: no-store`; callback also
+sets `Referrer-Policy: no-referrer`.
 
 ---
 
@@ -978,7 +1006,15 @@ Failure:
 
 ## GET `/auth/api/private/profile`
 
-Returns the current user profile.
+Returns the current user profile as `UserProfile`:
+
+```json
+{"email":"user@gmail.com","first_name":"Jane","last_name":"Doe","phone":"+48123456789","role":"customer","is_verified":true,"is_oauth":true}
+```
+
+`is_oauth` is computed from account OAuth links and mapped to frontend
+`User.isOAuth`. It controls Google email/password UI restrictions; backend
+restrictions remain authoritative.
 
 Possible responses:
 
@@ -1144,10 +1180,10 @@ GET profile restores the session on page reload and updates account details afte
 
 1. redirect to Google OAuth endpoint
 2. backend handles Google authentication
-3. existing user → authenticated
-4. new user → complete profile
-5. submit `/oauth/complete`
-6. enter authenticated application
+3. existing user → `/oauth/success` → load ordinary profile and restore auth state
+4. new user → `/register/complete` → GET `/auth/api/oauth/profile`
+5. submit `/auth/api/oauth/complete`
+6. load ordinary profile and enter authenticated application
 
 ## Logout
 
