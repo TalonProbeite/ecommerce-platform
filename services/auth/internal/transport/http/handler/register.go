@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/transport/http/dto"
-	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -22,7 +21,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 	}
 
-	tokens, err := h.authService.Registration(c.Request().Context(), &req)
+	tokens, profile, err := h.authService.Registration(c.Request().Context(), &req)
 	if err != nil {
 		h.log.Error("registration failed", slog.Any("error", err), slog.String("email", req.Email))
 
@@ -35,25 +34,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		}
 	}
 
-	c.SetCookie(&http.Cookie{
-		Name:     "access_token",
-		Value:    tokens.AccessToken,
-		Path:     "/",
-		Expires:  time.Now().Add(15 * time.Minute),
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-	})
+	setAuthCookies(c, tokens)
 
-	c.SetCookie(&http.Cookie{
-		Name:     "refresh_token",
-		Value:    tokens.RefreshToken,
-		Path:     "/",
-		Expires:  time.Now().Add(7 * 24 * time.Hour),
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-	})
-
-	return c.JSON(http.StatusCreated, map[string]string{"message": "successfully registered"})
+	return c.JSON(http.StatusCreated, profile)
 }

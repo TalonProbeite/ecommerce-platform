@@ -66,11 +66,11 @@ func newStack(t *testing.T, sender services.MailSender) *stack {
 	orderHandler := services.NewOrderEventHandler(renderer, sender, repo)
 
 	handlers := map[string]services.HandlerFunc{
-		events.UserRegisteredEventKey:    userHandler.HandleUserRegistered,
-		events.UserEmailVerifiedEventKey: userHandler.HandleEmailVerified,
-		events.OrderConfirmedEventKey:    orderHandler.HandleOrderConfirmed,
-		events.OrderPaidEventKey:         orderHandler.HandleOrderPaid,
-		events.OrderCancelledEventKey:    orderHandler.HandleOrderCancelled,
+		events.EmailVerificationRequestedEventKey: userHandler.HandleEmailVerificationRequested,
+		events.WelcomeEmailRequestedEventKey:      userHandler.HandleWelcomeEmailRequested,
+		events.OrderConfirmedEventKey:             orderHandler.HandleOrderConfirmed,
+		events.OrderPaidEventKey:                  orderHandler.HandleOrderPaid,
+		events.OrderCancelledEventKey:             orderHandler.HandleOrderCancelled,
 	}
 
 	router := services.NewEventRouter(consumer.ConsumerList, handlers, newLogger())

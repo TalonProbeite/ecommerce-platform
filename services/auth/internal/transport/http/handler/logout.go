@@ -22,25 +22,10 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 			h.log.Info("failed to remove tokens from the session store")
 		}
 	}
-	c.SetCookie(&http.Cookie{
-		Name:     "access_token",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-	})
-
-	c.SetCookie(&http.Cookie{
-		Name:     "refresh_token",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-	})
+	clearCookie(c, "access_token", http.SameSiteStrictMode)
+	clearCookie(c, "refresh_token", http.SameSiteStrictMode)
+	clearCookie(c, "profile_key", http.SameSiteStrictMode)
+	clearCookie(c, "oauth_state", http.SameSiteLaxMode)
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "successfully logged out"})
 }

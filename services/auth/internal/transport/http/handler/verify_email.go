@@ -37,17 +37,17 @@ func (h *AuthHandler) VerifyEmail(c echo.Context, userID string) error {
 	})
 }
 
-func (h *AuthHandler) ResendCode(c echo.Context, userID string) error {
-	if err := h.authService.ResendVerCode(
+func (h *AuthHandler) SendVerificationEmail(c echo.Context, userID string) error {
+	if err := h.authService.SendVerificationEmail(
 		c.Request().Context(),
 		userID,
 	); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{
-			"error": "failed to resend code",
+			"error": "failed to send verification email",
 		})
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
-		"message": "code was resend successfully",
+		"message": "verification email sent successfully",
 	})
 }

@@ -43,6 +43,8 @@ services:
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM: ${SMTP_FROM}
     depends_on:
+      rabbitmq:
+        condition: service_healthy
       notification-db:
         condition: service_healthy
       mailhog:

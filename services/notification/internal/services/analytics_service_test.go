@@ -132,7 +132,7 @@ func TestAnalyticsService_GetNotificationsHistory(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			want := []domain.EventLog{{Type: "order.paid"}, {Type: "user.registered"}}
+			want := []domain.EventLog{{Type: "order.paid"}, {Type: "user.email_verification_requested"}}
 			repo := &fakeReader{history: want, err: tc.repoErr}
 			svc := NewAnalyticsService(repo)
 

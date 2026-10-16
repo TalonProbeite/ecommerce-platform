@@ -11,6 +11,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"shop/auth/internal/domain"
+	"shop/shared/roles"
 )
 
 const (
@@ -147,6 +150,7 @@ func TestAuthFullFlow_RegisterLoginRefreshLogout(t *testing.T) {
 	t.Logf("step=register email=%s", creds.Email)
 	registered := registerUser(t, client, creds)
 	assert2xx(t, registered, "registration")
+	assertUserProfile(t, registered, creds.Email)
 
 	registerAccess := findCookie(registered.Cookies, "access_token")
 	registerRefresh := findCookie(registered.Cookies, "refresh_token")
@@ -177,6 +181,7 @@ func TestAuthFullFlow_RegisterLoginRefreshLogout(t *testing.T) {
 		nil,
 	)
 	assert2xx(t, loginResult, "login")
+	assertUserProfile(t, loginResult, creds.Email)
 
 	loginAccess := findCookie(loginResult.Cookies, "access_token")
 	loginRefresh := findCookie(loginResult.Cookies, "refresh_token")
@@ -463,4 +468,40 @@ func requireIntegration(t *testing.T) {
 	if os.Getenv("RUN_INTEGRATION") != "1" {
 		t.Skip("integration tests disabled; run with RUN_INTEGRATION=1")
 	}
+}
+
+func assertUserProfile(t *testing.T, result httpResult, email string) {
+	t.Helper()
+	var profile domain.UserProfile
+	if err := json.Unmarshal(result.Body, &profile); err != nil {
+		t.Fatalf("decode profile: %v", err)
+	}
+	want := domain.UserProfile{
+		Email: email, FirstName: "Integration", LastName: "Test",
+		Phone: "+31612345678", Role: roles.RoleCustomer,
+	}
+	if profile != want {
+		t.Fatalf("profile = %+v, want %+v", profile, want)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(result.Body, &fields); err != nil {
+		t.Fatalf("decode profile fields: %v", err)
+	}
+	if len(fields) != 7 {
+		t.Fatalf("expected only seven profile fields, got %s", result.Body)
+	}
+}
+
+// Verify the shared response assertion against the current DTO without needing
+// a running auth stack. The HTTP integration flows use this same helper.
+func TestUserProfileAssertionMatchesContract(t *testing.T) {
+	profile := domain.UserProfile{
+		Email: "contract@example.com", FirstName: "Integration", LastName: "Test",
+		Phone: "+31612345678", Role: roles.RoleCustomer,
+	}
+	body, err := json.Marshal(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertUserProfile(t, httpResult{Body: body}, profile.Email)
 }

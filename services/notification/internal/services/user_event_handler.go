@@ -25,15 +25,15 @@ func NewUserEventHandler(
 	}
 }
 
-func (h *UserEventHandler) HandleUserRegistered(
+func (h *UserEventHandler) HandleEmailVerificationRequested(
 	ctx context.Context,
 	body []byte,
 ) error {
-	var event events.UserRegisteredEvent
+	var event events.EmailVerificationRequestedEvent
 
 	if err := json.Unmarshal(body, &event); err != nil {
 		return fmt.Errorf(
-			"unmarshal user.registered event: %w: %w",
+			"unmarshal user.email_verification_requested event: %w: %w",
 			err,
 			ErrUnrecoverable,
 		)
@@ -47,23 +47,23 @@ func (h *UserEventHandler) HandleUserRegistered(
 	event.Code = ""
 
 	return h.dispatcher.dispatch(ctx, &emailMessage{
-		EventType: events.UserRegisteredEventKey,
+		EventType: events.EmailVerificationRequestedEventKey,
 		To:        event.Email,
-		Subject:   events.UserRegisteredSubject,
+		Subject:   events.EmailVerificationSubject,
 		Body:      mailBody,
 		Payload:   event,
 	})
 }
 
-func (h *UserEventHandler) HandleEmailVerified(
+func (h *UserEventHandler) HandleWelcomeEmailRequested(
 	ctx context.Context,
 	body []byte,
 ) error {
-	var event events.UserEmailVerifiedEvent
+	var event events.WelcomeEmailRequestedEvent
 
 	if err := json.Unmarshal(body, &event); err != nil {
 		return fmt.Errorf(
-			"unmarshal user.email_verified event: %w: %w",
+			"unmarshal user.welcome_email_requested event: %w: %w",
 			err,
 			ErrUnrecoverable,
 		)
@@ -75,9 +75,9 @@ func (h *UserEventHandler) HandleEmailVerified(
 	}
 
 	return h.dispatcher.dispatch(ctx, &emailMessage{
-		EventType: events.UserEmailVerifiedEventKey,
+		EventType: events.WelcomeEmailRequestedEventKey,
 		To:        event.Email,
-		Subject:   events.UserEmailVerifiedSubject,
+		Subject:   events.WelcomeEmailSubject,
 		Body:      mailBody,
 		Payload:   event,
 	})

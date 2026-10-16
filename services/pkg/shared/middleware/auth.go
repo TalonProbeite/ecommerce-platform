@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"net/http"
-
 	"shop/shared/roles"
 
 	"github.com/labstack/echo/v4"

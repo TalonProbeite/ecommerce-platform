@@ -86,6 +86,18 @@ func TestProfileGet(t *testing.T) {
 		headersWithCookies(nil, access, refresh),
 	)
 	assert2xx(t, result, "get profile")
+	assertUserProfile(t, result, creds.Email)
+	assertUserProfile(t, registered, creds.Email)
+
+	loginResult := doJSON(t, newTestClient(t), http.MethodPost, loginPath,
+		map[string]string{"email": creds.Email, "password": creds.Password}, nil)
+	assert2xx(t, loginResult, "login")
+	assertUserProfile(t, loginResult, creds.Email)
+	loginProfile := doRequest(t, newTestClient(t), http.MethodGet, profilePath, nil,
+		headersWithCookies(nil, findCookie(loginResult.Cookies, "access_token"),
+			findCookie(loginResult.Cookies, "refresh_token")))
+	assert2xx(t, loginProfile, "get profile after login")
+	assertUserProfile(t, loginProfile, creds.Email)
 
 	var profile profileResponse
 	if err := json.Unmarshal(result.Body, &profile); err != nil {
