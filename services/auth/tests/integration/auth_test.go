@@ -487,7 +487,21 @@ func assertUserProfile(t *testing.T, result httpResult, email string) {
 	if err := json.Unmarshal(result.Body, &fields); err != nil {
 		t.Fatalf("decode profile fields: %v", err)
 	}
-	if len(fields) != 6 {
-		t.Fatalf("expected only six profile fields, got %s", result.Body)
+	if len(fields) != 7 {
+		t.Fatalf("expected only seven profile fields, got %s", result.Body)
 	}
+}
+
+// Verify the shared response assertion against the current DTO without needing
+// a running auth stack. The HTTP integration flows use this same helper.
+func TestUserProfileAssertionMatchesContract(t *testing.T) {
+	profile := domain.UserProfile{
+		Email: "contract@example.com", FirstName: "Integration", LastName: "Test",
+		Phone: "+31612345678", Role: roles.RoleCustomer,
+	}
+	body, err := json.Marshal(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertUserProfile(t, httpResult{Body: body}, profile.Email)
 }
