@@ -66,3 +66,11 @@ node --test --test-concurrency=1 scripts/*.test.mjs
 ```
 
 The REAL transport test uses a temporary local HTTP fixture, not the actual backend.
+
+### Development host allowlist
+
+Vite listens on `0.0.0.0` for container/LAN development with an explicit
+`localhost` hostname allowlist (Vite also permits IP addresses and `.localhost`).
+For a custom development hostname you control, set
+`__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=dev.example.test` in the process environment.
+Never enable `allowedHosts: true`.
