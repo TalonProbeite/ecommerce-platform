@@ -41,6 +41,8 @@ var queues = []queueSpec{
 		Name:     QueueUserNotifications,
 		Exchange: events.ExchangeUser,
 		Keys: []string{
+			events.UserRegisteredEventKey,
+			events.UserEmailVerifiedEventKey,
 			events.EmailVerificationRequestedEventKey,
 			events.WelcomeEmailRequestedEventKey,
 		},

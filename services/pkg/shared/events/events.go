@@ -1,6 +1,9 @@
 package events
 
 const (
+	// Legacy keys remain supported until all producers and queued deliveries migrate.
+	UserRegisteredEventKey             = "user.registered"
+	UserEmailVerifiedEventKey          = "user.email_verified"
 	EmailVerificationRequestedEventKey = "user.email_verification_requested"
 	WelcomeEmailRequestedEventKey      = "user.welcome_email_requested"
 	OrderPaidEventKey                  = "order.paid"
