@@ -74,3 +74,12 @@ Vite listens on `0.0.0.0` for container/LAN development with an explicit
 For a custom development hostname you control, set
 `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=dev.example.test` in the process environment.
 Never enable `allowedHosts: true`.
+
+### Shared agent instructions
+
+Root and frontend `CLAUDE.md` files link to their respective `AGENTS.md`.
+The `.claude/skills`, `.claude/rules` and `.claude/mcp_config.json` symlinks
+reference the existing `frontend/.agents` infrastructure; the corresponding
+frontend links reference `.agents` directly. Update the original files so both
+agents see the same instructions. `mcp_config.json` remains a shared reference;
+it does not automatically configure Claude Code MCP servers.
