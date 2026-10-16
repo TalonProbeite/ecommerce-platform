@@ -1,4 +1,4 @@
-import { AxiosError, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios'
+import { HttpError, type Adapter, type RequestConfig } from './http'
 import { mockNotifications } from './mock-notifications'
 import type { ChangePasswordPayload, LoginPayload, ProfileChanges, RegisterPayload, User, VerifyEmailPayload } from '@/types'
 
@@ -61,14 +61,14 @@ function findAccount(email: string) {
   return accounts.find((item) => item.email.toLowerCase() === email.trim().toLowerCase())
 }
 
-function reply(config: InternalAxiosRequestConfig, status: number, data: unknown) {
+function reply(config: RequestConfig, status: number, data: unknown) {
   const response = { data, status, statusText: String(status), headers: {}, config }
   if (status >= 200 && status < 300) return Promise.resolve(response)
   const message = (data as { message?: string }).message ?? 'Request failed'
-  return Promise.reject(new AxiosError(message, String(status), config, null, response))
+  return Promise.reject(new HttpError(message, String(status), config, response))
 }
 
-export const mockAdapter: AxiosAdapter = async (config) => {
+export const mockAdapter: Adapter = async (config) => {
   await delay(350)
   const path = config.url ?? ''
   const method = (config.method ?? 'get').toLowerCase()

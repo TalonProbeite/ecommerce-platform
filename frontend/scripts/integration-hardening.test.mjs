@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { AxiosError, CanceledError } from 'axios'
+import { HttpError, CanceledError } from '../src/api/http.ts'
 import { createServer } from 'vite'
 
 async function context(mode = 'mock') {
@@ -14,7 +14,7 @@ async function context(mode = 'mock') {
 }
 
 function failure(config, status) {
-  return new AxiosError(`HTTP ${status}`, String(status), config, null,
+  return new HttpError(`HTTP ${status}`, String(status), config,
     { status, data: { error: `HTTP ${status}` }, headers: {}, config })
 }
 
@@ -31,7 +31,7 @@ test('successful refresh preserves retry errors and does not expire valid sessio
           return { status: 200, data: {}, headers: {}, config }
         }
         if (!config._retry) throw failure(config, 401)
-        if (outcome === 'network') throw new AxiosError('offline', 'ERR_NETWORK', config)
+        if (outcome === 'network') throw new HttpError('offline', 'ERR_NETWORK', config)
         if (outcome === 'cancel') throw new CanceledError('cancelled', config)
         throw failure(config, outcome)
       }

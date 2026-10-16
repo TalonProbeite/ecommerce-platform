@@ -1,7 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { isAxiosError } from 'axios'
+import { isHttpError } from '@/api/http'
 import { getErrorCode, getErrorMessage } from '@/api/client'
 import { ROUTES } from '@/app/routes'
 import { AuthShell } from '@/components/auth/auth-shell'
@@ -38,7 +38,7 @@ export function OAuthCompletePage() {
       setValues({ firstName: data.firstName, lastName: data.lastName, phone: '' })
     }).catch(caught => {
       if (!active) return
-      setExpired(isAxiosError(caught) && caught.response?.status === 401)
+      setExpired(isHttpError(caught) && caught.response?.status === 401)
       setError(getErrorMessage(caught, 'Could not load your Google profile. Please try again.'))
     }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }

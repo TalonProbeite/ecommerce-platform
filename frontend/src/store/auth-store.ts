@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { isAxiosError } from 'axios'
+import { isHttpError } from '@/api/http'
 import { getErrorMessage, isMockApi, onSessionExpired } from '@/api/client'
 import { completeOAuthProfile, changeAccountPassword, loadAccountProfile, loginAccount, logoutAccount, patchAccountProfile, registerAccount, sendAccountVerification, verifyAccountEmail } from '@/services/auth'
 import type { ChangePasswordPayload, LoginPayload, ProfileChanges, RegisterPayload, User, VerifyEmailPayload } from '@/types'
@@ -47,7 +47,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       // Expiry may already have advanced the generation via the interceptor.
       if (requestGeneration !== generation) return
-      if (isAxiosError(error) && error.response?.status === 401) {
+      if (isHttpError(error) && error.response?.status === 401) {
         set({ user: null, status: 'unauthenticated', sessionError: null })
       } else {
         set({ user: null, status: 'error', sessionError: getErrorMessage(error, 'Could not load your account. Please try again.') })
@@ -67,7 +67,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user, status: 'authenticated', sessionExpired: false, sessionError: null })
       return user
     } catch (error) {
-      if (requestGeneration === generation && (credentialsAccepted || !isAxiosError(error))) {
+      if (requestGeneration === generation && (credentialsAccepted || !isHttpError(error))) {
         set({ user: null, status: 'error', sessionError: getErrorMessage(error) })
       }
       throw error

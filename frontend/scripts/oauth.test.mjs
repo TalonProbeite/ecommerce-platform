@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { AxiosError } from 'axios'
+import { HttpError } from '../src/api/http.ts'
 import { createServer } from 'vite'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -14,14 +14,14 @@ async function context() {
  return { server, ...(await server.ssrLoadModule('/src/api/client.ts')) }
 }
 const profile = { email: 'user@gmail.com', first_name: 'Jane', last_name: 'Doe', phone: '+48123456789', role: 'customer', is_verified: true, is_oauth: true }
-function failed(config, status) { return new AxiosError('expired', String(status), config, null, {status,data:{code:'oauth_registration_expired'},headers:{},config}) }
+function failed(config, status) { return new HttpError('expired', String(status), config, {status,data:{code:'oauth_registration_expired'},headers:{},config}) }
 
 test('OAuth pending profile uses credentials, safe mapping and no refresh on expiry', async () => {
  const {server,api}=await context()
  try {
   const {loadOAuthProfile}=await server.ssrLoadModule('/src/services/auth.ts')
   const paths=[]
-  api.defaults.adapter=async config=>{ paths.push(config.url); assert.equal(config.withCredentials,true); return {status:200,data:{...profile,sub:'secret',profile_key:'secret'},headers:{},config} }
+  api.defaults.adapter=async config=>{ paths.push(config.url); assert.equal(config.credentials,'include'); return {status:200,data:{...profile,sub:'secret',profile_key:'secret'},headers:{},config} }
   assert.deepEqual(await loadOAuthProfile(), { email:'user@gmail.com',firstName:'Jane',lastName:'Doe' })
   api.defaults.adapter=async config=>{paths.push(config.url);throw failed(config,401)}
   await assert.rejects(loadOAuthProfile())

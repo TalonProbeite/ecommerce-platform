@@ -31,7 +31,7 @@ cp .env.real.local.example .env.real.local
 pnpm dev:real
 ```
 
-`VITE_API_MODE=mock` always selects the existing mock adapter, even if an API URL is set. `VITE_API_MODE=real` uses Axios network requests with `withCredentials: true` and requires a valid HTTP(S) `VITE_API_URL`. A missing or invalid URL stops Vite with a configuration error. HTTP and network failures never switch REAL to mocks. Restart Vite after changing environment files.
+`VITE_API_MODE=mock` always selects the existing mock adapter, even if an API URL is set. `VITE_API_MODE=real` uses native fetch requests with `credentials: 'include'` and requires a valid HTTP(S) `VITE_API_URL`. A missing or invalid URL stops Vite with a configuration error. HTTP and network failures never switch REAL to mocks. Restart Vite after changing environment files.
 
 `.env.mock` and `.env.real` select the modes; local overrides follow Vite's environment precedence. `.env.real.local` is ignored by Git. All `VITE_*` values are public browser configuration: do not put secrets in them. No backend address is supplied by default. Configure only the backend origin, without paths, query parameters, fragments or URL credentials. Paths already contain `/auth/api` or `/notification/api`; an additional base path would duplicate service prefixes. Invalid origins are rejected.
 

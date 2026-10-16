@@ -22,7 +22,7 @@ Authoritative maps: `docs/RENTIFY_MASTER_SPEC.md` sections 19–30 and `.agents/
 
 ## Endpoint matrix
 
-All paths below are relative to a configured backend **origin**, normally `https://localhost`. Axios sends credentials; JavaScript never accesses auth cookies. Message responses are JSON `{message: string}`; errors are `{error: string}`. Common errors are 400/422/401/403/500 where applicable.
+All paths below are relative to a configured backend **origin**, normally `https://localhost`. Fetch uses `credentials: 'include'`; JavaScript never accesses auth cookies. Message responses are JSON `{message: string}`; errors are `{error: string}`. Common errors are 400/422/401/403/500 where applicable.
 
 | Function | Method / endpoint | Request | Response | Auth / role | Documented errors | Initial integration / work |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -175,7 +175,7 @@ Browser verification covered form registration, optional confirmation, sending f
 
 The notification schema blockers in the original integration report above are resolved by inspecting `services/notification/internal/domain/models.go`, the HTTP analytics handlers, the event repository, and the email dispatcher.
 
-Both notification GET routes now work in REAL mode through the shared credentialed Axios client and existing refresh handling. The list response is an array of EventLog records; details return one record. Fields are `id`, `created_at`, `type`, `channel`, `recipient`, `status`, `payload`, `attempts`, and optional `error`. Current delivery statuses are `sent`/`failed` and the implemented channel is `email`. Recipient filtering is exact. Payload is rendered as text JSON, without assuming a specific event shape.
+Both notification GET routes now work in REAL mode through the shared credentialed fetch client and existing refresh handling. The list response is an array of EventLog records; details return one record. Fields are `id`, `created_at`, `type`, `channel`, `recipient`, `status`, `payload`, `attempts`, and optional `error`. Current delivery statuses are `sent`/`failed` and the implemented channel is `email`. Recipient filtering is exact. Payload is rendered as text JSON, without assuming a specific event shape.
 
 The backend returns no total or pagination metadata. The UI shows the current range and enables Next for a full page. At an exact page boundary, Next can reach an empty page; Previous remains available. Requests retain `limit`/`offset`, reset offset on filter changes, omit empty filters, and use RFC3339 dates. A zero API limit uses the backend default of 100. Mock responses now use the same array/record contract and matching semantics.
 

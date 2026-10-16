@@ -134,7 +134,7 @@ Use exactly this frontend stack:
 * **Lucide React**
 * **react-router-dom**
 * **Zustand**
-* **Axios**
+* **Native Fetch API**
 
 Do not switch to Vue, Next.js, Angular, or another frontend framework.
 
@@ -201,19 +201,19 @@ Keep local component state local unless it genuinely needs to be shared globally
 
 ## API client
 
-Use Axios.
+Use the native Fetch API.
 
-Create a centralized Axios client rather than creating unrelated Axios instances throughout the application.
+Create a centralized fetch client for all API requests.
 
 All API requests must use credentials because authentication is handled through httpOnly cookies.
 
 Configure:
 
-`withCredentials: true`
+`credentials: 'include'`
 
 globally.
 
-Implement authentication refresh handling in one place using Axios interceptors.
+Implement authentication refresh handling in one place in the centralized fetch client.
 
 ---
 
@@ -326,7 +326,7 @@ Google login must use a full browser navigation:
 
 `window.location.href = "https://localhost/auth/api/oauth/google"`
 
-Do not call this endpoint using Axios or fetch.
+Do not call this endpoint using fetch.
 
 ---
 
@@ -674,13 +674,9 @@ The frontend must never read or write authentication cookies directly.
 
 Every request must use credentials.
 
-Axios:
-
-`withCredentials: true`
-
 Fetch:
 
-`credentials: "include"`
+`credentials: 'include'`
 
 ---
 
@@ -722,7 +718,7 @@ When a private request receives `401`:
 3. If the retry fails with `401`:
    clear authentication state and redirect to `/login`.
 
-Use a centralized Axios interceptor.
+Use centralized fetch refresh handling.
 
 Do not create refresh loops.
 
@@ -864,7 +860,7 @@ Use:
 window.location.href = "https://localhost/auth/api/oauth/google"
 ```
 
-Do not call it using Axios or fetch.
+Do not call it using fetch.
 
 The backend redirects the browser to Google.
 
@@ -907,7 +903,7 @@ identifiers, Google tokens or keys are exposed. Missing/expired keys return
 
 ## Frontend `/register/complete`
 
-Public route. Load the pending profile through credentialed Axios; show Google
+Public route. Load the pending profile through credentialed fetch; show Google
 email read-only, editable first/last names, and a required phone field. Display
 loading, validation, retryable API failure, expired registration and conflicting
 account states. An expired registration offers a fresh Google sign-in.

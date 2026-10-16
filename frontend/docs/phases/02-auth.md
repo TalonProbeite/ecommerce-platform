@@ -14,7 +14,7 @@ Implement the public auth flows using the exact backend contract.
 - `/verify-email`
 - Google OAuth browser navigation, backend 303 handoff, `/oauth/success` and `/register/complete`
 - pending profile read via GET `/auth/api/oauth/profile` and completion via POST `/auth/api/oauth/complete`
-- centralized Axios client + credentials
+- centralized fetch client + credentials
 - one-shot refresh interceptor
 - auth state in Zustand
 - protected-route behavior

@@ -1,7 +1,7 @@
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { REGEXP_ONLY_DIGITS_AND_CHARS } from 'input-otp'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { isAxiosError } from 'axios'
+import { isHttpError } from '@/api/http'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { DEMO_VERIFICATION_CODE } from '@/api/mock-adapter'
@@ -68,7 +68,7 @@ export function VerifyEmailPage() {
       const message = getErrorMessage(caught)
       if (errorCode === 'CODE_EXPIRED') setError({ kind: 'expired', message })
       else if (errorCode === 'INVALID_CODE') setError({ kind: 'invalid', message })
-      else if (!isMockApi && isAxiosError(caught) && caught.response?.status === 422) setError({ kind: 'invalid-or-expired', message })
+      else if (!isMockApi && isHttpError(caught) && caught.response?.status === 422) setError({ kind: 'invalid-or-expired', message })
       else setError({ kind: 'other', message })
     } finally {
       requestPending.current = false

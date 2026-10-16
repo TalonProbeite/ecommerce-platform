@@ -91,7 +91,7 @@ test('real notifications consume backend arrays and event records', async () => 
     assert.equal(requests[0].url, '/notification/api/private/notifications')
     assert.equal(requests[0].params.toString(), 'status=failed&limit=1&offset=20')
     assert.equal(requests[0].signal, controller.signal)
-    assert.equal(requests[0].withCredentials, true)
+    assert.equal(requests[0].credentials, 'include')
     response = record
     assert.deepEqual(await getNotification(record.id), record)
     assert.equal(requests.at(-1).url, `/notification/api/private/notifications/${record.id}`)
@@ -107,9 +107,9 @@ test('notification UI renders loading, error, forbidden and not found feedback',
   try {
     const { ResourceFeedback } = await server.ssrLoadModule('/src/components/notifications/resource-feedback.tsx')
     const { notificationError } = await server.ssrLoadModule('/src/hooks/use-notification-resource.ts')
-    const { AxiosError } = await import('axios')
+    const { HttpError } = await import('../src/api/http.ts')
     for (const [status, message] of [[404, 'Notification not found'], [403, 'Forbidden'], [401, 'session has expired'], [500, 'Delivery journal unavailable']]) {
-      const error = new AxiosError('failed', undefined, undefined, undefined, { status, data: { error: 'Delivery journal unavailable' } })
+      const error = new HttpError('failed', undefined, undefined, { status, data: { error: 'Delivery journal unavailable' } })
       const text = notificationError(error)
       assert.match(text, new RegExp(message))
       const html = renderToStaticMarkup(createElement(ResourceFeedback, { resource: { state: 'error', message: text }, retry() {} }))
