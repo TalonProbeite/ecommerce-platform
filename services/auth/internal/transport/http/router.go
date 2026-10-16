@@ -69,7 +69,7 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 
 	private.Use(m.AuthCheck)
 	private.POST("/email/verify", handler.WithUserID(h.AuthHandler.VerifyEmail))
-	private.POST("/email/resend", handler.WithUserID(h.AuthHandler.ResendCode))
+	private.POST("/email/send-verification", handler.WithUserID(h.AuthHandler.SendVerificationEmail))
 	private.GET("/profile", handler.WithUserID(h.ProfileHandler.GetUserProfile))
 	private.PATCH("/profile", handler.WithUserID(h.ProfileHandler.PatchUserProfile))
 	private.PUT("/profile/password", handler.WithUserID(h.ProfileHandler.ResetPassword))
@@ -86,6 +86,7 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 	public.POST("/refresh", h.AuthHandler.Refresh)
 	public.GET("/oauth/google", h.AuthHandler.GoogleAuth)
 	public.GET("/oauth/google/callback", h.AuthHandler.GoogleCallback)
+	public.GET("/oauth/profile", h.AuthHandler.GetOAuthProfile)
 	public.POST("/oauth/complete", h.AuthHandler.CompleteOAuthRegistration)
 
 	return e

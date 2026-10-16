@@ -1,4 +1,7 @@
+# ============================================================
 # OS generated files
+# ============================================================
+
 .DS_Store
 .DS_Store?
 ._*
@@ -7,10 +10,11 @@
 ehthumbs.db
 Thumbs.db
 *~
-*.swp
-*.swo
 
-# IDEs and Editors
+# ============================================================
+# IDEs / Editors
+# ============================================================
+
 .vscode/
 .idea/
 *.suo
@@ -18,66 +22,159 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
 
-# Environments and Secrets
+# ============================================================
+# Environment / Secrets
+# ============================================================
+
 .env
-.env.local
-.env.*.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+!.env.dist
+!.env.test.example
+
 *.pem
 *.key
 *.crt
+
 docker-compose.override.yml
 
-# Logs and Databases
+# ============================================================
+# Logs / Runtime data / Local databases
+# ============================================================
+
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
 logs/
+**/logs/
+
 *_data/
+**/*_data/
+
 pg_data/
+**/pg_data/
+
 rabbitmq_data/
+**/rabbitmq_data/
+
 *.sqlite
+*.sqlite3
 
-# PHP / Composer / Symfony / Laravel
-/vendor/
+# ============================================================
+# PHP / Composer
+# ============================================================
+
+# Composer dependencies — IMPORTANT:
+# catches vendor/ at any level of the monorepo
+vendor/
+**/vendor/
+
 composer.phar
-.phpunit.result.cache
-/var/cache/
-/var/logs/
-/var/sessions/
-/storage/framework/sessions/
-/storage/framework/views/
-/storage/framework/cache/
-/storage/logs/
-/public/hot
-/public/storage
+composer.lock
 
+.phpunit.result.cache
+.phpunit.cache/
+.php-cs-fixer.cache
+.php-cs-fixer.cache.json
+.phpstan.cache/
+
+# ============================================================
+# Laravel
+# ============================================================
+
+# Laravel generated cache
+**/bootstrap/cache/*.php
+
+# Laravel runtime files
+**/storage/framework/cache/**
+**/storage/framework/sessions/**
+**/storage/framework/testing/**
+**/storage/framework/views/**
+
+**/storage/logs/**
+
+# Laravel local storage
+**/storage/app/public/**
+
+# Laravel public storage symlink
+**/public/storage
+
+# Vite / Laravel hot reload
+**/public/hot
+
+# ============================================================
+# RoadRunner
+# ============================================================
+
+# RoadRunner binary
+rr
+**/rr
+
+# RoadRunner local/generated directory
+.rr/
+**/.rr/
+
+# IMPORTANT:
+# .rr.yaml is intentionally NOT ignored.
+# It should be committed to Git.
+
+# ============================================================
 # Go
-/bin/
-/obj/
+# ============================================================
+
+# Build output
+bin/
+**/bin/
+
+obj/
+**/obj/
+
+# Go binaries
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
+
+# Go test/build output
 *.test
 *.out
 cover.out
+coverage.out
 
-# Frontend / Node.js (React / Next.js)
+# ============================================================
+# Node.js / Frontend
+# ============================================================
+
 node_modules/
+**/node_modules/
+
 jspm_packages/
+**/jspm_packages/
+
 .next/
+**/.next/
+
+# Generated frontend output
 out/
+**/out/
+
 build/
+**/build/
+
 dist/
+**/dist/
+
 .eslintcache
 .stylelintcache
 
-
+# ============================================================
+# Misc generated files
+# ============================================================
 
 notes/

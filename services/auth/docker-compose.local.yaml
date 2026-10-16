@@ -79,12 +79,11 @@ services:
       REDIS_URL: redis://auth-redis:6379/${REDIS_DB:-0}
 
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
-      EXCHANGE_NAME: ${EXCHANGE_NAME:-events_exchange}
-      EXCHANGE_TYPE: ${EXCHANGE_TYPE:-direct}
 
       JWT_PRIVATE_KEY_BASE64: ${JWT_PRIVATE_KEY_BASE64}
       JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
 
+      FRONTEND_URL: ${FRONTEND_URL:-https://localhost}
       CLIENT_ID: ${CLIENT_ID}
       CLIENT_SECRET: ${CLIENT_SECRET}
       REDIRECT_URL: ${REDIRECT_URL:-https://localhost:8443/api/oauth/google/callback}

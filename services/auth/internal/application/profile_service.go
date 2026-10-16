@@ -41,10 +41,13 @@ func (ps *ProfileService) GetUserProfile(ctx context.Context, userID string) (do
 	}
 
 	return domain.UserProfile{
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		Phone:     user.Phone,
+		Email:      user.Email,
+		FirstName:  user.FirstName,
+		LastName:   user.LastName,
+		Phone:      user.Phone,
+		Role:       user.Role,
+		IsVerified: user.IsEmailVerified,
+		IsOAuth:    user.IsOAuth,
 	}, nil
 }
 
@@ -92,7 +95,7 @@ func (ps *ProfileService) PatchUserProfile(
 			return fmt.Errorf("error saving verification code: %w", err)
 		}
 
-		payload, err := json.Marshal(events.UserRegisteredEvent{
+		payload, err := json.Marshal(events.EmailVerificationRequestedEvent{
 			Email: email,
 			Code:  code,
 		})
@@ -100,7 +103,7 @@ func (ps *ProfileService) PatchUserProfile(
 			return fmt.Errorf("error while creating json struct for event: %w", err)
 		}
 
-		err = ps.publisher.PublishEvent(events.UserRegisteredEventKey, payload)
+		err = ps.publisher.PublishEvent(events.EmailVerificationRequestedEventKey, payload)
 		if err != nil {
 			return fmt.Errorf("error while publishing event: %w", err)
 		}

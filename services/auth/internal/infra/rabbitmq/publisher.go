@@ -3,22 +3,19 @@ package rabbitmq
 import (
 	"context"
 	"fmt"
+	"shop/shared/events"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type EventPublisher struct {
-	client       *RabbitClient
-	exchangeName string
-	exchangeType string
+	client *RabbitClient
 }
 
-func NewEventPublisher(client *RabbitClient, exchangeName, exchangeType string) (*EventPublisher, error) {
+func NewEventPublisher(client *RabbitClient) (*EventPublisher, error) {
 	pub := &EventPublisher{
-		client:       client,
-		exchangeName: exchangeName,
-		exchangeType: exchangeType,
+		client: client,
 	}
 
 	if err := pub.InitExchange(); err != nil {
@@ -30,8 +27,8 @@ func NewEventPublisher(client *RabbitClient, exchangeName, exchangeType string) 
 
 func (ev *EventPublisher) InitExchange() error {
 	return ev.client.Chan.ExchangeDeclare(
-		ev.exchangeName,
-		ev.exchangeType,
+		events.ExchangeUser,
+		events.ExchangeKindTopic,
 		true,
 		false,
 		false,
@@ -46,7 +43,7 @@ func (ev *EventPublisher) PublishEvent(eventKey string, payload []byte) error {
 
 	err := ev.client.Chan.PublishWithContext(
 		ctx,
-		ev.exchangeName,
+		events.ExchangeUser,
 		eventKey,
 		false,
 		false,

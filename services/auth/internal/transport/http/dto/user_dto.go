@@ -29,9 +29,9 @@ func (r *VerifyEmailRequest) Validate() error {
 }
 
 type CompleteReq struct {
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Phone     string `json:"phone" validate:"required"`
+	FirstName *string `json:"first_name"`
+	LastName  *string `json:"last_name"`
+	Phone     string  `json:"phone"`
 }
 type PatchUser struct {
 	Email     *string `json:"email" validate:"omitempty,email"`
