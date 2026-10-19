@@ -20,6 +20,6 @@ interface ProductImageRepositoryInterface
      */
     public function findByProduct(string $productID): Collection;
     public function findById(string $imageID, string $productID): ?ProductImage;
-    public function save(ProductImage $category): ProductImage;
-    public function delete(ProductImage $category): void;
+    public function save(ProductImage $productImage): ProductImage;
+    public function delete(ProductImage $productImage): void;
 }
