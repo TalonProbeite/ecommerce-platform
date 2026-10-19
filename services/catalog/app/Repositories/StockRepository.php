@@ -24,14 +24,14 @@ class StockRepository implements StockRepositoryInterface
             ->get();
     }
 
-    public function save(Stock $Stock): Stock
+    public function save(Stock $stock): Stock
     {
-        $Stock->saveOrFail;
-        return $Stock;
+        $stock->saveOrFail;
+        return $stock;
     }
 
-    public function delete(Stock $Stock): void
+    public function delete(Stock $stock): void
     {
-        $Stock->deleteOrFail();
+        $stock->deleteOrFail();
     }
 }
