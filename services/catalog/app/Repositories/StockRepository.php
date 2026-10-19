@@ -15,7 +15,7 @@ class StockRepository implements StockRepositoryInterface
     {
         return Stock::where('product_id', $productID)
             ->where('store_id', $storeID)
-            ->get();
+            ->first();
     }
 
     public function findByStore(string $storeID): Collection
@@ -26,7 +26,7 @@ class StockRepository implements StockRepositoryInterface
 
     public function save(Stock $stock): Stock
     {
-        $stock->saveOrFail;
+        $stock->saveOrFail();
         return $stock;
     }
 

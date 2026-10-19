@@ -24,14 +24,15 @@ class StockReservationRepository implements StockReservationRepositoryInterface
         CarbonImmutable $end
     ): Collection {
         return StockReservation::where('product_id', $productID)
-            ->whereDate('rental_start_at', '>=', $start)
-            ->whereDate('rental_end_at', '<=', $end)
+            ->where('status', 'reserved')
+            ->where('rental_start_at', '<', $end)
+            ->where('rental_end_at', '>', $start)
             ->get();
     }
 
     public function save(StockReservation $stockReservation): StockReservation
     {
-        $stockReservation->saveOrFail;
+        $stockReservation->saveOrFail();
         return $stockReservation;
     }
 }

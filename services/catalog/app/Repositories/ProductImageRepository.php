@@ -13,6 +13,7 @@ class ProductImageRepository implements ProductImageRepositoryInterface
     public function findByProduct(string $productID): Collection
     {
         return ProductImage::where('product_id', $productID)
+            ->orderBy('sort_order')
             ->get();
     }
 
@@ -20,12 +21,12 @@ class ProductImageRepository implements ProductImageRepositoryInterface
     {
         return ProductImage::where('id', $imageID)
             ->where('product_id', $productID)
-            ->get();
+            ->first();
     }
 
     public function save(ProductImage $productImage): ProductImage
     {
-        $productImage->saveOrFail;
+        $productImage->saveOrFail();
         return $productImage;
     }
 

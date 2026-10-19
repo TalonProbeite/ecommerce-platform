@@ -16,12 +16,8 @@ class StoreRepository implements StoreRepositoryInterface
     {
         return Store::query()
             ->when(
-                $filters->minRating !== null,
-                fn($q) => $q->where('rating', '>=', $filters->minRating)
-            )
-            ->when(
-                $filters->isActive !== null,
-                fn($q) => $q->where('is_active', $filters->isActive)
+                $filters->active !== null,
+                fn($q) => $q->where('active', $filters->active)
             )
             ->orderBy('created_at', 'desc')
             ->orderBy('id')
@@ -38,7 +34,7 @@ class StoreRepository implements StoreRepositoryInterface
 
     public function save(Store $store): Store
     {
-        $store->saveOrFail;
+        $store->saveOrFail();
         return $store;
     }
 

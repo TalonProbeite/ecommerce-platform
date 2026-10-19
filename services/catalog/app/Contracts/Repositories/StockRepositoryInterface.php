@@ -17,6 +17,6 @@ interface StockRepositoryInterface
      * @return Collection<int,Stock>
      */
     public function findByStore(string $storeID): Collection;
-    public function save(Stock $category): Stock;
-    public function delete(Stock $category): void;
+    public function save(Stock $stock): Stock;
+    public function delete(Stock $stock): void;
 }

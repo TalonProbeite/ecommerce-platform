@@ -7,11 +7,14 @@ namespace App\DTO;
 
 final readonly class StoreFilters
 {
-    public function __construct(
-        public ?float $minRating = null,
-        public ?bool $isActive = true,
+    public ?bool $active;
 
+    public function __construct(
+        ?bool $active = true,
         public int $limit = 20,
         public int $page = 1,
-    ) {}
+        ?bool $isActive = null,
+    ) {
+        $this->active = $isActive ?? $active;
+    }
 }

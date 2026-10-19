@@ -39,7 +39,7 @@ class CategoryRepository implements CategoryRepositoryInterface
 
     public function save(Category $category): Category
     {
-        $category->saveOrFail;
+        $category->saveOrFail();
         return $category;
     }
 
