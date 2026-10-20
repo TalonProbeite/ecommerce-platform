@@ -5,7 +5,8 @@
       "args": ["shadcn@latest", "mcp"]
     },
     "context7": {
-      "serverUrl": "https://mcp.context7.com/mcp"
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
     }
   }
 }

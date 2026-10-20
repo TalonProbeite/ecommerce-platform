@@ -51,7 +51,10 @@ function SearchResults() {
     startTransition(async () => {
       // Fetch and update results
       const data = await fetchResults(value)
-      setResults(data)
+      // Updates after await need a new transition boundary.
+      startTransition(() => {
+        setResults(data)
+      })
     })
   }
 
@@ -70,6 +73,6 @@ function SearchResults() {
 - **Automatic pending state**: No need to manually manage `setIsLoading(true/false)`
 - **Error resilience**: Pending state correctly resets even if the transition throws
 - **Better responsiveness**: Keeps the UI responsive during updates
-- **Interrupt handling**: New transitions automatically cancel pending ones
+- **Interruptible rendering**: Urgent updates can interrupt transition rendering; transitions do not cancel network requests. Handle stale responses separately when requests can finish out of order.
 
 Reference: [useTransition](https://react.dev/reference/react/useTransition)

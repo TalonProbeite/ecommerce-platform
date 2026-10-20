@@ -23,7 +23,7 @@ const userNames = users
 
 ```typescript
 const userNames = users.flatMap(user =>
-  user.isActive ? [user.name] : []
+  user.isActive && user.name ? [user.name] : []
 )
 ```
 
@@ -38,10 +38,11 @@ const emails = responses
 
 // After
 const emails = responses.flatMap(r =>
-  r.success ? [r.data.email] : []
+  r.success && r.data.email ? [r.data.email] : []
 )
 
 // Parse and filter valid numbers
+// Keep zero in both versions.
 // Before
 const numbers = strings
   .map(s => parseInt(s, 10))
@@ -53,6 +54,8 @@ const numbers = strings.flatMap(s => {
   return isNaN(n) ? [] : [n]
 })
 ```
+
+Match the original predicate when combining mapping and filtering. `filter(Boolean)` removes zero and empty strings; the numeric examples above use `!isNaN(n)` instead, so both retain `0` from `"0"` and discard invalid numbers.
 
 **When to use:**
 - Transforming items while filtering some out
