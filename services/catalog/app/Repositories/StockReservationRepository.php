@@ -6,9 +6,7 @@ namespace App\Repositories;
 
 use App\Contracts\Repositories\StockReservationRepositoryInterface;
 use App\Models\StockReservation;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
-
 
 class StockReservationRepository implements StockReservationRepositoryInterface
 {
@@ -18,15 +16,16 @@ class StockReservationRepository implements StockReservationRepositoryInterface
             ->get();
     }
 
-    public function findActiveByProductAndPeriod(
-        string $productID,
-        CarbonImmutable $start,
-        CarbonImmutable $end
-    ): Collection {
-        return StockReservation::where('product_id', $productID)
-            ->where('status', 'reserved')
-            ->where('rental_start_at', '<', $end)
-            ->where('rental_end_at', '>', $start)
+    public function findById(string $id): ?StockReservation
+    {
+        return StockReservation::find($id);
+    }
+
+    public function findActiveByStore(string $storeID, ?string $status = null): Collection
+    {
+        return StockReservation::where('store_id', $storeID)
+            ->whereIn('status', ['reserved', 'issued'])
+            ->when($status !== null, fn ($q) => $q->where('status', $status))
             ->get();
     }
 

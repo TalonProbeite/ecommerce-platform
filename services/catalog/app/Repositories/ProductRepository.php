@@ -50,6 +50,9 @@ class ProductRepository implements ProductRepositoryInterface
         $product->deleteOrFail();
     }
 
+    /**
+     * @return LengthAwarePaginator<int, Product>
+     */
     public function findByFilters(ProductFilters $filters): LengthAwarePaginator
     {
         return Product::query()

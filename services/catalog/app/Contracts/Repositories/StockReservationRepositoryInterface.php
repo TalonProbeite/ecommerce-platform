@@ -4,32 +4,22 @@ declare(strict_types=1);
 
 namespace App\Contracts\Repositories;
 
-use Illuminate\Database\Eloquent\Collection;
 use App\Models\StockReservation;
-use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection;
 
 interface StockReservationRepositoryInterface
 {
     /**
-     * Undocumented function
-     *
-     * @param string $orderID
      * @return Collection<int, StockReservation>
      */
     public function findByOrderId(string $orderID): Collection;
+
+    public function findById(string $id): ?StockReservation;
+
     /**
-     * Undocumented function
-     *
-     * @param string $productID
-     * @param CarbonImmutable $start
-     * @param CarbonImmutable $end
-     * @return Collection<int,StockReservation>
+     * @return Collection<int, StockReservation>
      */
-    public function findActiveByProductAndPeriod(
-        string $productID,
-        CarbonImmutable $start,
-        CarbonImmutable $end
-    ): Collection;
+    public function findActiveByStore(string $storeID, ?string $status = null): Collection;
 
     public function save(StockReservation $stockReservation): StockReservation;
 }

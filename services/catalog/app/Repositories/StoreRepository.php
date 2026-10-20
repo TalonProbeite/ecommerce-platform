@@ -11,13 +11,15 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class StoreRepository implements StoreRepositoryInterface
 {
-
+    /**
+     * @return LengthAwarePaginator<int, Store>
+     */
     public function findAll(StoreFilters $filters): LengthAwarePaginator
     {
         return Store::query()
             ->when(
                 $filters->active !== null,
-                fn($q) => $q->where('active', $filters->active)
+                fn ($q) => $q->where('active', $filters->active)
             )
             ->orderBy('created_at', 'desc')
             ->orderBy('id')

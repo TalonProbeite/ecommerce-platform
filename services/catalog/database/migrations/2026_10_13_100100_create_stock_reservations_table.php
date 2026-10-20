@@ -16,8 +16,10 @@ return new class () extends Migration {
             $table->foreignUuid('store_id')->constrained()->restrictOnDelete();
             $table->integer('quantity');
             $table->string('status', 30);
-            $table->timestampTz('rental_start_at');
-            $table->timestampTz('rental_end_at');
+            $table->timestampTz('rental_start_at')->nullable();
+            $table->timestampTz('rental_end_at')->nullable();
+            $table->timestampTz('issued_at')->nullable();
+            $table->timestampTz('returned_at')->nullable();
             $table->timestamps();
 
             $table->foreign(['product_id', 'store_id'], 'stock_reservations_product_store_foreign')
@@ -25,14 +27,12 @@ return new class () extends Migration {
             // This index also supports lookups by its leading order_id column.
             $table->unique(['order_id', 'product_id']);
             $table->index('product_id');
-            $table->index('store_id');
-            $table->index(['rental_start_at', 'rental_end_at'], 'stock_reservations_rental_period_index');
+            $table->index(['store_id', 'status']);
         });
 
         DB::statement("ALTER TABLE stock_reservations
             ADD CONSTRAINT stock_reservations_quantity_check CHECK (quantity > 0),
-            ADD CONSTRAINT stock_reservations_rental_period_check CHECK (rental_end_at > rental_start_at),
-            ADD CONSTRAINT stock_reservations_status_check CHECK (status IN ('reserved', 'released', 'completed'))");
+            ADD CONSTRAINT stock_reservations_status_check CHECK (status IN ('reserved', 'issued', 'released', 'returned'))");
     }
 
     public function down(): void

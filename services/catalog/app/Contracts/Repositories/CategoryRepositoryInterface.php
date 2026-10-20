@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Collection;
 
 interface CategoryRepositoryInterface
 {
-
     public function findByID(string $id): ?Category;
     /**
      * @return Collection<int, Category>

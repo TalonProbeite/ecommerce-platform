@@ -40,31 +40,49 @@ class Product extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<Store, $this>
+     */
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
     }
 
+    /**
+     * @return BelongsTo<Category, $this>
+     */
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }
 
+    /**
+     * @return HasOne<Stock, $this>
+     */
     public function stock(): HasOne
     {
         return $this->hasOne(Stock::class);
     }
 
+    /**
+     * @return HasMany<ProductAttribute, $this>
+     */
     public function attributes(): HasMany
     {
         return $this->hasMany(ProductAttribute::class);
     }
 
+    /**
+     * @return HasMany<ProductImage, $this>
+     */
     public function images(): HasMany
     {
         return $this->hasMany(ProductImage::class);
     }
 
+    /**
+     * @return HasMany<StockReservation, $this>
+     */
     public function stockReservations(): HasMany
     {
         return $this->hasMany(StockReservation::class);

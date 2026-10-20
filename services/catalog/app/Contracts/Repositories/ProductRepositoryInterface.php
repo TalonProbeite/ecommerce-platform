@@ -16,6 +16,9 @@ interface ProductRepositoryInterface
 
     public function existsBySlug(string $slug, string $storeId, ?string $excludeProductId = null): bool;
 
+    /**
+     * @return LengthAwarePaginator<int, Product>
+     */
     public function findByFilters(ProductFilters $filters): LengthAwarePaginator;
 
     public function save(Product $product): Product;

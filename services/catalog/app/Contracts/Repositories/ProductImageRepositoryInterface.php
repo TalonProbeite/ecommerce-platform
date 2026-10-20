@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace App\Contracts\Repositories;
 
-
 use App\Models\ProductImage;
 use Illuminate\Database\Eloquent\Collection;
 
-
 interface ProductImageRepositoryInterface
 {
-
     /**
      * Undocumented function
      *

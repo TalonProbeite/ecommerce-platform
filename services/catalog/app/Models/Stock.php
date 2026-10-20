@@ -33,16 +33,25 @@ class Stock extends Model
         return $this->quantity - $this->reserved;
     }
 
+    /**
+     * @return BelongsTo<Product, $this>
+     */
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
 
+    /**
+     * @return BelongsTo<Store, $this>
+     */
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
     }
 
+    /**
+     * @return HasMany<StockReservation, $this>
+     */
     public function stockReservations(): HasMany
     {
         // stocks.product_id is unique; composite FKs enforce the same store for this product.

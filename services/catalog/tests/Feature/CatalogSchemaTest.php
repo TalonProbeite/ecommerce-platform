@@ -172,8 +172,7 @@ class CatalogSchemaTest extends TestCase
             'zero quantity' => [['quantity' => 0]],
             'negative quantity' => [['quantity' => -1]],
             'unknown status' => [['status' => 'pending']],
-            'equal dates' => [['rental_end_at' => '2026-10-13 10:00:00+02']],
-            'reversed dates' => [['rental_end_at' => '2026-10-13 09:00:00+02']],
+            'obsolete status' => [['status' => 'completed']],
         ];
     }
 
@@ -216,7 +215,7 @@ class CatalogSchemaTest extends TestCase
     public function test_reservations_accept_external_order_ids_and_prevent_duplicate_order_lines(): void
     {
         $values = $this->reservation();
-        foreach (['reserved', 'released', 'completed'] as $status) {
+        foreach (['reserved', 'issued', 'released', 'returned'] as $status) {
             $reservation = StockReservation::create(array_replace($values, [
                 'order_id' => (string) Uuid::uuid7(), 'status' => $status,
             ]));
@@ -230,7 +229,30 @@ class CatalogSchemaTest extends TestCase
             ])), '23505');
         }
         $this->assertFalse(Schema::hasTable('orders'));
-        $this->assertSame(3, StockReservation::count());
+        $this->assertSame(4, StockReservation::count());
+    }
+
+    public function test_reservation_dates_are_optional_information_and_do_not_release_stock(): void
+    {
+        $reservation = StockReservation::create(array_replace($this->reservation(), [
+            'rental_start_at' => null, 'rental_end_at' => null,
+        ]));
+        $this->assertNull($reservation->fresh()->issued_at);
+        $this->assertNull($reservation->fresh()->returned_at);
+        $reservation->update([
+            'status' => 'issued',
+            'issued_at' => '2026-10-13 10:00:00+02',
+            'rental_start_at' => '2026-10-13 12:00:00+02',
+            'rental_end_at' => '2026-10-13 09:00:00+02',
+        ]);
+        $this->assertSame('issued', $reservation->fresh()->status);
+        $this->assertSame('2026-10-13 08:00:00', $reservation->fresh()->issued_at->utc()->format('Y-m-d H:i:s'));
+        $reservation->update(['status' => 'returned', 'returned_at' => '2026-10-14 10:00:00+02']);
+        $this->assertSame('2026-10-14 08:00:00', $reservation->fresh()->returned_at->utc()->format('Y-m-d H:i:s'));
+        $stock = Stock::where('product_id', $this->productId)->firstOrFail();
+        $this->assertSame(10, $stock->quantity);
+        $this->assertSame(2, $stock->reserved);
+        $this->assertSame(8, $stock->available);
     }
 
     public function test_related_entities_cannot_belong_to_different_stores(): void
@@ -351,9 +373,9 @@ class CatalogSchemaTest extends TestCase
             $this->assertSame('uuid', $columns['stock_reservations.' . $column]->data_type);
             $this->assertSame('NO', $columns['stock_reservations.' . $column]->is_nullable);
         }
-        foreach (['rental_start_at', 'rental_end_at'] as $column) {
+        foreach (['rental_start_at', 'rental_end_at', 'issued_at', 'returned_at'] as $column) {
             $this->assertSame('timestamp with time zone', $columns['stock_reservations.' . $column]->data_type);
-            $this->assertSame('NO', $columns['stock_reservations.' . $column]->is_nullable);
+            $this->assertSame('YES', $columns['stock_reservations.' . $column]->is_nullable);
         }
         $this->assertSame('timestamp without time zone', $columns['stock_reservations.created_at']->data_type);
         $this->assertSame('timestamp without time zone', $columns['stock_reservations.updated_at']->data_type);
@@ -361,7 +383,8 @@ class CatalogSchemaTest extends TestCase
         $indexes = Schema::getIndexes('stock_reservations');
         $this->assertNotEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['order_id', 'product_id'] && $index['unique']));
         $this->assertNotEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['product_id']));
-        $this->assertNotEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['rental_start_at', 'rental_end_at']));
+        $this->assertNotEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['store_id', 'status']));
+        $this->assertEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['rental_start_at', 'rental_end_at']));
     }
 
     public function test_all_migrations_can_roll_back_and_recreate_the_schema(): void

@@ -30,21 +30,33 @@ class Category extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<Store, $this>
+     */
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
     }
 
+    /**
+     * @return HasMany<Product, $this>
+     */
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
     }
 
+    /**
+     * @return BelongsTo<Category, $this>
+     */
     public function parent(): BelongsTo
     {
         return $this->belongsTo(Category::class, 'parent_id');
     }
 
+    /**
+     * @return HasMany<Category, $this>
+     */
     public function children(): HasMany
     {
         return $this->hasMany(Category::class, 'parent_id');

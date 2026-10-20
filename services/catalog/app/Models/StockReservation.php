@@ -18,7 +18,7 @@ class StockReservation extends Model
 
     protected $fillable = [
         'order_id', 'product_id', 'store_id', 'quantity', 'status',
-        'rental_start_at', 'rental_end_at',
+        'rental_start_at', 'rental_end_at', 'issued_at', 'returned_at',
     ];
 
     // Preserve the supplied offset when Eloquent writes PostgreSQL TIMESTAMPTZ values.
@@ -31,14 +31,22 @@ class StockReservation extends Model
             'status' => 'string',
             'rental_start_at' => 'immutable_datetime',
             'rental_end_at' => 'immutable_datetime',
+            'issued_at' => 'immutable_datetime',
+            'returned_at' => 'immutable_datetime',
         ];
     }
 
+    /**
+     * @return BelongsTo<Product, $this>
+     */
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
 
+    /**
+     * @return BelongsTo<Store, $this>
+     */
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
