@@ -11,6 +11,9 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ProductRepository implements ProductRepositoryInterface
 {
+    /**
+     * Find a product by its ID, optionally scoped to a store.
+     */
     public function findById(string $id, ?string $storeId = null): ?Product
     {
         return Product::query()
@@ -18,6 +21,9 @@ class ProductRepository implements ProductRepositoryInterface
             ->find($id);
     }
 
+    /**
+     * Find a product with related data by its ID, optionally scoped to a store.
+     */
     public function findDetailedById(string $id, ?string $storeId = null): ?Product
     {
         return Product::with([
@@ -30,6 +36,9 @@ class ProductRepository implements ProductRepositoryInterface
             ->find($id);
     }
 
+    /**
+     * Check if a product with the given slug exists in a store, optionally excluding a product ID.
+     */
     public function existsBySlug(string $slug, string $storeId, ?string $excludeProductId = null): bool
     {
         return Product::withTrashed()
@@ -39,18 +48,26 @@ class ProductRepository implements ProductRepositoryInterface
             ->exists();
     }
 
+    /**
+     * Save a product.
+     */
     public function save(Product $product): Product
     {
         $product->saveOrFail();
         return $product;
     }
 
+    /**
+     * Delete a product.
+     */
     public function delete(Product $product): void
     {
         $product->deleteOrFail();
     }
 
     /**
+     * Find paginated products matching the given filters.
+     *
      * @return LengthAwarePaginator<int, Product>
      */
     public function findByFilters(ProductFilters $filters): LengthAwarePaginator

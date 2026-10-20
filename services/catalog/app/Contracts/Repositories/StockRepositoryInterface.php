@@ -9,14 +9,25 @@ use Illuminate\Database\Eloquent\Collection;
 
 interface StockRepositoryInterface
 {
-    public function findByProductAndStore(string $productID, string $storeID): ?Stock;
     /**
-     * Undocumented function
+     * Find stock by product ID and store ID.
+     */
+    public function findByProductAndStore(string $productID, string $storeID): ?Stock;
+
+    /**
+     * Find all stock records for a given store.
      *
-     * @param string $storeID
-     * @return Collection<int,Stock>
+     * @return Collection<int, Stock>
      */
     public function findByStore(string $storeID): Collection;
+
+    /**
+     * Save a stock record.
+     */
     public function save(Stock $stock): Stock;
+
+    /**
+     * Delete a stock record.
+     */
     public function delete(Stock $stock): void;
 }

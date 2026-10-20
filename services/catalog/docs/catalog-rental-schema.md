@@ -24,7 +24,7 @@
   `product_images.path` остаётся ключом объекта S3-совместимого хранилища.
 - `order_id` принадлежит внешнему Order Service, FK на заказы отсутствует.
   UNIQUE `(order_id, product_id)` также обеспечивает индекс для поиска по
-  `order_id`; отдельные индексы покрывают `product_id`, `store_id` и период аренды.
+  `order_id`; отдельные индексы покрывают `product_id` и `(store_id, status)`.
 
 `rating` имеет тип NUMERIC(3,2) и Eloquent cast `decimal:2` (например, строка
 `"4.25"` без использования FLOAT). Даты аренды имеют тип TIMESTAMPTZ и immutable

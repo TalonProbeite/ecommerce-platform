@@ -10,13 +10,24 @@ use Illuminate\Database\Eloquent\Collection;
 interface ProductImageRepositoryInterface
 {
     /**
-     * Undocumented function
+     * Find all images for a given product.
      *
-     * @param string $productID
-     * @return Collection<int,ProductImage>
+     * @return Collection<int, ProductImage>
      */
     public function findByProduct(string $productID): Collection;
+
+    /**
+     * Find a product image by its ID and product ID.
+     */
     public function findById(string $imageID, string $productID): ?ProductImage;
+
+    /**
+     * Save a product image.
+     */
     public function save(ProductImage $productImage): ProductImage;
+
+    /**
+     * Delete a product image.
+     */
     public function delete(ProductImage $productImage): void;
 }

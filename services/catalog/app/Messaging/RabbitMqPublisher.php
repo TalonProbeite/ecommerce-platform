@@ -18,6 +18,11 @@ final class RabbitMqPublisher implements EventPublisherInterface
     private ?AMQPChannel $channel = null;
     private ?float $lastActivityAt = null;
 
+    /**
+     * Publish an event to the RabbitMQ exchange.
+     *
+     * @throws Throwable
+     */
     public function publish(EventInterface $event): void
     {
         $message = new AMQPMessage(
@@ -46,6 +51,9 @@ final class RabbitMqPublisher implements EventPublisherInterface
         }
     }
 
+    /**
+     * Get an active AMQP channel, reconnecting if necessary.
+     */
     private function getChannel(): AMQPChannel
     {
         if (
@@ -101,6 +109,9 @@ final class RabbitMqPublisher implements EventPublisherInterface
         return $this->channel;
     }
 
+    /**
+     * Declare the exchange on the given AMQP channel.
+     */
     private function declareExchange(AMQPChannel $channel): void
     {
         $channel->exchange_declare(
@@ -112,6 +123,9 @@ final class RabbitMqPublisher implements EventPublisherInterface
         );
     }
 
+    /**
+     * Close the AMQP channel and connection.
+     */
     public function close(): void
     {
         try {

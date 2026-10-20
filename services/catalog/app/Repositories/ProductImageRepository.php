@@ -10,6 +10,11 @@ use Illuminate\Database\Eloquent\Collection;
 
 class ProductImageRepository implements ProductImageRepositoryInterface
 {
+    /**
+     * Find all images for a given product.
+     *
+     * @return Collection<int, ProductImage>
+     */
     public function findByProduct(string $productID): Collection
     {
         return ProductImage::where('product_id', $productID)
@@ -17,6 +22,9 @@ class ProductImageRepository implements ProductImageRepositoryInterface
             ->get();
     }
 
+    /**
+     * Find a product image by its ID and product ID.
+     */
     public function findById(string $imageID, string $productID): ?ProductImage
     {
         return ProductImage::where('id', $imageID)
@@ -24,12 +32,18 @@ class ProductImageRepository implements ProductImageRepositoryInterface
             ->first();
     }
 
+    /**
+     * Save a product image.
+     */
     public function save(ProductImage $productImage): ProductImage
     {
         $productImage->saveOrFail();
         return $productImage;
     }
 
+    /**
+     * Delete a product image.
+     */
     public function delete(ProductImage $productImage): void
     {
         $productImage->deleteOrFail();

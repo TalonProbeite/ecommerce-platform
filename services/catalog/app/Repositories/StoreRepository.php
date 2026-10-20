@@ -12,6 +12,8 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 class StoreRepository implements StoreRepositoryInterface
 {
     /**
+     * Find paginated stores matching the given filters.
+     *
      * @return LengthAwarePaginator<int, Store>
      */
     public function findAll(StoreFilters $filters): LengthAwarePaginator
@@ -29,17 +31,26 @@ class StoreRepository implements StoreRepositoryInterface
             );
     }
 
+    /**
+     * Find a store by its ID.
+     */
     public function findByID(string $id): ?Store
     {
         return Store::find($id);
     }
 
+    /**
+     * Save a store.
+     */
     public function save(Store $store): Store
     {
         $store->saveOrFail();
         return $store;
     }
 
+    /**
+     * Delete a store.
+     */
     public function delete(Store $store): void
     {
         $store->deleteOrFail();

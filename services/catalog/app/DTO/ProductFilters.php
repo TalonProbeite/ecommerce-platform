@@ -9,6 +9,9 @@ use App\Enums\SortDirection;
 
 final readonly class ProductFilters
 {
+    /**
+     * Create a new product filters instance.
+     */
     public function __construct(
         public ?string $storeId = null,
         public ?string $categoryId = null,
