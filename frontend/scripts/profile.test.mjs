@@ -12,7 +12,8 @@ test('profile sends changed fields only, verification updates session, logout cl
     setItem: (key, value) => storage.set(key, value),
     removeItem: (key) => storage.delete(key),
   }
-  const server = await createServer({ configFile: false,
+  const server = await createServer({ configFile: false, envDir: false,
+    define: { 'import.meta.env.VITE_API_MODE': '"mock"', 'import.meta.env.VITE_API_URL': '""' },
     resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
     server: { middlewareMode: true, watch: null, ws: false }, appType: 'custom' })
   try {

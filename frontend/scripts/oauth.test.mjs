@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { HttpError } from '../src/api/http.ts'
+import { loadHttpErrors } from './http-errors.mjs'
 import { createServer } from 'vite'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
+
+const { HttpError } = await loadHttpErrors()
 
 async function context() {
  const server = await createServer({ configFile: false, envDir: false,

@@ -11,7 +11,11 @@ export function App() {
     const revalidate = () => {
       if (document.visibilityState !== 'visible') return
       const state = useAuthStore.getState()
-      if (state.status === 'authenticated') void state.reloadProfile()
+      if (state.status === 'authenticated') {
+        // Keep the active page and form drafts during transient outages.
+        // A definitive 401 still expires the session through the API client.
+        void state.revalidateProfile().catch(() => {})
+      }
     }
     window.addEventListener('focus', revalidate)
     const timer = window.setInterval(revalidate, 60_000)

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { HttpError, CanceledError } from '../src/api/http.ts'
+import { loadHttpErrors } from './http-errors.mjs'
 import { createServer } from 'vite'
+
+const { HttpError, CanceledError } = await loadHttpErrors()
 
 async function context(mode = 'mock') {
   const server = await createServer({

@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { HttpError, CanceledError } from '../src/api/http.ts'
+import { loadHttpErrors } from './http-errors.mjs'
 import { createServer } from 'vite'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
+
+const { HttpError, CanceledError } = await loadHttpErrors()
 
 async function context(mode = 'real') {
   const server = await createServer({

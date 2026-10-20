@@ -86,7 +86,7 @@ async function handleError(error: unknown): Promise<ApiResponse> {
   }
 }
 
-export const GOOGLE_OAUTH_URL = new URL('/auth/api/oauth/google', isMockApi ? 'https://localhost' : apiUrl).href
+export const GOOGLE_OAUTH_URL = isMockApi ? null : new URL('/auth/api/oauth/google', apiUrl).href
 
 export function getErrorCode(error: unknown): string | undefined {
   if (!isHttpError(error)) return undefined

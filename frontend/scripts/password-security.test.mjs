@@ -13,9 +13,10 @@ test('password change preserves failed sessions and terminates successful sessio
     removeItem: (key) => storage.delete(key),
   }
   const server = await createServer({
-    configFile: false,
+    configFile: false, envDir: false,
+    define: { 'import.meta.env.VITE_API_MODE': '"mock"', 'import.meta.env.VITE_API_URL': '""' },
     resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
-    server: { middlewareMode: true, hmr: false, watch: null },
+    server: { middlewareMode: true, ws: false, watch: null },
     appType: 'custom',
   })
   try {

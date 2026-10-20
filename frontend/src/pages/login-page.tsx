@@ -146,10 +146,11 @@ export function LoginPage() {
                 variant="outline"
                 size="sm"
                 className="rounded-full"
-                disabled={submitting}
+                disabled={submitting || account.isOAuth}
+                title={account.isOAuth ? 'Google sign-in is unavailable in demo mode.' : undefined}
                 onClick={() => {
                   if (account.isOAuth) {
-                    window.location.href = GOOGLE_OAUTH_URL
+                    if (GOOGLE_OAUTH_URL) window.location.href = GOOGLE_OAUTH_URL
                   } else {
                     void submit({ email: account.email, password: account.password ?? '' })
                   }

@@ -13,7 +13,8 @@ test('admin mock actions enforce access, validate parameters and persist roles a
     removeItem: (key) => storage.delete(key),
   }
   const server = await createServer({
-    configFile: false,
+    configFile: false, envDir: false,
+    define: { 'import.meta.env.VITE_API_MODE': '"mock"', 'import.meta.env.VITE_API_URL': '""' },
     resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
     server: { middlewareMode: true, ws: false, watch: null },
     appType: 'custom',
@@ -95,7 +96,7 @@ test('admin mock actions enforce access, validate parameters and persist roles a
 
 test('admin actions in REAL mode require backend confirmation and expose enabled forms', async () => {
   const server = await createServer({
-    configFile: false,
+    configFile: false, envDir: false,
     resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
     define: { 'import.meta.env.VITE_API_MODE': '"real"', 'import.meta.env.VITE_API_URL': '"https://example.invalid"' },
     server: { middlewareMode: true, ws: false, watch: null }, appType: 'custom',

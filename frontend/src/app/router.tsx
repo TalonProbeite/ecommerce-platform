@@ -1,11 +1,13 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/auth/protected-route'
 import { AppLayout } from '@/components/layout/app-layout'
+import { RouteError } from '@/components/common/route-error'
 import { ROUTES } from './routes'
 
 export const router = createBrowserRouter([
   {
     element: <AppLayout />,
+    errorElement: <AppLayout><RouteError /></AppLayout>,
     children: [
       { path: ROUTES.home, lazy: async () => ({ Component: (await import('@/pages/root-page')).RootPage }) },
       { path: ROUTES.login, lazy: async () => ({ Component: (await import('@/pages/login-page')).LoginPage }) },
