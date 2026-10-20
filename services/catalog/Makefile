@@ -6,7 +6,7 @@ DOCKER ?= docker
 LOCAL_COMPOSE = $(DOCKER) compose -f docker-compose.local.yaml
 export CATALOG_TEST_DATABASE
 
-.PHONY: help test test-unit test-integration lint format analyse check ide ide-models up down restart logs ps serve
+.PHONY: help test test-unit test-integration lint format analyse check ide ide-models up down restart logs ps serve migrate seed
 
 help:
 	@printf '%s\n' \
@@ -18,6 +18,8 @@ help:
 	  'check             Run syntax checks, static analysis and unit tests' \
 	  'ide               Generate Laravel IDE Helper and PhpStorm metadata' \
 	  'ide-models        Generate model mixins (requires database access)' \
+	  'migrate           Apply pending Catalog migrations without resetting data' \
+	  'seed              Seed Catalog DEMO data offline (requires migrated database)' \
 	  '' \
 	  'Isolated Catalog stack (docker-compose.local.yaml):' \
 	  'up                Start PostgreSQL, Redis and SeaweedFS for host Laravel' \
@@ -75,3 +77,9 @@ ps:
 
 serve:
 	$(PHP) artisan serve --host=127.0.0.1 --port=8000
+
+migrate:
+	$(PHP) artisan migrate --no-interaction
+
+seed:
+	$(PHP) artisan db:seed --class=CatalogSeeder --no-interaction

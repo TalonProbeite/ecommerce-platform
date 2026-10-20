@@ -14,6 +14,6 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Catalog seeders belong here; users are managed by the auth service.
+        $this->call(CatalogSeeder::class);
     }
 }
