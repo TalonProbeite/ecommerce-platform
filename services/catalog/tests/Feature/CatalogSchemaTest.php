@@ -9,16 +9,14 @@ use App\Models\ProductImage;
 use App\Models\Stock;
 use App\Models\StockReservation;
 use App\Models\Store;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Ramsey\Uuid\Uuid;
-use Tests\TestCase;
+use Tests\PostgresTestCase;
 
-class CatalogSchemaTest extends TestCase
+class CatalogSchemaTest extends PostgresTestCase
 {
-    private ?string $testSchema = null;
     private string $storeId;
     private string $categoryId;
     private string $productId;
@@ -26,21 +24,6 @@ class CatalogSchemaTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        // Opt in explicitly; each test owns a separate, initially empty PostgreSQL schema.
-        if (! getenv('CATALOG_TEST_DATABASE')) {
-            $this->markTestSkipped('Set CATALOG_TEST_DATABASE to a dedicated PostgreSQL test database.');
-        }
-
-        $this->assertSame('testing', app()->environment());
-        $this->assertSame('pgsql', DB::connection()->getDriverName());
-        $this->assertSame(getenv('CATALOG_TEST_DATABASE'), DB::connection()->getDatabaseName());
-
-        $this->testSchema = 'catalog_test_' . str_replace('-', '', (string) Uuid::uuid7());
-        DB::statement('CREATE SCHEMA ' . $this->testSchema);
-        DB::statement('SET search_path TO ' . $this->testSchema);
-
-        $this->createSchema();
 
         $this->storeId = (string) Uuid::uuid7();
         $this->categoryId = (string) Uuid::uuid7();
@@ -66,38 +49,6 @@ class CatalogSchemaTest extends TestCase
             'id' => (string) Uuid::uuid7(), 'product_id' => $this->productId,
             'path' => 'equipment/drill.jpg', 'is_main' => true,
         ]);
-    }
-
-    protected function tearDown(): void
-    {
-        try {
-            if ($this->testSchema !== null) {
-                DB::statement('SET search_path TO public');
-                DB::statement('DROP SCHEMA ' . $this->testSchema . ' CASCADE');
-            }
-        } finally {
-            parent::tearDown();
-        }
-    }
-
-    private function createSchema(): void
-    {
-        foreach (glob(database_path('migrations/*.php')) as $path) {
-            DB::transaction(fn () => (require $path)->up());
-        }
-    }
-
-    private function assertRejected(callable $write, string $sqlState): void
-    {
-        try {
-            DB::transaction($write);
-        } catch (QueryException $exception) {
-            $this->assertSame($sqlState, $exception->errorInfo[0]);
-
-            return;
-        }
-
-        $this->fail('The database accepted data that violates the catalog contract.');
     }
 
     private function reservation(): array
@@ -406,5 +357,56 @@ class CatalogSchemaTest extends TestCase
         $this->assertNull($root->parent_id);
         $this->assertSame(12345, $product->fresh()->price_per_hour);
         $this->assertTrue(Schema::hasTable('stock_reservations'));
+    }
+
+    public function test_category_slug_is_unique_per_store_including_soft_deleted_rows(): void
+    {
+        $category = Category::findOrFail($this->categoryId);
+        $category->delete();
+        $this->assertRejected(fn () => Category::create([
+            'name' => 'Duplicate', 'slug' => 'equipment', 'store_id' => $this->storeId,
+        ]), '23505');
+        $other = Store::create(['name' => 'Other']);
+        $copy = Category::create(['name' => 'Equipment', 'slug' => 'equipment', 'store_id' => $other->id]);
+        $this->assertTrue($copy->exists);
+    }
+
+    public function test_stock_product_is_unique(): void
+    {
+        $this->assertRejected(fn () => Stock::create([
+            'product_id' => $this->productId, 'store_id' => $this->storeId, 'quantity' => 1,
+        ]), '23505');
+    }
+
+    public static function orphanReferences(): array
+    {
+        return [
+            'category store' => ['categories', 'store_id'],
+            'category parent' => ['categories', 'parent_id'],
+            'product store' => ['products', 'store_id'],
+            'product category' => ['products', 'category_id'],
+            'stock store' => ['stocks', 'store_id'],
+            'stock product' => ['stocks', 'product_id'],
+            'image product' => ['product_images', 'product_id'],
+            'attribute product' => ['product_attributes', 'product_id'],
+            'reservation store' => ['stock_reservations', 'store_id'],
+            'reservation product' => ['stock_reservations', 'product_id'],
+        ];
+    }
+
+    #[DataProvider('orphanReferences')]
+    public function test_foreign_keys_reject_missing_references(string $table, string $column): void
+    {
+        StockReservation::create($this->reservation());
+        $this->assertRejected(fn () => DB::table($table)->update([$column => (string) Uuid::uuid7()]), '23503');
+    }
+
+    public function test_hard_product_delete_cascades_images_and_attributes(): void
+    {
+        // Remove restrictive references first; images and attributes are owned by the product.
+        Stock::where('product_id', $this->productId)->delete();
+        Product::findOrFail($this->productId)->forceDelete();
+        $this->assertDatabaseMissing('product_images', ['product_id' => $this->productId]);
+        $this->assertDatabaseMissing('product_attributes', ['product_id' => $this->productId]);
     }
 }
