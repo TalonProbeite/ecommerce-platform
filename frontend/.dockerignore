@@ -1,0 +1,19 @@
+# Only source/build configuration belongs in the build context.
+**/node_modules
+dist
+.git
+.gitignore
+.env*
+.agents
+.codex
+.aws
+.playwright-mcp
+docs
+scripts
+AGENTS.md
+skills-lock.json
+*.log
+coverage
+.DS_Store
+docker-compose*.yaml
+docker-compose*.yml
