@@ -1,5 +1,23 @@
 # REAL API integration audit
 
+## Reading this report — status clarified 2026-10-20
+
+This file combines an original historical audit (evidence paths dated
+2026-10-09) with later dated updates. The original endpoint matrix, blockers,
+resulting status and test counts are snapshots, not current contracts. The
+2026-10-12 password-auth update supersedes registration-to-OTP and `/email/resend`;
+the 2026-10-13 updates supersede OAuth/profile and notification-schema blockers.
+See [README](README.md#current-real-application-contract--2026-10-20) and the
+master specification for the current application contract.
+
+The successful browser session below followed the unsuccessful initial Phase 09
+attempt recorded in [the archived QA report](phases/09-visual-qa-report.md).
+These are different runs, not contradictory results. The 320 px screenshot
+was a narrow OTP layout check with mocks/fixtures, not live-backend validation
+or complete visual/accessibility sign-off. A later 2026-10-20 PR 4 MOCK smoke
+pass at 1440/390 px is recorded in that QA report. This clarification does not
+claim new browser or backend tests on the foundation-only PR.
+
 ## OAuth update — 2026-10-13
 
 OAuth handoff blockers listed in the historical audit below are resolved. The
@@ -14,7 +32,9 @@ verification and runtime configuration. Earlier missing-schema and OAuth UI
 handoff statements describe the original audit, not the current implementation.
 
 
-## Sources and limits
+## Historical audit — 2026-10-09 evidence
+
+### Sources and limits
 
 Audited a clean working tree at `d076845` before changing code. Read `AGENTS.md`, both `.agents/rules/` files, `docs/README.md`, the entire master specification, every phase document and the Phase 09 report. Searched tracked and hidden project files, excluding dependencies and Git internals, for API maps, Swagger/OpenAPI, Postman, JSON/YAML specifications and endpoint references. No additional backend contract was found. `dist/docs/` contains copies of the same documentation, not a separate API map.
 

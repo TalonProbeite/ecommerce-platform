@@ -1,10 +1,33 @@
 # Phase 09 — QA report
 
+## Historical status — clarified 2026-10-20
+
+This is the archived initial Phase 09 code-review pass. Its exact execution
+date was not recorded; it predates the successful browser session recorded in
+the [historical REAL integration audit](../real-api-integration.md), whose
+evidence paths are dated 2026-10-09. Statements below about unavailable browser
+tools, failed Chromium startup, test counts and pending viewport checks apply
+only to that initial pass.
+
+Later browser checks did succeed. The integration audit records a 320 px OTP
+screenshot/overflow check, route/role checks and intercepted REAL HTTP fixture
+scenarios. Its 2026-10-12 and 2026-10-13 updates record subsequent account and
+notification checks. These supersede the earlier lack of browser evidence for
+those specific scenarios; they do not establish full responsive/accessibility
+coverage or live backend/OAuth/email verification.
+
+On 2026-10-20, PR 4 preparation additionally passed 46 frontend tests, REAL/MOCK
+Vite builds, and Playwright smoke checks of public pages and MOCK customer
+catalog/profile/orders at 1440 and 390 px, with no JS errors or horizontal
+viewport overflow. Those checks ran on the assembled application branch,
+not on this foundation-only PR. Full cross-browser, keyboard, screen-reader,
+contrast and live-backend sign-off remains outstanding.
+
 ## Scope and evidence
 
 Reviewed AGENTS.md, frontend rules, the master specification, Phase 09, all page modules, the application shell, shared marketplace/account/checkout/staff components and UI primitives. Applied Web Interface Guidelines (https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md) and the applicable React performance guidance.
 
-**No browser visual testing was completed.** `/browser` is not exposed in this session. One headless Chrome attempt exited before opening a page: Crashpad `setsockopt: Operation not permitted` (exit 133). No retries, browser installation or sandbox bypass were attempted. The attempted URL used port 5173; Vite actually serves port 3000. Chrome failed before navigation, so neither URL was visually inspected.
+**No browser visual testing was completed during this initial pass.** `/browser` was not exposed in that session. One headless Chrome attempt exited before opening a page: Crashpad `setsockopt: Operation not permitted` (exit 133). No retries, browser installation or sandbox bypass were attempted. The attempted URL used port 5173; Vite actually served port 3000. Chrome failed before navigation, so neither URL was visually inspected during that pass.
 
 `pnpm dev:mock --host 127.0.0.1` started successfully at http://127.0.0.1:3000. A subsequent HTTP request to `/login` returned the Vite HTML shell. This proves server availability, not React rendering or interactive behavior. No real backend was connected.
 
