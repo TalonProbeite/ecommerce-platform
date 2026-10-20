@@ -30,7 +30,7 @@ var (
 	// errBoom is the error injected into a mock; tests then check that the
 	// service wrapped it with %w instead of swallowing it.
 	errBoom        = errors.New("boom")
-	errKeyNotFound = errors.New("key not found")
+	errKeyNotFound = domain.ErrEntryNotFound
 )
 
 // bcrypt is slow, so the hash is computed once for the whole package.
@@ -204,6 +204,34 @@ func newFixture(t *testing.T) *fixture {
 	}
 
 	sess := &MockSessionRepo{
+		ConsumeEntryFunc: func(_ context.Context, key string) (string, error) {
+			if err := f.hit("sess.ConsumeEntry"); err != nil {
+				return "", err
+			}
+			v, ok := f.store[key]
+			if !ok {
+				return "", domain.ErrEntryNotFound
+			}
+			delete(f.store, key)
+			f.deleted = append(f.deleted, key)
+			return v, nil
+		},
+		AcquireLockFunc: func(_ context.Context, key, owner string, _ time.Duration) (bool, error) {
+			if err := f.hit("sess.AcquireLock"); err != nil {
+				return false, err
+			}
+			if _, ok := f.store[key]; ok {
+				return false, nil
+			}
+			f.store[key] = owner
+			return true, nil
+		},
+		ReleaseLockFunc: func(_ context.Context, key, owner string) error {
+			if f.store[key] == owner {
+				delete(f.store, key)
+			}
+			return f.hit("sess.ReleaseLock")
+		},
 		SaveEntryFunc: func(_ context.Context, key, value string, ttl time.Duration) error {
 			if err := f.hit("sess.SaveEntry"); err != nil {
 				return err
@@ -318,12 +346,12 @@ func newFixture(t *testing.T) *fixture {
 	}
 
 	google := &MockGoogleClient{
-		AuthURLFunc: func(state string) string {
+		AuthURLFunc: func(state, verifier, nonce string) string {
 			f.hit("google.AuthURL")
 			f.authState = state
 			return "https://accounts.example/auth?state=" + state
 		},
-		GetProfileFunc: func(context.Context, string) (*domain.OAuthProfile, error) {
+		GetProfileFunc: func(context.Context, string, string, string) (*domain.OAuthProfile, error) {
 			if err := f.hit("google.GetProfile"); err != nil {
 				return nil, err
 			}

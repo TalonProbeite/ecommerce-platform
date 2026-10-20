@@ -50,21 +50,21 @@ type handlerCase struct {
 func handlerCases() []handlerCase {
 	return []handlerCase{
 		{
-			name:       "user registered",
-			handle:     func(f *handlerFixture) HandlerFunc { return f.user.HandleUserRegistered },
-			event:      events.UserRegisteredEvent{Email: testRecipient, Code: "123456"},
-			eventKey:   events.UserRegisteredEventKey,
-			subject:    events.UserRegisteredSubject,
+			name:       "email verification requested",
+			handle:     func(f *handlerFixture) HandlerFunc { return f.user.HandleEmailVerificationRequested },
+			event:      events.EmailVerificationRequestedEvent{Email: testRecipient, Code: "123456"},
+			eventKey:   events.EmailVerificationRequestedEventKey,
+			subject:    events.EmailVerificationSubject,
 			wantRender: "RenderVerification(123456,15)",
 
-			wantPayload: events.UserRegisteredEvent{Email: testRecipient},
+			wantPayload: events.EmailVerificationRequestedEvent{Email: testRecipient},
 		},
 		{
-			name:       "user email verified",
-			handle:     func(f *handlerFixture) HandlerFunc { return f.user.HandleEmailVerified },
-			event:      events.UserEmailVerifiedEvent{Email: testRecipient, Name: "John"},
-			eventKey:   events.UserEmailVerifiedEventKey,
-			subject:    events.UserEmailVerifiedSubject,
+			name:       "welcome email requested",
+			handle:     func(f *handlerFixture) HandlerFunc { return f.user.HandleWelcomeEmailRequested },
+			event:      events.WelcomeEmailRequestedEvent{Email: testRecipient, Name: "John"},
+			eventKey:   events.WelcomeEmailRequestedEventKey,
+			subject:    events.WelcomeEmailSubject,
 			wantRender: "RenderWelcome(John)",
 		},
 		{
@@ -198,16 +198,16 @@ func TestHandlers_SendFailure_IsLoggedAsFailedAndReturned(t *testing.T) {
 	}
 }
 
-func TestHandlers_UserRegistered_DoesNotPersistVerificationCode(t *testing.T) {
+func TestHandlers_EmailVerificationRequested_DoesNotPersistVerificationCode(t *testing.T) {
 	t.Parallel()
 
 	f := newHandlerFixture()
-	event := events.UserRegisteredEvent{Email: testRecipient, Code: "123456"}
+	event := events.EmailVerificationRequestedEvent{Email: testRecipient, Code: "123456"}
 
-	require.NoError(t, f.user.HandleUserRegistered(t.Context(), mustMarshal(t, event)))
+	require.NoError(t, f.user.HandleEmailVerificationRequested(t.Context(), mustMarshal(t, event)))
 
 	assert.Equal(t, []string{"RenderVerification(123456,15)"}, f.renderer.calls)
 
 	require.Len(t, f.saver.saved, 1)
-	assert.Equal(t, events.UserRegisteredEvent{Email: testRecipient}, f.saver.saved[0].Payload)
+	assert.Equal(t, events.EmailVerificationRequestedEvent{Email: testRecipient}, f.saver.saved[0].Payload)
 }

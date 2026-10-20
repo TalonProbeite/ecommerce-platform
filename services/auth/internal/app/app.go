@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
-
 	"shop/auth/internal/application"
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/db"
@@ -20,6 +18,7 @@ import (
 	"shop/shared/jwt"
 	"shop/shared/logger"
 	"shop/shared/middleware"
+	"syscall"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -38,6 +37,9 @@ type App struct {
 }
 
 func New(cfg *config.Config) (*App, error) {
+	if err := cfg.ValidateOAuth(); err != nil {
+		return nil, err
+	}
 	log := logger.Init(cfg.App.Env)
 
 	pg, err := db.NewPostgresDB(cfg.Postgres.DatabaseURL)
@@ -77,7 +79,7 @@ func New(cfg *config.Config) (*App, error) {
 	sessionRepo := repository.NewSessionRepo(rdb)
 	userRepo := repository.NewUserRepo(pg)
 	oauthClient := oauth.NewGoogleClient(cfg.OAuthStateGoogle())
-	eventPublisher, err := rabbitmq.NewEventPublisher(rabbit, cfg.Rabbit.ExchangeName, cfg.Rabbit.ExchangeType)
+	eventPublisher, err := rabbitmq.NewEventPublisher(rabbit)
 	if err != nil {
 		if closeErr := pg.Close(); closeErr != nil {
 			log.Error("failed to close postgres", slog.Any("err", closeErr))
@@ -98,7 +100,7 @@ func New(cfg *config.Config) (*App, error) {
 	handlers := transporthttp.Handlers{
 		HealthHandler:  handler.NewHealthHandler(),
 		ReadyzHandler:  handler.NewReadyzHandler(pg, rdb, rabbit),
-		AuthHandler:    handler.NewAuthHandler(authService, log),
+		AuthHandler:    handler.NewAuthHandler(authService, log, cfg.OAuth.FrontendURL),
 		ProfileHandler: handler.NewProfileHandlers(profileService, log),
 		AdminHandler:   handler.NewAdminHandlers(adminService, log),
 	}
