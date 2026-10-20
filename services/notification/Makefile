@@ -1,4 +1,4 @@
-COMPOSE_FILE := docker-compose.local.yaml
+COMPOSE_FILE ?= docker-compose.local.yaml
 COMPOSE := docker compose -f $(COMPOSE_FILE)
 
 .PHONY: info up down restart logs ps \
@@ -7,6 +7,7 @@ COMPOSE := docker compose -f $(COMPOSE_FILE)
 
 info:
 	@echo "Available commands:"
+	@echo "  make seed                            Add DEMO data to the running stack"
 	@echo ""
 	@echo "Docker:"
 	@echo "  make up                              Start local services"
@@ -60,3 +61,9 @@ test-race:
 
 lint:
 	golangci-lint run --fix
+
+.PHONY: seed
+
+# Explicit opt-in; requires a running MongoDB database.
+seed:
+	$(COMPOSE) exec -T notification-db sh -ec 'mongosh --quiet --host localhost --username "$$MONGO_INITDB_ROOT_USERNAME" --password "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --file /dev/stdin' < seeds/demo.js
