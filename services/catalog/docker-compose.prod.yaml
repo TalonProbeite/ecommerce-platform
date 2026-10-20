@@ -4,6 +4,8 @@ services:
   catalog-db:
     image: postgres:16-alpine
     container_name: catalog-db-prod
+    ports:
+      - "127.0.0.1:5433:5432"
     restart: always
     env_file:
       - .env
@@ -25,6 +27,8 @@ services:
   catalog-redis:
     image: redis:7-alpine
     container_name: catalog-redis-prod
+    ports:
+      - "127.0.0.1:6380:6379"
     restart: always
     volumes:
       - catalog_redis_data:/data
@@ -40,6 +44,8 @@ services:
   catalog-seaweedfs:
     image: chrislusf/seaweedfs:latest
     container_name: catalog-seaweedfs-prod
+    ports:
+      - "127.0.0.1:8333:8333"
     restart: always
     environment:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-seaweed_admin}
@@ -51,13 +57,15 @@ services:
     networks:
       - catalog_internal
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8333/"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9333/cluster/status"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
 
+  # Laravel runs on the host by default. The container runtime is not configured yet.
   catalog-app:
+    profiles: [catalog-container]
     image: shop-catalog-app:latest
     build:
       context: .
@@ -93,6 +101,7 @@ services:
       start_period: 30s
 
   catalog-nginx:
+    profiles: [catalog-container]
     image: nginx:alpine
     container_name: catalog-nginx-prod
     restart: always
