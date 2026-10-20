@@ -8,6 +8,9 @@ __v0_jsx-dev-runtime.ts
 
 # Environment variables
 .env*.local
+# Public mode selectors; deployment origins belong in ignored local files.
+!.env.mock
+!.env.real
 
 # Common ignores
 node_modules

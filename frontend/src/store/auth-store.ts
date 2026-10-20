@@ -1,0 +1,215 @@
+import { create } from 'zustand'
+import { isHttpError } from '@/api/http'
+import { getErrorMessage, isMockApi, onSessionExpired } from '@/api/client'
+import { completeOAuthProfile, changeAccountPassword, loadAccountProfile, loginAccount, logoutAccount, patchAccountProfile, registerAccount, sendAccountVerification, verifyAccountEmail } from '@/services/auth'
+import type { ChangePasswordPayload, LoginPayload, ProfileChanges, RegisterPayload, User, VerifyEmailPayload } from '@/types'
+
+type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated' | 'error'
+let generation = 0
+let accountPending = false
+let profileRefresh: { generation: number; promise: Promise<void> } | null = null
+
+interface AuthState {
+  user: User | null
+  status: AuthStatus
+  sessionExpired: boolean
+  sessionError: string | null
+  initialize: () => Promise<void>
+  reloadProfile: () => Promise<void>
+  revalidateProfile: () => Promise<void>
+  login: (payload: LoginPayload) => Promise<User>
+  register: (payload: RegisterPayload) => Promise<User>
+  completeOAuth: (payload: Pick<RegisterPayload, 'firstName' | 'lastName' | 'phone'>) => Promise<User>
+  restoreOAuthSession: () => Promise<User>
+  verifyEmail: (payload: VerifyEmailPayload) => Promise<void>
+  sendVerification: (email: string) => Promise<void>
+  logout: () => Promise<void>
+  updateProfile: (changes: ProfileChanges) => Promise<void>
+  changePassword: (payload: ChangePasswordPayload) => Promise<void>
+  dismissSessionExpired: () => void
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: null,
+  status: 'idle',
+  sessionExpired: false,
+  sessionError: null,
+
+  initialize: async () => {
+    if (get().status !== 'idle') return
+    await get().reloadProfile()
+  },
+
+  reloadProfile: async () => {
+    const requestGeneration = ++generation
+    set({ status: 'loading', sessionError: null })
+    try {
+      const user = await loadAccountProfile()
+      if (requestGeneration === generation) set({ user, status: 'authenticated', sessionExpired: false, sessionError: null })
+    } catch (error) {
+      // Expiry may already have advanced the generation via the interceptor.
+      if (requestGeneration !== generation) return
+      if (isHttpError(error) && error.response?.status === 401) {
+        set({ user: null, status: 'unauthenticated', sessionError: null })
+      } else {
+        set({ user: null, status: 'error', sessionError: getErrorMessage(error, 'Could not load your account. Please try again.') })
+      }
+    }
+  },
+
+  revalidateProfile: () => {
+    if (accountPending || get().status !== 'authenticated' || !get().user) return Promise.resolve()
+    if (profileRefresh?.generation === generation) return profileRefresh.promise
+    const requestGeneration = generation
+    const promise = refreshAuthenticatedProfile(requestGeneration).finally(() => {
+      if (profileRefresh?.promise === promise) profileRefresh = null
+    })
+    profileRefresh = { generation: requestGeneration, promise }
+    return promise
+  },
+
+  login: async (payload) => {
+    if (accountPending) throw new Error('An account request is already in progress.')
+    accountPending = true
+    const requestGeneration = ++generation
+    let credentialsAccepted = false
+    try {
+      const user = await loginAccount(payload)
+      credentialsAccepted = true
+      if (requestGeneration !== generation) throw new Error('Your session changed. Please sign in again.')
+      set({ user, status: 'authenticated', sessionExpired: false, sessionError: null })
+      return user
+    } catch (error) {
+      if (requestGeneration === generation && (credentialsAccepted || !isHttpError(error))) {
+        set({ user: null, status: 'error', sessionError: getErrorMessage(error) })
+      }
+      throw error
+    } finally {
+      // A superseded guest probe cannot settle state after an unsuccessful auth request.
+      if (requestGeneration === generation && get().status === 'loading' && !get().user) {
+        set({ status: 'unauthenticated', sessionError: null })
+      }
+      accountPending = false
+    }
+  },
+
+  register: async (payload) => {
+    if (accountPending) throw new Error('An account request is already in progress.')
+    accountPending = true
+    const requestGeneration = ++generation
+    try {
+      const user = await registerAccount(payload)
+      if (requestGeneration !== generation) throw new Error('Your session changed. Please sign in again.')
+      set({ user, status: 'authenticated', sessionExpired: false, sessionError: null })
+      return user
+    } finally {
+      // A superseded guest probe cannot settle state after an unsuccessful auth request.
+      if (requestGeneration === generation && get().status === 'loading' && !get().user) {
+        set({ status: 'unauthenticated', sessionError: null })
+      }
+      accountPending = false
+    }
+  },
+
+  completeOAuth: (payload) => oauthAccountRequest(async () => { await completeOAuthProfile(payload) }, true),
+  restoreOAuthSession: () => oauthAccountRequest(async () => {}),
+
+  verifyEmail: async (payload) => {
+    await verifyAccountEmail(payload)
+    const user = get().user
+    if (isMockApi && user?.email.toLowerCase() === payload.email.trim().toLowerCase()) {
+      set({ user: { ...user, emailVerified: true } })
+    } else if (!isMockApi && user) await get().reloadProfile()
+  },
+
+  sendVerification: async (email) => {
+    await sendAccountVerification(email)
+  },
+
+  logout: async () => {
+    ++generation
+    try {
+      await logoutAccount()
+    } finally {
+      ++generation
+      set({ user: null, status: 'unauthenticated', sessionExpired: false, sessionError: null })
+    }
+  },
+
+  updateProfile: async (changes) => {
+    const user = get().user
+    if (!user) throw new Error('Not authenticated.')
+    if (accountPending) throw new Error('An account request is already in progress.')
+    accountPending = true
+    // Invalidate any background read that started before this mutation.
+    const requestGeneration = ++generation
+    try {
+      const updated = await patchAccountProfile(changes, user)
+      if (requestGeneration !== generation) return
+      if (updated) set({ user: updated })
+      else await refreshAuthenticatedProfile(requestGeneration)
+    } finally {
+      accountPending = false
+    }
+  },
+
+  dismissSessionExpired: () => set({ sessionExpired: false }),
+
+  changePassword: async (payload) => {
+    if (get().user?.isOAuth) throw new Error('Password is managed by your Google account.')
+    await changeAccountPassword(payload)
+    ++generation
+    set({ user: null, status: 'unauthenticated', sessionExpired: false, sessionError: null })
+  },
+}))
+
+// Revalidation never hides authenticated pages. Transient failures propagate to
+// the caller without clearing the user; definitive 401s use the central expiry
+// handler. Generation checks prevent stale reads restoring an older account.
+async function refreshAuthenticatedProfile(requestGeneration: number): Promise<void> {
+  const user = await loadAccountProfile()
+  if (requestGeneration === generation) {
+    useAuthStore.setState({ user, status: 'authenticated', sessionExpired: false, sessionError: null })
+  }
+}
+
+onSessionExpired(() => {
+  const state = useAuthStore.getState()
+  const probingGuestSession = state.status === 'loading' && !state.user
+  // An older guest probe must not cancel a login/registration that superseded it.
+  if (probingGuestSession && accountPending) return
+  ++generation
+  useAuthStore.setState({ user: null, status: 'unauthenticated', sessionExpired: !probingGuestSession, sessionError: null })
+})
+
+// OAuth completion and callback restoration supersede older guest probes.
+async function oauthAccountRequest(beforeProfile: () => Promise<void>, completing = false): Promise<User> {
+  if (accountPending) throw new Error('An account request is already in progress.')
+  accountPending = true
+  const requestGeneration = ++generation
+  useAuthStore.setState({ status: 'loading', sessionError: null })
+  let completed = false
+  try {
+    await beforeProfile()
+    completed = completing
+    const user = await loadAccountProfile()
+    if (requestGeneration !== generation) throw new Error('Your session changed. Please sign in again.')
+    useAuthStore.setState({ user, status: 'authenticated', sessionExpired: false, sessionError: null })
+    return user
+  } catch (error) {
+    if (requestGeneration === generation) {
+      useAuthStore.setState({ user: null, status: 'error', sessionError: getErrorMessage(error) })
+    }
+    if (completed) throw new OAuthSessionRestoreError(error)
+    throw error
+  } finally {
+    accountPending = false
+  }
+}
+
+export class OAuthSessionRestoreError extends Error {
+  constructor(cause: unknown) {
+    super('Your account was created, but we could not load your session. Please try again.', { cause })
+    this.name = 'OAuthSessionRestoreError'
+  }
+}
