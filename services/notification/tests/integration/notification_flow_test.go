@@ -20,9 +20,13 @@ import (
 
 // Run auth's real publisher in its own module because its implementation is internal.
 func TestNotificationFlow_AuthPublisherProducesEmail(t *testing.T) {
+	notificationRoot, err := moduleRoot()
+	require.NoError(t, err)
+	authRoot := filepath.Join(notificationRoot, "..", "auth")
+
 	s := newStack(t, nil)
 	cmd := exec.CommandContext(t.Context(), "go", "test", "-tags=integration", "-count=1", "-run=^TestPublisherDeliversUserEvent$", "./internal/infra/rabbitmq")
-	cmd.Dir = filepath.Join("..", "auth")
+	cmd.Dir = authRoot
 	cmd.Env = append(os.Environ(), "TEST_RABBITMQ_URL="+env.amqpURL)
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "auth publisher test: %s", output)

@@ -324,7 +324,10 @@ UI:
 
 Google login must use a full browser navigation:
 
-`window.location.href = "https://localhost/auth/api/oauth/google"`
+`window.location.href = new URL('/auth/api/oauth/google', API_ORIGIN).href`
+
+`API_ORIGIN` comes from the validated `VITE_API_URL` setting described in
+section 18. Do not hard-code a deployment hostname.
 
 Do not call this endpoint using fetch.
 
@@ -361,6 +364,38 @@ Include:
 * loading state
 * API error state
 * link back to login
+
+---
+
+### `/oauth/success`
+
+Purpose:
+
+Restore the cookie-authenticated session after the backend's successful Google
+callback. This is a public handoff route: it must be reachable before the
+frontend has loaded an authenticated user. It also handles recovery when OAuth
+registration succeeded but the subsequent profile request failed.
+
+Behavior and states:
+
+* On entry, show a loading status and request `GET /auth/api/private/profile`
+  through the shared client with `credentials: 'include'`. The page owns this
+  restoration; ordinary app initialization must not start a competing probe.
+* Reuse the in-flight restoration during React Strict Mode effect replay.
+  The protected-request refresh policy still applies: at most one refresh and
+  one retry per failed request, without a redirect or retry loop.
+* On success, store the returned profile in Zustand and replace the current
+  history entry with the role's home route: customer `/catalog`, analyst
+  `/notifications`, admin `/admin` (unknown/missing role falls back to `/`).
+* On network/API failure, or a final `401` after refresh handling, stop the
+  loading state and show an actionable error, a **Try again** button and a
+  **Back to login** link. Do not navigate as though restoration succeeded.
+* **Try again** starts a fresh profile restoration. It must never repeat
+  `POST /auth/api/oauth/complete`, replay the Google callback, or restart Google
+  sign-in automatically. **Back to login** navigates to `/login`.
+
+Do not read tokens from cookies or accept tokens, profile data or registration
+keys in this route's URL.
 
 ---
 
@@ -640,13 +675,49 @@ Keep API communication behind reusable service / client functions so that mock d
 
 The exact backend contracts are defined below.
 
+## Deployment origins and API configuration
+
+REAL API mode requires `VITE_API_MODE=real` and a nonempty `VITE_API_URL` at
+frontend build time (or when starting the Vite development server).
+`VITE_API_URL` is the public backend gateway **origin**, without `/auth`,
+`/notification`, credentials, query parameters or fragments. Centralize its
+validation and expose it as `API_ORIGIN` to API services and OAuth navigation.
+Never fall back to `https://localhost` for a production REAL build.
+
+For example, with a production gateway at `https://rentify.example.com`:
+
+```dotenv
+VITE_API_MODE=real
+VITE_API_URL=https://rentify.example.com
+```
+
+Use HTTPS in production. When the SPA and gateway share an origin, configure
+`VITE_API_URL` to that deployed origin; the current REAL client still requires
+an explicit origin rather than an empty setting. Vite embeds this value into
+the frontend bundle: changing only a running container's environment does not
+update an already built SPA. These public settings must contain no secrets.
+
+Construct URLs from the configured origin and the documented service paths:
+
+```typescript
+// API_ORIGIN is the centrally validated import.meta.env.VITE_API_URL.
+const loginURL = new URL('/auth/api/login', API_ORIGIN).href
+const googleOAuthURL = new URL('/auth/api/oauth/google', API_ORIGIN).href
+const notificationsURL = new URL('/notification/api/private/notifications', API_ORIGIN).href
+```
+
+`https://localhost` is a **local development example only**, not a deployed
+API or OAuth default. Separately configure the backend `FRONTEND_URL` to the
+actual SPA HTTPS origin, and `REDIRECT_URL` to the public backend Google
+callback URI. Do not derive the frontend origin from an arbitrary request.
+
 ---
 
 # 19. AUTH SERVICE
 
 ## Base URL
 
-`https://localhost/auth/api`
+`${API_ORIGIN}/auth/api`
 
 The `/auth` prefix is added by nginx routing.
 
@@ -654,7 +725,7 @@ All frontend requests must use the `/auth` prefix.
 
 Example:
 
-`https://localhost/auth/api/login`
+`${API_ORIGIN}/auth/api/login`
 
 ---
 
@@ -856,8 +927,8 @@ This must be opened using full browser navigation.
 
 Use:
 
-```text
-window.location.href = "https://localhost/auth/api/oauth/google"
+```typescript
+window.location.href = new URL('/auth/api/oauth/google', API_ORIGIN).href
 ```
 
 Do not call it using fetch.
@@ -879,8 +950,14 @@ Success returns **303 See Other**, after setting HttpOnly Secure cookies:
 * Failure: redirect to `/login?oauth_error=<safe-code>` (`oauth_canceled`,
   `oauth_invalid_state`, `account_inactive`, or `oauth_failed`).
 
-`FRONTEND_URL` configures a trusted HTTPS origin without a path, query or
-fragment. `REDIRECT_URL` remains the Google backend callback URI. Both SPA
+`FRONTEND_URL` configures the actual trusted frontend HTTPS origin without a
+path, query or fragment. The production Compose deployment requires this
+variable to be explicitly set and nonempty; a missing value must fail before
+containers start. Supply it to Compose through the invoking environment or
+an interpolation env file (`--env-file`); a service-level `env_file` alone
+does not supply values for Compose interpolation. `REDIRECT_URL` remains the
+Google backend callback URI and must match the deployed gateway and Google
+OAuth client configuration. Both SPA
 routes are outside `/auth/`, which nginx reserves for backend requests.
 The temporary `oauth_state` cookie is HttpOnly Secure SameSite=Lax so it is
 sent on Google's top-level GET callback. Auth/profile cookies remain Strict.
@@ -1200,7 +1277,7 @@ GET profile restores the session on page reload and updates account details afte
 
 ## Base URL
 
-`https://localhost/notification/api`
+`${API_ORIGIN}/notification/api`
 
 This service uses the same auth cookies issued by the auth service.
 

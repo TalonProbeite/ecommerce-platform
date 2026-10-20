@@ -58,7 +58,7 @@ services:
 
       JWT_PRIVATE_KEY_BASE64: ${JWT_PRIVATE_KEY_BASE64}
       JWT_PUBLIC_KEY_BASE64: ${JWT_PUBLIC_KEY_BASE64}
-      FRONTEND_URL: ${FRONTEND_URL:-https://localhost}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL must be set to the deployed frontend HTTPS origin}
       CLIENT_ID: ${CLIENT_ID}
       CLIENT_SECRET: ${CLIENT_SECRET}
       REDIRECT_URL: ${REDIRECT_URL:-https://localhost/auth/api/oauth/google/callback}
