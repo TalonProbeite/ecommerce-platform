@@ -1,0 +1,74 @@
+name: catalog-local
+
+services:
+  catalog-db:
+    image: postgres:16-alpine
+    container_name: catalog-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-catalog_db}
+      POSTGRES_USER: ${DB_USERNAME:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - catalog_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
+    networks:
+      - catalog_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-admin} -d ${DB_DATABASE:-catalog_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  catalog-redis:
+    image: redis:7-alpine
+    container_name: catalog-redis
+    restart: unless-stopped
+    volumes:
+      - catalog_redis_data:/data
+    ports:
+      - "127.0.0.1:6380:6379"
+    networks:
+      - catalog_internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+
+  catalog-seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: catalog-seaweedfs
+    restart: unless-stopped
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-seaweed_admin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-seaweed_secret_123}
+      S3_BUCKET: ${AWS_BUCKET:-catalog_assets}
+    command: ["mini", "-dir=/data"]
+    volumes:
+      - catalog_seaweedfs_data:/data
+    ports:
+      - "127.0.0.1:8333:8333"
+    networks:
+      - catalog_internal
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9333/cluster/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+
+volumes:
+  catalog_postgres_data:
+  catalog_redis_data:
+  catalog_seaweedfs_data:
+
+networks:
+  catalog_internal:
+    driver: bridge  

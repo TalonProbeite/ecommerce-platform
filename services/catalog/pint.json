@@ -1,0 +1,12 @@
+{
+    "preset": "psr12",
+    "rules": {
+        "array_indentation": true,
+        "array_syntax": {
+            "syntax": "short"
+        },
+        "concat_space": {
+            "spacing": "one"
+        }
+    }
+}
