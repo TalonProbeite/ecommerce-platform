@@ -21,8 +21,10 @@
         "vladimir-yuldashev/laravel-queue-rabbitmq": "^15.0"
     },
     "require-dev": {
+        "barryvdh/laravel-ide-helper": "^3.7",
         "fakerphp/faker": "^1.23",
         "larastan/larastan": "^3.12",
+        "laravel/boost": "^2.10",
         "laravel/pail": "^1.2.5",
         "laravel/pao": "^1.0.6",
         "laravel/pint": "^1.27",
@@ -76,6 +78,13 @@
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "ide:generate": [
+            "@php artisan ide-helper:generate --no-interaction",
+            "@php artisan ide-helper:meta --no-interaction"
+        ],
+        "ide:models": [
+            "@php artisan ide-helper:models --write-mixin --no-interaction"
         ]
     },
     "extra": {

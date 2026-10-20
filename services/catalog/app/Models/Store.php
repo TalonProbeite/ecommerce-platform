@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Ramsey\Uuid\Uuid;
 
+/**
+ * @mixin IdeHelperStore
+ */
 class Store extends Model
 {
     use HasUuids;

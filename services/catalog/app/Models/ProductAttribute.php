@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Ramsey\Uuid\Uuid;
 
+/**
+ * @mixin IdeHelperProductAttribute
+ */
 class ProductAttribute extends Model
 {
     use HasUuids;

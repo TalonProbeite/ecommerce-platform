@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Ramsey\Uuid\Uuid;
 
+/**
+ * @mixin IdeHelperStock
+ */
 class Stock extends Model
 {
     use HasUuids;

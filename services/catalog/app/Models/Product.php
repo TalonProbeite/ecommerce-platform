@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Ramsey\Uuid\Uuid;
 
+/**
+ * @mixin IdeHelperProduct
+ */
 class Product extends Model
 {
     use HasUuids;
