@@ -1,0 +1,39 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Messaging\Events;
+
+use App\Contracts\Messaging\EventInterface;
+use App\Messaging\RoutingKeys;
+
+final readonly class StockReservationFailed implements EventInterface
+{
+    public function __construct(
+        public string $orderId,
+        public string $storeId,
+        public string $productId,
+        public int $quantity,
+        public StockReservationFailureReason $reason,
+    ) {
+    }
+
+    public function routingKey(): string
+    {
+        return RoutingKeys::STOCK_RESERVATION_FAILED;
+    }
+
+    /**
+     * @return array{order_id: string, store_id: string, product_id: string, quantity: int, reason: string}
+     */
+    public function toArray(): array
+    {
+        return [
+            'order_id' => $this->orderId,
+            'store_id' => $this->storeId,
+            'product_id' => $this->productId,
+            'quantity' => $this->quantity,
+            'reason' => $this->reason->value,
+        ];
+    }
+}
