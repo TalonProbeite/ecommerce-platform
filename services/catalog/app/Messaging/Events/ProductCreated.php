@@ -14,13 +14,17 @@ final readonly class ProductCreated implements EventInterface
         public string $storeId,
         public string $name,
         public int $pricePerHour,
-    ) {}
+    ) {
+    }
 
     public function routingKey(): string
     {
         return RoutingKeys::PRODUCT_CREATED;
     }
 
+    /**
+     * @return array{product_id: string, store_id: string, name: string, price_per_hour: int}
+     */
     public function toArray(): array
     {
         return [

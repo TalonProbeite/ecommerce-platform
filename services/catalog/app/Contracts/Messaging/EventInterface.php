@@ -8,5 +8,8 @@ interface EventInterface
 {
     public function routingKey(): string;
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array;
 }
