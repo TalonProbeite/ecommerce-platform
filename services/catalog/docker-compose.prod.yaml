@@ -8,7 +8,8 @@ services:
       - "127.0.0.1:5433:5432"
     restart: always
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       POSTGRES_DB: ${DB_DATABASE:-catalog_db}
       POSTGRES_USER: ${DB_USERNAME:-admin}
@@ -73,7 +74,8 @@ services:
     container_name: catalog-app-prod
     restart: always
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       APP_ENV: ${APP_ENV:-production}
       APP_DEBUG: ${APP_DEBUG:-false}
@@ -94,7 +96,7 @@ services:
       - shop_global
       - catalog_internal
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8000/api/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8000/up || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
