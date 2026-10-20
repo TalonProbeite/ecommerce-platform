@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { AxiosError, CanceledError } from 'axios'
+import { loadHttpErrors } from './http-errors.mjs'
 import { createServer } from 'vite'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
+
+const { HttpError, CanceledError } = await loadHttpErrors()
 
 async function context(mode = 'real') {
   const server = await createServer({
@@ -17,7 +19,7 @@ async function context(mode = 'real') {
   return { server, ...client }
 }
 function failure(config, status) {
-  return new AxiosError(`HTTP ${status}`, String(status), config, null, { status, data: { error: `HTTP ${status}` }, headers: {}, config })
+  return new HttpError(`HTTP ${status}`, String(status), config, { status, data: { error: `HTTP ${status}` }, headers: {}, config })
 }
 const backendProfile = { email: 'user@example.com', first_name: 'User', last_name: 'Name', phone: '1234567890', role: 'customer', is_verified: false }
 const user = { id: 'u', email: 'user@example.com', firstName: 'User', lastName: 'Name', phone: '1234567890', role: 'customer', isOAuth: false }
@@ -87,7 +89,7 @@ test('REAL expired access refreshes once and returns the successful protected re
     onSessionExpired(() => { expired++ })
     api.defaults.adapter = async config => {
       paths.push(config.url)
-      assert.equal(config.withCredentials, true)
+      assert.equal(config.credentials, 'include')
       if (config.url === '/auth/api/refresh') return { status: 200, data: { message: 'successfully refreshed' }, headers: {}, config }
       if (!config._retry) throw failure(config, 401)
       return { status: 200, data: { email: user.email, first_name: user.firstName }, headers: {}, config }
@@ -104,7 +106,7 @@ test('REAL auth mutations map documented bodies and never use legacy mock paths'
     const auth = await server.ssrLoadModule('/src/services/auth.ts')
     const requests = []
     api.defaults.adapter = async config => {
-      requests.push({ method: config.method, path: config.url, body: config.data === undefined ? undefined : JSON.parse(config.data), credentials: config.withCredentials })
+      requests.push({ method: config.method, path: config.url, body: config.data === undefined ? undefined : JSON.parse(config.data), credentials: config.credentials })
       return { status: config.url.endsWith('/register') || config.url.endsWith('/complete') ? 201 : 200, data: ['/auth/api/login', '/auth/api/register'].includes(config.url) ? backendProfile : { message: 'confirmed' }, headers: {}, config }
     }
     await auth.loginAccount({ email: user.email, password: 'password123' })
@@ -116,14 +118,14 @@ test('REAL auth mutations map documented bodies and never use legacy mock paths'
     await auth.changeAccountPassword({ old_pass: 'password123', new_pass: 'password456' })
     await auth.logoutAccount()
     assert.deepEqual(requests, [
-      { method: 'post', path: '/auth/api/login', body: { email: user.email, password: 'password123' }, credentials: true },
-      { method: 'post', path: '/auth/api/register', body: { email: user.email, password: 'password123', first_name: 'User', phone: user.phone }, credentials: true },
-      { method: 'post', path: '/auth/api/private/email/verify', body: { code: '1234567890' }, credentials: true },
-      { method: 'post', path: '/auth/api/private/email/send-verification', body: undefined, credentials: true },
-      { method: 'patch', path: '/auth/api/private/profile', body: { first_name: 'Updated' }, credentials: true },
-      { method: 'post', path: '/auth/api/oauth/complete', body: { first_name: 'User', last_name: 'Name', phone: user.phone }, credentials: true },
-      { method: 'put', path: '/auth/api/private/profile/password', body: { old_pass: 'password123', new_pass: 'password456' }, credentials: true },
-      { method: 'post', path: '/auth/api/logout', body: undefined, credentials: true },
+      { method: 'post', path: '/auth/api/login', body: { email: user.email, password: 'password123' }, credentials: 'include' },
+      { method: 'post', path: '/auth/api/register', body: { email: user.email, password: 'password123', first_name: 'User', phone: user.phone }, credentials: 'include' },
+      { method: 'post', path: '/auth/api/private/email/verify', body: { code: '1234567890' }, credentials: 'include' },
+      { method: 'post', path: '/auth/api/private/email/send-verification', body: undefined, credentials: 'include' },
+      { method: 'patch', path: '/auth/api/private/profile', body: { first_name: 'Updated' }, credentials: 'include' },
+      { method: 'post', path: '/auth/api/oauth/complete', body: { first_name: 'User', last_name: 'Name', phone: user.phone }, credentials: 'include' },
+      { method: 'put', path: '/auth/api/private/profile/password', body: { old_pass: 'password123', new_pass: 'password456' }, credentials: 'include' },
+      { method: 'post', path: '/auth/api/logout', body: undefined, credentials: 'include' },
     ])
     await auth.patchAccountProfile(user, user)
     assert.equal(requests.length, 8)
@@ -188,7 +190,7 @@ test('failed refresh preserves session for transient errors and cancellation, ex
       api.defaults.adapter = async config => {
         if (config.url !== '/auth/api/refresh') throw failure(config, 401)
         refreshes++
-        if (outcome === 'network') throw new AxiosError('offline', 'ERR_NETWORK', config)
+        if (outcome === 'network') throw new HttpError('offline', 'ERR_NETWORK', config)
         if (outcome === 'cancel') throw new CanceledError('cancelled', config)
         throw failure(config, outcome)
       }
@@ -355,7 +357,7 @@ test('REAL password and logout change local state only under their documented li
     for (const outcome of [422, 500, 'network', 'cancel', 'malformed']) {
       useAuthStore.setState({ user, status: 'authenticated', sessionExpired: false })
       api.defaults.adapter = async config => {
-        if (outcome === 'network') throw new AxiosError('offline', 'ERR_NETWORK', config)
+        if (outcome === 'network') throw new HttpError('offline', 'ERR_NETWORK', config)
         if (outcome === 'cancel') throw new CanceledError('cancelled', config)
         if (outcome === 'malformed') return { status: 200, data: {}, headers: {}, config }
         throw failure(config, outcome)
@@ -369,7 +371,7 @@ test('REAL password and logout change local state only under their documented li
     assert.equal(useAuthStore.getState().user, null)
     assert.equal(useAuthStore.getState().status, 'unauthenticated')
     useAuthStore.setState({ user, status: 'authenticated' })
-    api.defaults.adapter = async config => { throw new AxiosError('offline', 'ERR_NETWORK', config) }
+    api.defaults.adapter = async config => { throw new HttpError('offline', 'ERR_NETWORK', config) }
     await assert.rejects(useAuthStore.getState().logout())
     assert.equal(useAuthStore.getState().user, null)
     assert.equal(useAuthStore.getState().status, 'unauthenticated')

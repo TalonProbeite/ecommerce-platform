@@ -7,7 +7,7 @@ tags: server, cache, react-cache, deduplication
 
 ## Per-Request Deduplication with React.cache()
 
-Use `React.cache()` for server-side request deduplication. Authentication and database queries benefit most.
+Use `React.cache()` for request deduplication within the React Server Components tree. Authentication and database queries benefit most. Calls outside that tree, including Next.js Route Handlers, do not share React's request cache and are not deduplicated by this API.
 
 **Usage:**
 
@@ -23,7 +23,7 @@ export const getCurrentUser = cache(async () => {
 })
 ```
 
-Within a single request, multiple calls to `getCurrentUser()` execute the query only once.
+Within a single Server Components render request, multiple calls to the same cached `getCurrentUser()` wrapper execute the query only once.
 
 **Avoid inline objects as arguments:**
 
@@ -56,14 +56,18 @@ getUser(1)  // Cache hit, returns cached result
 If you must pass objects, pass the same reference:
 
 ```typescript
+const getUserByParams = cache(async (params: { uid: number }) => {
+  return await db.user.findUnique({ where: { id: params.uid } })
+})
+
 const params = { uid: 1 }
-getUser(params)  // Query runs
-getUser(params)  // Cache hit (same reference)
+getUserByParams(params)  // Query runs
+getUserByParams(params)  // Cache hit (same reference)
 ```
 
 **Next.js-Specific Note:**
 
-In Next.js, the `fetch` API is automatically extended with request memoization. Requests with the same URL and options are automatically deduplicated within a single request, so you don't need `React.cache()` for `fetch` calls. However, `React.cache()` is still essential for other async tasks:
+In Next.js, matching GET/HEAD `fetch` requests within the React component tree are request-memoized during a render. This does not apply to Route Handlers, which are outside that tree, and is separate from persistent data caching. Use `React.cache()` for other repeated work in the Server Components tree:
 
 - Database queries (Prisma, Drizzle, etc.)
 - Heavy computations

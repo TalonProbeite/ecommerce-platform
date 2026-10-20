@@ -1,6 +1,6 @@
 ---
 trigger: model_decision
-description: "Use when implementing or reviewing authentication, Axios services, profile, admin, or notification API integration in Rentify."
+description: "Use when implementing or reviewing authentication, fetch services, profile, admin, or notification API integration in Rentify."
 ---
 # Rentify API Contract Rules
 
@@ -8,12 +8,12 @@ Read `docs/RENTIFY_MASTER_SPEC.md` before implementing backend integration. Neve
 
 ## Auth
 - Auth is cookie-based with httpOnly cookies. Never read/write auth cookies in browser JavaScript.
-- Axios requests use `withCredentials: true`.
-- Centralize the Axios client and refresh handling.
+- Fetch requests use `credentials: 'include'`.
+- Centralize the fetch client and refresh handling.
 - On protected-request 401: make exactly one refresh attempt, retry the original request on success, otherwise clear client auth state and redirect to `/login`. Avoid loops.
 - OAuth callback uses backend redirects to `/oauth/success` or `/register/complete`. Read pending fields using GET `/auth/api/oauth/profile`; submit POST `/auth/api/oauth/complete`. Never put the key or Google data into URLs.
 - `UserProfile.is_oauth` maps to `User.isOAuth`; pending profiles are not authenticated Users.
-- Google OAuth starts with full browser navigation to the backend OAuth URL; do not call it via Axios/fetch.
+- Google OAuth starts with full browser navigation to the backend OAuth URL; do not call it via fetch.
 
 ## Business APIs
 - Use mocks where the master spec says business data is not finalized.

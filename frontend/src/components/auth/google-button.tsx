@@ -1,4 +1,4 @@
-import { GOOGLE_OAUTH_URL } from '@/api/client'
+import { GOOGLE_OAUTH_URL, isMockApi } from '@/api/client'
 import { Button } from '@/components/ui/button'
 
 interface GoogleButtonProps {
@@ -19,11 +19,11 @@ function GoogleMark() {
 
 export function GoogleButton({ label, disabled }: GoogleButtonProps) {
   function handleClick() {
-    window.location.href = GOOGLE_OAUTH_URL
+    if (GOOGLE_OAUTH_URL) window.location.href = GOOGLE_OAUTH_URL
   }
 
   return (
-    <Button type="button" variant="outline" size="lg" className="h-11 w-full gap-2 rounded-full" disabled={disabled} onClick={handleClick}>
+    <Button type="button" variant="outline" size="lg" className="h-11 w-full gap-2 rounded-full" disabled={disabled || isMockApi} title={isMockApi ? 'Google sign-in is unavailable in demo mode.' : undefined} onClick={handleClick}>
       <GoogleMark />
       {label}
     </Button>

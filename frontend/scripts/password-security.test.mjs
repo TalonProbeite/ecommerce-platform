@@ -13,9 +13,10 @@ test('password change preserves failed sessions and terminates successful sessio
     removeItem: (key) => storage.delete(key),
   }
   const server = await createServer({
-    configFile: false,
+    configFile: false, envDir: false,
+    define: { 'import.meta.env.VITE_API_MODE': '"mock"', 'import.meta.env.VITE_API_URL': '""' },
     resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
-    server: { middlewareMode: true, hmr: false, watch: null },
+    server: { middlewareMode: true, ws: false, watch: null },
     appType: 'custom',
   })
   try {
@@ -62,15 +63,16 @@ test('password change preserves failed sessions and terminates successful sessio
     sessionStorage.setItem('rentify_mock_session', JSON.stringify(user))
     useAuthStore.setState({ user, sessionExpired: true })
     let request
-    const interceptor = api.interceptors.request.use((config) => {
+    const originalAdapter = api.defaults.adapter
+    api.defaults.adapter = async config => {
       request = config
-      return config
-    })
+      return originalAdapter(config)
+    }
     await useAuthStore.getState().changePassword({ old_pass: 'password123', new_pass: 'newpass123' })
-    api.interceptors.request.eject(interceptor)
+    api.defaults.adapter = originalAdapter
     assert.equal(request.method, 'put')
     assert.equal(request.url, '/auth/api/private/profile/password')
-    assert.equal(request.withCredentials, true)
+    assert.equal(request.credentials, 'include')
     assert.deepEqual(JSON.parse(request.data), { old_pass: 'password123', new_pass: 'newpass123' })
     assert.equal(useAuthStore.getState().user, null)
     assert.equal(useAuthStore.getState().status, 'unauthenticated')

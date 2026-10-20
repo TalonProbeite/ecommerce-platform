@@ -6,7 +6,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 
 test('checkout validates rentals and details, submits once, and preserves state on failure', async () => {
-  const server = await createServer({ configFile: false,
+  const server = await createServer({ configFile: false, envDir: false,
+    define: { 'import.meta.env.VITE_API_MODE': '"mock"', 'import.meta.env.VITE_API_URL': '""' },
     resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
     server: { middlewareMode: true, watch: null, ws: false }, appType: 'custom' })
   try {

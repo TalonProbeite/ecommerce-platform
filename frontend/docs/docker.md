@@ -2,11 +2,13 @@
 
 ## Общий стек: REAL
 
-Из корня проекта:
+Для локальной разработки с общим HTTPS gateway, из корня проекта:
 
 ```sh
-docker compose up -d --build
+FRONTEND_URL=https://localhost FRONTEND_API_URL=https://localhost docker compose up -d --build
 ```
+
+В production явно задайте `FRONTEND_URL` (HTTPS origin SPA), `FRONTEND_API_URL` (публичный origin API gateway) и `REDIRECT_URL` (backend callback Google OAuth) для своего домена через окружение или Compose `--env-file`. Значения localhost выше — только локальный пример. Production Compose требует непустой `FRONTEND_API_URL` и не подставляет localhost; backend также требует `FRONTEND_URL`.
 
 Корневой `docker-compose.yaml` подключает `frontend/docker-compose.prod.yaml` через `include`, как compose сервисов бэкенда. `frontend` находится в сети `shop_global`, слушает внутренний порт `8080` и не публикует отдельный host-порт. Глобальный nginx ждёт здоровые frontend/auth-nginx/notification-nginx, проксирует `/` во фронт, а `/auth/` и `/notification/` — в существующие API-прокси.
 
@@ -64,7 +66,7 @@ Google OAuth требует настоящего сервера и в автон
 | Аргумент | REAL compose | MOCK compose |
 | --- | --- | --- |
 | `VITE_API_MODE` | `real` | `mock` |
-| `VITE_API_URL` | `${FRONTEND_API_URL:-https://localhost}` | `https://localhost` (mock adapter не использует API) |
+| `VITE_API_URL` | обязательный `${FRONTEND_API_URL:?...}` | `https://localhost` (mock adapter не использует API) |
 
 При размещении на другом домене указать его внешний HTTPS origin и пересобрать:
 
@@ -73,6 +75,8 @@ FRONTEND_API_URL=https://rentify.example docker compose build frontend
 ```
 
 При последующем запуске использовать то же значение переменной. При необходимости сохранить `FRONTEND_API_URL` в корневой `.env` самостоятельно. Указывать внешний origin браузера, **не** Docker-имя `auth-app` и не `/auth` в base URL: API-префиксы уже есть в клиенте.
+
+При прямой сборке Dockerfile передайте `--build-arg VITE_API_URL=https://rentify.example`: у этого аргумента нет значения по умолчанию. REAL-сборка без адреса завершается ошибкой валидации. Публичные `.env.mock` и `.env.real` содержат только селектор `VITE_API_MODE`; адрес локального API для Vite задаётся в игнорируемом `.env.real.local` по шаблону `.env.real.local.example`.
 
 Vite встраивает значения в JavaScript во время сборки. Runtime `environment:` их не меняет; секреты в `VITE_*` недопустимы. `.dockerignore` исключает `.env*`, node_modules, старый dist, служебные каталоги, документацию и тестовые артефакты. REAL/MOCK образы имеют разные теги: `shop-frontend:real` и `shop-frontend:mock`.
 

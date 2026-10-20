@@ -1,11 +1,11 @@
 import { STAFF_NOTIFICATIONS } from '../data/notifications'
 import { buildNotificationQuery } from '../lib/notification-query'
 import { NOTIFICATION_CHANNELS, NOTIFICATION_STATUSES } from '../types/notifications'
-import type { InternalAxiosRequestConfig } from 'axios'
+import type { RequestConfig } from './http'
 import type { User } from '../types'
 
 // Mirrors the read-only backend EventLog response and exact recipient matching.
-export function mockNotifications(config: InternalAxiosRequestConfig, actor: User | undefined) {
+export function mockNotifications(config: RequestConfig, actor: User | undefined) {
   const path = config.url ?? ''
   const base = '/notification/api/private/notifications'
   if ((config.method ?? 'get').toLowerCase() !== 'get' || (path !== base && !path.startsWith(`${base}/`))) return null

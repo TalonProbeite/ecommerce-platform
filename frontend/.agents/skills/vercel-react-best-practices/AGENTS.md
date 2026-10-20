@@ -501,7 +501,7 @@ function AnimationPlayer({ enabled, setEnabled }: { enabled: boolean; setEnabled
 }
 ```
 
-The `typeof window !== 'undefined'` check prevents bundling this module for SSR, optimizing server bundle size and build speed.
+The `typeof window !== 'undefined'` check prevents the import from executing on the server. It does not guarantee that the bundler excludes the module from server output: a statically analyzable dynamic import can still produce a server chunk. Use framework-supported client boundaries and verify build output when server bundle exclusion matters.
 
 ### 2.3 Defer Non-Critical Third-Party Libraries
 
@@ -526,9 +526,12 @@ export default function RootLayout({ children }) {
 }
 ```
 
-**Correct: loads after hydration**
+**Correct: client-only dynamic import in a Client Component**
 
 ```tsx
+// app/deferred-analytics.tsx
+'use client'
+
 import dynamic from 'next/dynamic'
 
 const Analytics = dynamic(
@@ -536,12 +539,23 @@ const Analytics = dynamic(
   { ssr: false }
 )
 
+export default function DeferredAnalytics() {
+  return <Analytics />
+}
+```
+
+Render that wrapper from the Server Component layout. Next.js does not allow `ssr: false` in a Server Component itself.
+
+```tsx
+// app/layout.tsx
+import DeferredAnalytics from './deferred-analytics'
+
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
         {children}
-        <Analytics />
+        <DeferredAnalytics />
       </body>
     </html>
   )
@@ -682,9 +696,7 @@ function FlagsProvider({ children, flags }: Props) {
 }
 ```
 
-The `typeof window !== 'undefined'` check prevents bundling preloaded modules for SSR, optimizing server bundle size and build speed.
-
----
+The `typeof window !== 'undefined'` check prevents preloading from executing on the server. It does not guarantee that the bundler excludes the imported modules from server output. Bundle inclusion depends on the framework and build configuration; verify the generated output separately.
 
 ## 3. Server-Side Performance
 
@@ -1225,7 +1237,7 @@ Each item independently chains `getChat` → `getUser`, so a slow chat doesn't b
 
 **Impact: MEDIUM (deduplicates within request)**
 
-Use `React.cache()` for server-side request deduplication. Authentication and database queries benefit most.
+Use `React.cache()` for request deduplication within the React Server Components tree. Authentication and database queries benefit most. Calls outside that tree, including Next.js Route Handlers, do not share React's request cache and are not deduplicated by this API.
 
 **Usage:**
 
@@ -1241,7 +1253,7 @@ export const getCurrentUser = cache(async () => {
 })
 ```
 
-Within a single request, multiple calls to `getCurrentUser()` execute the query only once.
+Within a single Server Components render request, multiple calls to the same cached `getCurrentUser()` wrapper execute the query only once.
 
 **Avoid inline objects as arguments:**
 
@@ -1262,30 +1274,40 @@ getUser({ uid: 1 })  // Cache miss, runs query again
 **Correct: cache hit**
 
 ```typescript
-const params = { uid: 1 }
-getUser(params)  // Query runs
-getUser(params)  // Cache hit (same reference)
+const getUser = cache(async (uid: number) => {
+  return await db.user.findUnique({ where: { id: uid } })
+})
+
+// Primitive args use value equality
+getUser(1)
+getUser(1)  // Cache hit, returns cached result
 ```
 
 If you must pass objects, pass the same reference:
 
+```typescript
+const getUserByParams = cache(async (params: { uid: number }) => {
+  return await db.user.findUnique({ where: { id: params.uid } })
+})
+
+const params = { uid: 1 }
+getUserByParams(params)  // Query runs
+getUserByParams(params)  // Cache hit (same reference)
+```
+
 **Next.js-Specific Note:**
 
-In Next.js, the `fetch` API is automatically extended with request memoization. Requests with the same URL and options are automatically deduplicated within a single request, so you don't need `React.cache()` for `fetch` calls. However, `React.cache()` is still essential for other async tasks:
+In Next.js, matching GET/HEAD `fetch` requests within the React component tree are request-memoized during a render. This does not apply to Route Handlers, which are outside that tree, and is separate from persistent data caching. Use `React.cache()` for other repeated work in the Server Components tree:
 
 - Database queries (Prisma, Drizzle, etc.)
-
 - Heavy computations
-
 - Authentication checks
-
 - File system operations
-
 - Any non-fetch async work
 
 Use `React.cache()` to deduplicate these operations across your component tree.
 
-Reference: [https://react.dev/reference/react/cache](https://react.dev/reference/react/cache)
+Reference: [React.cache documentation](https://react.dev/reference/react/cache)
 
 ### 3.10 Use after() for Non-Blocking Operations
 
@@ -1554,11 +1576,13 @@ const data = localStorage.getItem('userConfig')
 ```typescript
 const VERSION = 'v2'
 
-function saveConfig(config: { theme: string; language: string }) {
+function saveConfig(config: { theme: string; language: string }): boolean {
   try {
     localStorage.setItem(`userConfig:${VERSION}`, JSON.stringify(config))
+    return true
   } catch {
-    // Throws in incognito/private browsing, quota exceeded, or disabled
+    // Storage may be unavailable or full. Preserve the old config on failure.
+    return false
   }
 }
 
@@ -1577,8 +1601,9 @@ function migrate() {
     const v1 = localStorage.getItem('userConfig:v1')
     if (v1) {
       const old = JSON.parse(v1)
-      saveConfig({ theme: old.darkMode ? 'dark' : 'light', language: old.lang })
-      localStorage.removeItem('userConfig:v1')
+      if (saveConfig({ theme: old.darkMode ? 'dark' : 'light', language: old.lang })) {
+        localStorage.removeItem('userConfig:v1')
+      }
     }
   } catch {}
 }
@@ -1601,8 +1626,6 @@ function cachePrefs(user: FullUser) {
 **Always wrap in try-catch:** `getItem()` and `setItem()` throw in incognito/private browsing (Safari, Firefox), when quota exceeded, or when disabled.
 
 **Benefits:** Schema evolution via versioning, reduced storage size, prevents storing tokens/PII/internal flags.
-
----
 
 ## 5. Re-render Optimization
 
@@ -2138,29 +2161,36 @@ function UserProfile() {
 }
 ```
 
-**Correct: runs only once**
+**Correct: memoize prop-derived data; lazily initialize independent state**
 
 ```tsx
 function FilteredList({ items }: { items: Item[] }) {
-  // buildSearchIndex() runs ONLY on initial render
-  const [searchIndex, setSearchIndex] = useState(() => buildSearchIndex(items))
+  // Recompute when items change, not when only the query changes.
+  const searchIndex = useMemo(() => buildSearchIndex(items), [items])
   const [query, setQuery] = useState('')
   
   return <SearchResults index={searchIndex} query={query} />
 }
 
 function UserProfile() {
-  // JSON.parse runs only on initial render
+  // Client-only initialization; guard SSR and unavailable or invalid storage.
   const [settings, setSettings] = useState(() => {
-    const stored = localStorage.getItem('settings')
-    return stored ? JSON.parse(stored) : {}
+    if (typeof window === 'undefined') return {}
+    try {
+      const stored = localStorage.getItem('settings')
+      return stored ? JSON.parse(stored) : {}
+    } catch {
+      return {}
+    }
   })
   
   return <SettingsForm settings={settings} onChange={setSettings} />
 }
 ```
 
-Use lazy initialization when computing initial values from localStorage/sessionStorage, building data structures (indexes, maps), reading from the DOM, or performing heavy transformations.
+Use lazy initialization for independent initial state. An initializer is used on mount, not when props change; React Strict Mode may invoke it twice in development to check purity. Derive indexes from changing props with `useMemo` instead.
+
+The storage example is suitable for client-only rendering. For SSR hydration, initialize with the same default on the server and client, then read storage in an Effect; a `typeof window` guard alone does not prevent hydration mismatches.
 
 For simple primitives (`useState(0)`), direct references (`useState(props.value)`), or cheap literals (`useState({})`), the function form is unnecessary.
 
@@ -2225,6 +2255,11 @@ function Search({ items }: { items: Item[] }) {
 **Correct: input stays snappy, results render when ready**
 
 ```tsx
+import { memo, useDeferredValue, useMemo, useState } from 'react'
+
+// Skip urgent renders while the memoized filtered array is unchanged.
+const DeferredResultsList = memo(ResultsList)
+
 function Search({ items }: { items: Item[] }) {
   const [query, setQuery] = useState('')
   const deferredQuery = useDeferredValue(query)
@@ -2238,7 +2273,7 @@ function Search({ items }: { items: Item[] }) {
     <>
       <input value={query} onChange={e => setQuery(e.target.value)} />
       <div style={{ opacity: isStale ? 0.7 : 1 }}>
-        <ResultsList results={filtered} />
+        <DeferredResultsList results={filtered} />
       </div>
     </>
   )
@@ -2248,14 +2283,12 @@ function Search({ items }: { items: Item[] }) {
 **When to use:**
 
 - Filtering/searching large lists
-
 - Expensive visualizations (charts, graphs) reacting to input
-
 - Any derived state that causes noticeable render delays
 
-**Note:** Wrap the expensive computation in `useMemo` with the deferred value as a dependency, otherwise it still runs on every render.
+**Note:** Keep `items` stable between query updates and memoize the expensive list component as well as the filtered array. `useMemo` reuses the array while the deferred query is unchanged, and `memo` lets the list skip the urgent parent render. Deferring a value does not itself memoize child components.
 
-Reference: [https://react.dev/reference/react/useDeferredValue](https://react.dev/reference/react/useDeferredValue)
+Reference: [React useDeferredValue](https://react.dev/reference/react/useDeferredValue)
 
 ### 5.15 Use useRef for Transient Values
 
@@ -2601,7 +2634,7 @@ function Dropdown({ isOpen }: Props) {
 }
 ```
 
-Avoids expensive re-renders and state loss.
+Preserves component state and DOM while hidden, and cleans up Effects until the boundary becomes visible again. Hidden children can still render in response to new props, at a lower priority than visible content. `<Activity>` does not prevent all re-renders.
 
 ### 6.8 Use defer or async on Script Tags
 
@@ -2825,7 +2858,10 @@ function SearchResults() {
     startTransition(async () => {
       // Fetch and update results
       const data = await fetchResults(value)
-      setResults(data)
+      // Updates after await need a new transition boundary.
+      startTransition(() => {
+        setResults(data)
+      })
     })
   }
 
@@ -2842,16 +2878,11 @@ function SearchResults() {
 **Benefits:**
 
 - **Automatic pending state**: No need to manually manage `setIsLoading(true/false)`
-
 - **Error resilience**: Pending state correctly resets even if the transition throws
-
 - **Better responsiveness**: Keeps the UI responsive during updates
+- **Interruptible rendering**: Urgent updates can interrupt transition rendering; transitions do not cancel network requests. Handle stale responses separately when requests can finish out of order.
 
-- **Interrupt handling**: New transitions automatically cancel pending ones
-
-Reference: [https://react.dev/reference/react/useTransition](https://react.dev/reference/react/useTransition)
-
----
+Reference: [useTransition](https://react.dev/reference/react/useTransition)
 
 ## 7. JavaScript Performance
 
@@ -3101,16 +3132,27 @@ function getTheme() {
 ```typescript
 const storageCache = new Map<string, string | null>()
 
-function getLocalStorage(key: string) {
+function getLocalStorage(key: string): string | null {
   if (!storageCache.has(key)) {
-    storageCache.set(key, localStorage.getItem(key))
+    try {
+      storageCache.set(key, localStorage.getItem(key))
+    } catch {
+      // Do not cache failures; a later read may succeed.
+      return null
+    }
   }
-  return storageCache.get(key)
+  return storageCache.get(key) ?? null
 }
 
-function setLocalStorage(key: string, value: string) {
-  localStorage.setItem(key, value)
-  storageCache.set(key, value)  // keep cache in sync
+function setLocalStorage(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value)
+    storageCache.set(key, value)  // update only after persistence succeeds
+    return true
+  } catch {
+    storageCache.delete(key)
+    return false
+  }
 }
 ```
 
@@ -3124,28 +3166,40 @@ let cookieCache: Record<string, string> | null = null
 function getCookie(name: string) {
   if (!cookieCache) {
     cookieCache = Object.fromEntries(
-      document.cookie.split('; ').map(c => c.split('='))
+      document.cookie.split(';').flatMap(part => {
+        const cookie = part.trim()
+        const separator = cookie.indexOf('=')
+        if (separator <= 0) return []
+        return [[cookie.slice(0, separator), cookie.slice(separator + 1)]]
+      })
     )
   }
   return cookieCache[name]
 }
 ```
 
-**Important: invalidate on external changes**
+**Important (invalidate on external changes):**
+
+If storage can change externally (another tab, server-set cookies), invalidate cache:
 
 ```typescript
 window.addEventListener('storage', (e) => {
-  if (e.key) storageCache.delete(e.key)
+  if (e.key === null) {
+    storageCache.clear() // another tab called localStorage.clear()
+  } else {
+    storageCache.delete(e.key)
+  }
 })
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     storageCache.clear()
+    cookieCache = null
   }
 })
 ```
 
-If storage can change externally (another tab, server-set cookies), invalidate cache:
+Register these listeners only in the browser. The `storage` event is not emitted in the tab that made the change: route same-tab writes through the helpers, and explicitly clear the cache after same-tab `localStorage.clear()`. Reset `cookieCache` after known cookie changes; cookies have no equivalent `storage` event, so visibility-based invalidation alone cannot guarantee freshness.
 
 ### 7.6 Combine Multiple Array Iterations
 
@@ -3434,7 +3488,7 @@ const userNames = users
 
 ```typescript
 const userNames = users.flatMap(user =>
-  user.isActive ? [user.name] : []
+  user.isActive && user.name ? [user.name] : []
 )
 ```
 
@@ -3449,10 +3503,11 @@ const emails = responses
 
 // After
 const emails = responses.flatMap(r =>
-  r.success ? [r.data.email] : []
+  r.success && r.data.email ? [r.data.email] : []
 )
 
 // Parse and filter valid numbers
+// Keep zero in both versions.
 // Before
 const numbers = strings
   .map(s => parseInt(s, 10))
@@ -3465,12 +3520,11 @@ const numbers = strings.flatMap(s => {
 })
 ```
 
+Match the original predicate when combining mapping and filtering. `filter(Boolean)` removes zero and empty strings; the numeric examples above use `!isNaN(n)` instead, so both retain `0` from `"0"` and discard invalid numbers.
+
 **When to use:**
-
 - Transforming items while filtering some out
-
 - Conditional mapping where some inputs produce no output
-
 - Parsing/validating where invalid inputs should be skipped
 
 ### 7.12 Use Loop for Min/Max Instead of Sort

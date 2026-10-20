@@ -31,28 +31,35 @@ function UserProfile() {
 }
 ```
 
-**Correct (runs only once):**
+**Correct (memoize prop-derived data; lazily initialize independent state):**
 
 ```tsx
 function FilteredList({ items }: { items: Item[] }) {
-  // buildSearchIndex() runs ONLY on initial render
-  const [searchIndex, setSearchIndex] = useState(() => buildSearchIndex(items))
+  // Recompute when items change, not when only the query changes.
+  const searchIndex = useMemo(() => buildSearchIndex(items), [items])
   const [query, setQuery] = useState('')
   
   return <SearchResults index={searchIndex} query={query} />
 }
 
 function UserProfile() {
-  // JSON.parse runs only on initial render
+  // Client-only initialization; guard SSR and unavailable or invalid storage.
   const [settings, setSettings] = useState(() => {
-    const stored = localStorage.getItem('settings')
-    return stored ? JSON.parse(stored) : {}
+    if (typeof window === 'undefined') return {}
+    try {
+      const stored = localStorage.getItem('settings')
+      return stored ? JSON.parse(stored) : {}
+    } catch {
+      return {}
+    }
   })
   
   return <SettingsForm settings={settings} onChange={setSettings} />
 }
 ```
 
-Use lazy initialization when computing initial values from localStorage/sessionStorage, building data structures (indexes, maps), reading from the DOM, or performing heavy transformations.
+Use lazy initialization for independent initial state. An initializer is used on mount, not when props change; React Strict Mode may invoke it twice in development to check purity. Derive indexes from changing props with `useMemo` instead.
+
+The storage example is suitable for client-only rendering. For SSR hydration, initialize with the same default on the server and client, then read storage in an Effect; a `typeof window` guard alone does not prevent hydration mismatches.
 
 For simple primitives (`useState(0)`), direct references (`useState(props.value)`), or cheap literals (`useState({})`), the function form is unnecessary.

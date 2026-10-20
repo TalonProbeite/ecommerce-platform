@@ -9,7 +9,7 @@ Build and extend Rentify as a polished, maintainable equipment-rental marketplac
 - Lucide React
 - react-router-dom
 - Zustand
-- Axios
+- Native Fetch API
 
 Do not switch frameworks or introduce dependencies without a clear reason.
 
@@ -30,7 +30,7 @@ Rentify should feel premium, energetic, confident, friendly, and consumer-orient
 ## Backend contract
 Do not invent endpoints, request fields, response formats, or auth behavior. The detailed backend contract lives in `docs/RENTIFY_MASTER_SPEC.md` and the relevant API rule. When an exact contract is not defined, keep business data mocked and isolate the integration behind services.
 
-Authentication uses httpOnly cookies. The frontend never reads or writes auth cookies. Axios must use `withCredentials: true`, and 401 refresh behavior must remain centralized and loop-safe.
+Authentication uses httpOnly cookies. The frontend never reads or writes auth cookies. Fetch must use `credentials: 'include'`, and 401 refresh behavior must remain centralized and loop-safe.
 
 ## Working protocol
 1. Inspect the current implementation before editing.

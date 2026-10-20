@@ -23,4 +23,4 @@ function Dropdown({ isOpen }: Props) {
 }
 ```
 
-Avoids expensive re-renders and state loss.
+Preserves component state and DOM while hidden, and cleans up Effects until the boundary becomes visible again. Hidden children can still render in response to new props, at a lower priority than visible content. `<Activity>` does not prevent all re-renders.

@@ -26,9 +26,12 @@ export default function RootLayout({ children }) {
 }
 ```
 
-**Correct (loads after hydration):**
+**Correct (client-only dynamic import in a Client Component):**
 
 ```tsx
+// app/deferred-analytics.tsx
+'use client'
+
 import dynamic from 'next/dynamic'
 
 const Analytics = dynamic(
@@ -36,12 +39,23 @@ const Analytics = dynamic(
   { ssr: false }
 )
 
+export default function DeferredAnalytics() {
+  return <Analytics />
+}
+```
+
+Render that wrapper from the Server Component layout. Next.js does not allow `ssr: false` in a Server Component itself.
+
+```tsx
+// app/layout.tsx
+import DeferredAnalytics from './deferred-analytics'
+
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
         {children}
-        <Analytics />
+        <DeferredAnalytics />
       </body>
     </html>
   )

@@ -1,5 +1,23 @@
 # REAL API integration audit
 
+## Reading this report — status clarified 2026-10-20
+
+This file combines an original historical audit (evidence paths dated
+2026-10-09) with later dated updates. The original endpoint matrix, blockers,
+resulting status and test counts are snapshots, not current contracts. The
+2026-10-12 password-auth update supersedes registration-to-OTP and `/email/resend`;
+the 2026-10-13 updates supersede OAuth/profile and notification-schema blockers.
+See [README](README.md#current-real-application-contract--2026-10-20) and the
+master specification for the current application contract.
+
+The successful browser session below followed the unsuccessful initial Phase 09
+attempt recorded in [the archived QA report](phases/09-visual-qa-report.md).
+These are different runs, not contradictory results. The 320 px screenshot
+was a narrow OTP layout check with mocks/fixtures, not live-backend validation
+or complete visual/accessibility sign-off. A later 2026-10-20 PR 4 MOCK smoke
+pass at 1440/390 px is recorded in that QA report. This clarification does not
+claim new browser or backend tests on the foundation-only PR.
+
 ## OAuth update — 2026-10-13
 
 OAuth handoff blockers listed in the historical audit below are resolved. The
@@ -14,7 +32,9 @@ verification and runtime configuration. Earlier missing-schema and OAuth UI
 handoff statements describe the original audit, not the current implementation.
 
 
-## Sources and limits
+## Historical audit — 2026-10-09 evidence
+
+### Sources and limits
 
 Audited a clean working tree at `d076845` before changing code. Read `AGENTS.md`, both `.agents/rules/` files, `docs/README.md`, the entire master specification, every phase document and the Phase 09 report. Searched tracked and hidden project files, excluding dependencies and Git internals, for API maps, Swagger/OpenAPI, Postman, JSON/YAML specifications and endpoint references. No additional backend contract was found. `dist/docs/` contains copies of the same documentation, not a separate API map.
 
@@ -22,7 +42,7 @@ Authoritative maps: `docs/RENTIFY_MASTER_SPEC.md` sections 19–30 and `.agents/
 
 ## Endpoint matrix
 
-All paths below are relative to a configured backend **origin**, normally `https://localhost`. Axios sends credentials; JavaScript never accesses auth cookies. Message responses are JSON `{message: string}`; errors are `{error: string}`. Common errors are 400/422/401/403/500 where applicable.
+All paths below are relative to a configured backend **origin**, normally `https://localhost`. Fetch uses `credentials: 'include'`; JavaScript never accesses auth cookies. Message responses are JSON `{message: string}`; errors are `{error: string}`. Common errors are 400/422/401/403/500 where applicable.
 
 | Function | Method / endpoint | Request | Response | Auth / role | Documented errors | Initial integration / work |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -175,7 +195,7 @@ Browser verification covered form registration, optional confirmation, sending f
 
 The notification schema blockers in the original integration report above are resolved by inspecting `services/notification/internal/domain/models.go`, the HTTP analytics handlers, the event repository, and the email dispatcher.
 
-Both notification GET routes now work in REAL mode through the shared credentialed Axios client and existing refresh handling. The list response is an array of EventLog records; details return one record. Fields are `id`, `created_at`, `type`, `channel`, `recipient`, `status`, `payload`, `attempts`, and optional `error`. Current delivery statuses are `sent`/`failed` and the implemented channel is `email`. Recipient filtering is exact. Payload is rendered as text JSON, without assuming a specific event shape.
+Both notification GET routes now work in REAL mode through the shared credentialed fetch client and existing refresh handling. The list response is an array of EventLog records; details return one record. Fields are `id`, `created_at`, `type`, `channel`, `recipient`, `status`, `payload`, `attempts`, and optional `error`. Current delivery statuses are `sent`/`failed` and the implemented channel is `email`. Recipient filtering is exact. Payload is rendered as text JSON, without assuming a specific event shape.
 
 The backend returns no total or pagination metadata. The UI shows the current range and enables Next for a full page. At an exact page boundary, Next can reach an empty page; Previous remains available. Requests retain `limit`/`offset`, reset offset on filter changes, omit empty filters, and use RFC3339 dates. A zero API limit uses the backend default of 100. Mock responses now use the same array/record contract and matching semantics.
 

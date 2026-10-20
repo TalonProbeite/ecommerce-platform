@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { isAxiosError } from 'axios'
+import { isHttpError } from '@/api/http'
 import { getErrorMessage, isMockApi, onSessionExpired } from '@/api/client'
 import { completeOAuthProfile, changeAccountPassword, loadAccountProfile, loginAccount, logoutAccount, patchAccountProfile, registerAccount, sendAccountVerification, verifyAccountEmail } from '@/services/auth'
 import type { ChangePasswordPayload, LoginPayload, ProfileChanges, RegisterPayload, User, VerifyEmailPayload } from '@/types'
@@ -7,6 +7,7 @@ import type { ChangePasswordPayload, LoginPayload, ProfileChanges, RegisterPaylo
 type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated' | 'error'
 let generation = 0
 let accountPending = false
+let profileRefresh: { generation: number; promise: Promise<void> } | null = null
 
 interface AuthState {
   user: User | null
@@ -15,6 +16,7 @@ interface AuthState {
   sessionError: string | null
   initialize: () => Promise<void>
   reloadProfile: () => Promise<void>
+  revalidateProfile: () => Promise<void>
   login: (payload: LoginPayload) => Promise<User>
   register: (payload: RegisterPayload) => Promise<User>
   completeOAuth: (payload: Pick<RegisterPayload, 'firstName' | 'lastName' | 'phone'>) => Promise<User>
@@ -47,12 +49,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       // Expiry may already have advanced the generation via the interceptor.
       if (requestGeneration !== generation) return
-      if (isAxiosError(error) && error.response?.status === 401) {
+      if (isHttpError(error) && error.response?.status === 401) {
         set({ user: null, status: 'unauthenticated', sessionError: null })
       } else {
         set({ user: null, status: 'error', sessionError: getErrorMessage(error, 'Could not load your account. Please try again.') })
       }
     }
+  },
+
+  revalidateProfile: () => {
+    if (accountPending || get().status !== 'authenticated' || !get().user) return Promise.resolve()
+    if (profileRefresh?.generation === generation) return profileRefresh.promise
+    const requestGeneration = generation
+    const promise = refreshAuthenticatedProfile(requestGeneration).finally(() => {
+      if (profileRefresh?.promise === promise) profileRefresh = null
+    })
+    profileRefresh = { generation: requestGeneration, promise }
+    return promise
   },
 
   login: async (payload) => {
@@ -67,7 +80,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user, status: 'authenticated', sessionExpired: false, sessionError: null })
       return user
     } catch (error) {
-      if (requestGeneration === generation && (credentialsAccepted || !isAxiosError(error))) {
+      if (requestGeneration === generation && (credentialsAccepted || !isHttpError(error))) {
         set({ user: null, status: 'error', sessionError: getErrorMessage(error) })
       }
       throw error
@@ -126,11 +139,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updateProfile: async (changes) => {
     const user = get().user
     if (!user) throw new Error('Not authenticated.')
-    const requestGeneration = generation
-    const updated = await patchAccountProfile(changes, user)
-    if (requestGeneration !== generation) return
-    if (updated) set({ user: updated })
-    else await get().reloadProfile()
+    if (accountPending) throw new Error('An account request is already in progress.')
+    accountPending = true
+    // Invalidate any background read that started before this mutation.
+    const requestGeneration = ++generation
+    try {
+      const updated = await patchAccountProfile(changes, user)
+      if (requestGeneration !== generation) return
+      if (updated) set({ user: updated })
+      else await refreshAuthenticatedProfile(requestGeneration)
+    } finally {
+      accountPending = false
+    }
   },
 
   dismissSessionExpired: () => set({ sessionExpired: false }),
@@ -142,6 +162,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: null, status: 'unauthenticated', sessionExpired: false, sessionError: null })
   },
 }))
+
+// Revalidation never hides authenticated pages. Transient failures propagate to
+// the caller without clearing the user; definitive 401s use the central expiry
+// handler. Generation checks prevent stale reads restoring an older account.
+async function refreshAuthenticatedProfile(requestGeneration: number): Promise<void> {
+  const user = await loadAccountProfile()
+  if (requestGeneration === generation) {
+    useAuthStore.setState({ user, status: 'authenticated', sessionExpired: false, sessionError: null })
+  }
+}
 
 onSessionExpired(() => {
   const state = useAuthStore.getState()

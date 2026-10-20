@@ -38,4 +38,3 @@ export const DEMO_ORDERS: Order[] = [
     createdAt: addDaysISO(today, -45),
   },
 ]
-

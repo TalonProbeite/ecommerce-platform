@@ -13,7 +13,7 @@ RUN --mount=type=cache,id=shop-frontend-pnpm,target=/home/node/.local/share/pnpm
 
 FROM dependencies AS build
 ARG VITE_API_MODE=real
-ARG VITE_API_URL=https://localhost
+ARG VITE_API_URL
 COPY --chown=node:node index.html tsconfig.json vite.config.ts ./
 COPY --chown=node:node src ./src
 COPY --chown=node:node public ./public

@@ -37,7 +37,7 @@ test('MOCK explicitly uses the existing adapter even when an API URL is configur
     const { mockAdapter } = await server.ssrLoadModule('/src/api/mock-adapter.ts')
     assert.equal(client.isMockApi, true)
     assert.equal(client.api.defaults.adapter, mockAdapter)
-    assert.equal(client.api.defaults.withCredentials, true)
+    assert.equal(client.api.defaults.credentials, 'include')
     const { data } = await client.api.post('/auth/login', { email: 'user@rentify.dev', password: 'password123' })
     assert.equal(data.user.email, 'user@rentify.dev')
     assert.ok(storage.has('rentify_mock_session'))
@@ -69,7 +69,7 @@ test('REAL uses HTTP at the configured address and never falls back on errors', 
     assert.equal(client.isMockApi, false)
     assert.notEqual(client.api.defaults.adapter, mockAdapter)
     assert.equal(client.api.defaults.baseURL, url)
-    assert.equal(client.api.defaults.withCredentials, true)
+    assert.equal(client.api.defaults.credentials, 'include')
     await assert.rejects(client.api.post('/auth/api/login', { email: 'user@rentify.dev', password: 'password123' }), (error) => {
       assert.equal(error.response.status, 503)
       assert.equal(client.getErrorMessage(error), 'fixture HTTP 503')
@@ -89,7 +89,7 @@ test('REAL uses HTTP at the configured address and never falls back on errors', 
     await new Promise((resolve) => fixture.close(resolve))
     await assert.rejects(client.api.post('/auth/api/login', { email: 'user@rentify.dev', password: 'password123' }), (error) => {
       assert.equal(error.response, undefined)
-      assert.ok(['ECONNREFUSED', 'ECONNRESET'].includes(error.code))
+      assert.equal(error.code, 'ERR_NETWORK')
       return true
     })
     assert.equal(storageAccesses, 0)

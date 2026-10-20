@@ -9,8 +9,8 @@ Replace only the mocks that have confirmed backend contracts and harden cross-cu
 - `docs/RENTIFY_MASTER_SPEC.md` sections 18–30
 
 ## Tasks
-- verify Axios base paths and credential behavior
-- verify refresh interceptor and retry loop prevention
+- verify fetch base paths and credential behavior
+- verify centralized refresh handling and retry loop prevention
 - verify role guards
 - verify service boundaries and types
 - verify query serialization and date handling

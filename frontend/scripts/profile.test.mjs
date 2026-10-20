@@ -12,7 +12,8 @@ test('profile sends changed fields only, verification updates session, logout cl
     setItem: (key, value) => storage.set(key, value),
     removeItem: (key) => storage.delete(key),
   }
-  const server = await createServer({ configFile: false,
+  const server = await createServer({ configFile: false, envDir: false,
+    define: { 'import.meta.env.VITE_API_MODE': '"mock"', 'import.meta.env.VITE_API_URL': '""' },
     resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
     server: { middlewareMode: true, watch: null, ws: false }, appType: 'custom' })
   try {
@@ -32,10 +33,11 @@ test('profile sends changed fields only, verification updates session, logout cl
     useAuthStore.setState({ user: original })
     let payload
     let requests = 0
-    const interceptor = api.interceptors.request.use((config) => {
-      if (config.method === 'patch') { payload = config.data; requests += 1 }
-      return config
-    })
+    const originalAdapter = api.defaults.adapter
+    api.defaults.adapter = async config => {
+      if (config.method === 'patch') { payload = JSON.parse(config.data); requests += 1 }
+      return originalAdapter(config)
+    }
     await useAuthStore.getState().updateProfile({ ...original, firstName: 'Updated' })
     assert.deepEqual(payload, { firstName: 'Updated' })
     assert.equal(useAuthStore.getState().user.lastName, 'Chen')
@@ -44,7 +46,7 @@ test('profile sends changed fields only, verification updates session, logout cl
     assert.equal(requests, 1)
     await assert.rejects(useAuthStore.getState().updateProfile({ ...useAuthStore.getState().user, lastName: '' }), /empty/)
     assert.equal(requests, 1)
-    api.interceptors.request.eject(interceptor)
+    api.defaults.adapter = originalAdapter
 
     await useAuthStore.getState().login({ email: 'admin@rentify.dev', password: 'password123' })
     // Staff fixtures can become customers through the documented role action.
