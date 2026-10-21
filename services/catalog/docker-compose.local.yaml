@@ -41,6 +41,30 @@ services:
       retries: 5
       start_period: 3s
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: catalog-rabbitmq
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - catalog_rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "127.0.0.1:5674:5672"
+      - "127.0.0.1:15674:15672"
+    networks:
+      - shop_global
+      - catalog_internal
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   catalog-seaweedfs:
     image: chrislusf/seaweedfs:latest
     container_name: catalog-seaweedfs
@@ -63,12 +87,98 @@ services:
       retries: 5
       start_period: 15s
 
+  catalog-app:
+    build:
+      context: ..
+      dockerfile: catalog/Dockerfile
+    container_name: catalog-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+
+      # PostgreSQL
+      DB_CONNECTION: pgsql
+      DB_HOST: catalog-db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-catalog_db}
+      DB_USERNAME: ${DB_USERNAME:-admin}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+
+      # Redis
+      REDIS_HOST: catalog-redis
+      REDIS_PORT: 6379
+
+      # RabbitMQ
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
+
+      # SeaweedFS (S3)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-seaweed_admin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-seaweed_secret_123}
+      AWS_BUCKET: ${AWS_BUCKET:-catalog_assets}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+      AWS_ENDPOINT: http://catalog-seaweedfs:8333
+      AWS_USE_PATH_STYLE_ENDPOINT: "true"
+
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+      catalog-redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      catalog-seaweedfs:
+        condition: service_healthy
+
+    ports:
+      - "8081:8080"
+
+    networks:
+      - shop_global
+      - catalog_internal
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  catalog-nginx:
+    image: nginx:alpine
+    container_name: catalog-nginx
+    restart: unless-stopped
+    ports:
+      - "8444:443"
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      catalog-app:
+        condition: service_healthy
+    networks:
+      - shop_global
+      - catalog_internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -q --spider https://127.0.0.1/api/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
 volumes:
   catalog_postgres_data:
   catalog_redis_data:
+  catalog_rabbitmq_data:
   catalog_seaweedfs_data:
 
 networks:
+  shop_global:
+    driver: bridge
   catalog_internal:
-    driver: bridge  
+    driver: bridge

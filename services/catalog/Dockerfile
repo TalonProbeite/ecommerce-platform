@@ -31,3 +31,19 @@ RUN apk add --no-cache \
         /var/tmp/* \
         /usr/local/lib/php/doc \
         /usr/local/share/doc
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+
+COPY catalog/composer.json catalog/composer.lock ./
+RUN composer install --no-interaction --no-scripts --prefer-dist --optimize-autoloader
+
+COPY --from=ghcr.io/roadrunner-server/roadrunner:2025.1 /usr/bin/rr ./rr
+
+COPY catalog/ ./
+RUN composer dump-autoload --optimize --no-scripts
+
+EXPOSE 8080
+
+CMD ["php", "artisan", "octane:start", "--server=roadrunner", "--host=0.0.0.0", "--port=8080", "--rpc-port=6001"]

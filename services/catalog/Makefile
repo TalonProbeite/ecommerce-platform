@@ -61,7 +61,7 @@ ide-models:
 	$(COMPOSER) run ide:models
 
 up:
-	$(LOCAL_COMPOSE) up -d --wait
+	$(LOCAL_COMPOSE) up -d --wait --build
 
 down:
 	$(LOCAL_COMPOSE) down
