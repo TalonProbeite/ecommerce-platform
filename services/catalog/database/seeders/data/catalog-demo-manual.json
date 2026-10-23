@@ -1,0 +1,710 @@
+{
+  "stores": [
+    {
+      "key": "studio",
+      "name": "DEMO Студия",
+      "location": "Демонстрационная площадка — центр"
+    },
+    {
+      "key": "digital",
+      "name": "DEMO Цифровая мастерская",
+      "location": "Демонстрационная площадка — север"
+    },
+    {
+      "key": "workshop",
+      "name": "DEMO Инструментальная",
+      "location": "Демонстрационная площадка — юг"
+    }
+  ],
+  "categories": [
+    {
+      "store": "studio",
+      "key": "photo-video",
+      "name": "Фото/видео",
+      "price_per_hour": 18000,
+      "deposit_amount": 4000000
+    },
+    {
+      "store": "studio",
+      "key": "lenses",
+      "name": "Объективы",
+      "price_per_hour": 10000,
+      "deposit_amount": 2000000
+    },
+    {
+      "store": "studio",
+      "key": "lighting",
+      "name": "Освещение",
+      "price_per_hour": 5000,
+      "deposit_amount": 600000
+    },
+    {
+      "store": "studio",
+      "key": "sound",
+      "name": "Звук",
+      "price_per_hour": 7000,
+      "deposit_amount": 1000000
+    },
+    {
+      "store": "digital",
+      "key": "computers",
+      "name": "Компьютеры",
+      "price_per_hour": 15000,
+      "deposit_amount": 5000000
+    },
+    {
+      "store": "digital",
+      "key": "projectors",
+      "name": "Проекторы",
+      "price_per_hour": 12000,
+      "deposit_amount": 2500000
+    },
+    {
+      "store": "digital",
+      "key": "sound",
+      "name": "Звук",
+      "price_per_hour": 5000,
+      "deposit_amount": 1000000
+    },
+    {
+      "store": "workshop",
+      "key": "tools",
+      "name": "Инструменты",
+      "price_per_hour": 4000,
+      "deposit_amount": 500000
+    },
+    {
+      "store": "digital",
+      "key": "mobile-testing",
+      "name": "Смартфоны для тестирования",
+      "price_per_hour": 8000,
+      "deposit_amount": 1500000
+    }
+  ],
+  "imports": [
+    {
+      "id": 78,
+      "title": "Apple MacBook Pro 14 Inch Space Grey",
+      "source_category": "laptops",
+      "store": "digital",
+      "category": "computers",
+      "kind": "Ноутбук"
+    },
+    {
+      "id": 79,
+      "title": "Asus Zenbook Pro Dual Screen Laptop",
+      "source_category": "laptops",
+      "store": "digital",
+      "category": "computers",
+      "kind": "Ноутбук"
+    },
+    {
+      "id": 80,
+      "title": "Huawei Matebook X Pro",
+      "source_category": "laptops",
+      "store": "digital",
+      "category": "computers",
+      "kind": "Ноутбук"
+    },
+    {
+      "id": 81,
+      "title": "Lenovo Yoga 920",
+      "source_category": "laptops",
+      "store": "digital",
+      "category": "computers",
+      "kind": "Ноутбук"
+    },
+    {
+      "id": 82,
+      "title": "New DELL XPS 13 9300 Laptop",
+      "source_category": "laptops",
+      "store": "digital",
+      "category": "computers",
+      "kind": "Ноутбук"
+    },
+    {
+      "id": 123,
+      "title": "iPhone 13 Pro",
+      "source_category": "smartphones",
+      "store": "digital",
+      "category": "mobile-testing",
+      "kind": "Смартфон для тестирования приложений"
+    },
+    {
+      "id": 124,
+      "title": "iPhone X",
+      "source_category": "smartphones",
+      "store": "digital",
+      "category": "mobile-testing",
+      "kind": "Смартфон для тестирования приложений"
+    },
+    {
+      "id": 125,
+      "title": "Oppo A57",
+      "source_category": "smartphones",
+      "store": "digital",
+      "category": "mobile-testing",
+      "kind": "Смартфон для тестирования приложений"
+    },
+    {
+      "id": 126,
+      "title": "Oppo F19 Pro Plus",
+      "source_category": "smartphones",
+      "store": "digital",
+      "category": "mobile-testing",
+      "kind": "Смартфон для тестирования приложений"
+    },
+    {
+      "id": 133,
+      "title": "Samsung Galaxy S10",
+      "source_category": "smartphones",
+      "store": "digital",
+      "category": "mobile-testing",
+      "kind": "Смартфон для тестирования приложений"
+    },
+    {
+      "id": 101,
+      "title": "Apple AirPods Max Silver",
+      "source_category": "mobile-accessories",
+      "store": "digital",
+      "category": "sound",
+      "kind": "Полноразмерные наушники"
+    },
+    {
+      "id": 109,
+      "title": "Monopod",
+      "source_category": "mobile-accessories",
+      "store": "studio",
+      "category": "photo-video",
+      "kind": "Монопод"
+    },
+    {
+      "id": 110,
+      "title": "Selfie Lamp with iPhone",
+      "source_category": "mobile-accessories",
+      "store": "studio",
+      "category": "lighting",
+      "kind": "Лампа для мобильной съёмки"
+    },
+    {
+      "id": 112,
+      "title": "TV Studio Camera Pedestal",
+      "source_category": "mobile-accessories",
+      "store": "studio",
+      "category": "photo-video",
+      "kind": "Пьедестал для студийной камеры"
+    }
+  ],
+  "products": [
+    {
+      "key": "camera-basic",
+      "store": "studio",
+      "category": "photo-video",
+      "name": "Камера для учебной съёмки",
+      "price_per_hour": 18000,
+      "deposit_amount": 4000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Запись",
+          "value": "Full HD"
+        }
+      ]
+    },
+    {
+      "key": "camera-video",
+      "store": "studio",
+      "category": "photo-video",
+      "name": "Видеокамера для интервью",
+      "price_per_hour": 18000,
+      "deposit_amount": 4000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Комплект",
+          "value": "Камера и аккумулятор"
+        }
+      ]
+    },
+    {
+      "key": "camera-stream",
+      "store": "studio",
+      "category": "photo-video",
+      "name": "Камера для трансляций",
+      "price_per_hour": 18000,
+      "deposit_amount": 4000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Подключение",
+          "value": "USB"
+        }
+      ]
+    },
+    {
+      "key": "tripod",
+      "store": "studio",
+      "category": "photo-video",
+      "name": "Штатив для камеры",
+      "price_per_hour": 18000,
+      "deposit_amount": 4000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Тип",
+          "value": "Напольный"
+        }
+      ]
+    },
+    {
+      "key": "stabilizer",
+      "store": "studio",
+      "category": "photo-video",
+      "name": "Стабилизатор для съёмки",
+      "price_per_hour": 18000,
+      "deposit_amount": 4000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Назначение",
+          "value": "Плавное движение камеры"
+        }
+      ]
+    },
+    {
+      "key": "teleprompter",
+      "store": "studio",
+      "category": "photo-video",
+      "name": "Суфлёр для интервью",
+      "price_per_hour": 18000,
+      "deposit_amount": 4000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Комплект",
+          "value": "Держатель и отражающее стекло"
+        }
+      ]
+    },
+    {
+      "key": "lens-wide",
+      "store": "studio",
+      "category": "lenses",
+      "name": "Широкоугольный объектив",
+      "price_per_hour": 10000,
+      "deposit_amount": 2000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Фокусное расстояние",
+          "value": "24 мм"
+        }
+      ]
+    },
+    {
+      "key": "lens-standard",
+      "store": "studio",
+      "category": "lenses",
+      "name": "Стандартный объектив",
+      "price_per_hour": 10000,
+      "deposit_amount": 2000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Фокусное расстояние",
+          "value": "50 мм"
+        }
+      ]
+    },
+    {
+      "key": "lens-portrait",
+      "store": "studio",
+      "category": "lenses",
+      "name": "Портретный объектив",
+      "price_per_hour": 10000,
+      "deposit_amount": 2000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Фокусное расстояние",
+          "value": "85 мм"
+        }
+      ]
+    },
+    {
+      "key": "lens-zoom",
+      "store": "studio",
+      "category": "lenses",
+      "name": "Универсальный зум-объектив",
+      "price_per_hour": 10000,
+      "deposit_amount": 2000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Фокусное расстояние",
+          "value": "24–70 мм"
+        }
+      ]
+    },
+    {
+      "key": "lens-macro",
+      "store": "studio",
+      "category": "lenses",
+      "name": "Макрообъектив",
+      "price_per_hour": 10000,
+      "deposit_amount": 2000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Фокусное расстояние",
+          "value": "100 мм"
+        }
+      ]
+    },
+    {
+      "key": "led-panel",
+      "store": "studio",
+      "category": "lighting",
+      "name": "Светодиодная панель",
+      "price_per_hour": 5000,
+      "deposit_amount": 600000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Питание",
+          "value": "От сети"
+        }
+      ]
+    },
+    {
+      "key": "softbox",
+      "store": "studio",
+      "category": "lighting",
+      "name": "Комплект мягкого света",
+      "price_per_hour": 5000,
+      "deposit_amount": 600000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Комплект",
+          "value": "Светильник и софтбокс"
+        }
+      ]
+    },
+    {
+      "key": "rgb-light",
+      "store": "studio",
+      "category": "lighting",
+      "name": "Цветной светильник",
+      "price_per_hour": 5000,
+      "deposit_amount": 600000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Режим",
+          "value": "RGB"
+        }
+      ]
+    },
+    {
+      "key": "light-stand",
+      "store": "studio",
+      "category": "lighting",
+      "name": "Стойка для освещения",
+      "price_per_hour": 5000,
+      "deposit_amount": 600000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Тип",
+          "value": "Напольная"
+        }
+      ]
+    },
+    {
+      "key": "reflector",
+      "store": "studio",
+      "category": "lighting",
+      "name": "Отражатель для съёмки",
+      "price_per_hour": 5000,
+      "deposit_amount": 600000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Форма",
+          "value": "Круглая"
+        }
+      ]
+    },
+    {
+      "key": "mic-interview",
+      "store": "studio",
+      "category": "sound",
+      "name": "Микрофон для интервью",
+      "price_per_hour": 7000,
+      "deposit_amount": 1000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Тип",
+          "value": "Динамический"
+        }
+      ]
+    },
+    {
+      "key": "mic-lavalier",
+      "store": "studio",
+      "category": "sound",
+      "name": "Петличный микрофон",
+      "price_per_hour": 7000,
+      "deposit_amount": 1000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Тип",
+          "value": "Проводной"
+        }
+      ]
+    },
+    {
+      "key": "recorder",
+      "store": "studio",
+      "category": "sound",
+      "name": "Портативный аудиорекордер",
+      "price_per_hour": 7000,
+      "deposit_amount": 1000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Каналы",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "key": "mixer",
+      "store": "studio",
+      "category": "sound",
+      "name": "Микшер для небольших мероприятий",
+      "price_per_hour": 7000,
+      "deposit_amount": 1000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Входы",
+          "value": "4"
+        }
+      ]
+    },
+    {
+      "key": "desktop",
+      "store": "digital",
+      "category": "computers",
+      "name": "Рабочая станция для обучения",
+      "price_per_hour": 15000,
+      "deposit_amount": 5000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Оперативная память",
+          "value": "16 ГБ"
+        }
+      ]
+    },
+    {
+      "key": "monitor",
+      "store": "digital",
+      "category": "computers",
+      "name": "Монитор для презентаций",
+      "price_per_hour": 15000,
+      "deposit_amount": 5000000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Диагональ",
+          "value": "24 дюйма"
+        }
+      ]
+    },
+    {
+      "key": "projector-classroom",
+      "store": "digital",
+      "category": "projectors",
+      "name": "Проектор для учебной аудитории",
+      "price_per_hour": 12000,
+      "deposit_amount": 2500000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Вход",
+          "value": "HDMI"
+        }
+      ]
+    },
+    {
+      "key": "projector-portable",
+      "store": "digital",
+      "category": "projectors",
+      "name": "Переносной проектор",
+      "price_per_hour": 12000,
+      "deposit_amount": 2500000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Комплект",
+          "value": "Проектор и сумка"
+        }
+      ]
+    },
+    {
+      "key": "projector-event",
+      "store": "digital",
+      "category": "projectors",
+      "name": "Проектор для мероприятий",
+      "price_per_hour": 12000,
+      "deposit_amount": 2500000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Разрешение",
+          "value": "Full HD"
+        }
+      ]
+    },
+    {
+      "key": "screen",
+      "store": "digital",
+      "category": "projectors",
+      "name": "Экран для проектора",
+      "price_per_hour": 12000,
+      "deposit_amount": 2500000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Тип",
+          "value": "На треноге"
+        }
+      ]
+    },
+    {
+      "key": "screen-table",
+      "store": "digital",
+      "category": "projectors",
+      "name": "Настольный проекционный экран",
+      "price_per_hour": 12000,
+      "deposit_amount": 2500000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Тип",
+          "value": "Переносной"
+        }
+      ]
+    },
+    {
+      "key": "drill",
+      "store": "workshop",
+      "category": "tools",
+      "name": "Дрель для бытовых работ",
+      "price_per_hour": 4000,
+      "deposit_amount": 500000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Питание",
+          "value": "От сети"
+        }
+      ]
+    },
+    {
+      "key": "driver",
+      "store": "workshop",
+      "category": "tools",
+      "name": "Аккумуляторный шуруповёрт",
+      "price_per_hour": 4000,
+      "deposit_amount": 500000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Комплект",
+          "value": "Инструмент и аккумулятор"
+        }
+      ]
+    },
+    {
+      "key": "hammer",
+      "store": "workshop",
+      "category": "tools",
+      "name": "Перфоратор для ремонта",
+      "price_per_hour": 4000,
+      "deposit_amount": 500000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Режим",
+          "value": "Сверление с ударом"
+        }
+      ]
+    },
+    {
+      "key": "jigsaw",
+      "store": "workshop",
+      "category": "tools",
+      "name": "Электролобзик",
+      "price_per_hour": 4000,
+      "deposit_amount": 500000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Назначение",
+          "value": "Распил древесины"
+        }
+      ]
+    },
+    {
+      "key": "sander",
+      "store": "workshop",
+      "category": "tools",
+      "name": "Шлифовальная машина",
+      "price_per_hour": 4000,
+      "deposit_amount": 500000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Назначение",
+          "value": "Обработка поверхностей"
+        }
+      ]
+    },
+    {
+      "key": "laser",
+      "store": "workshop",
+      "category": "tools",
+      "name": "Лазерный уровень",
+      "price_per_hour": 4000,
+      "deposit_amount": 500000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Назначение",
+          "value": "Разметка"
+        }
+      ]
+    },
+    {
+      "key": "vacuum",
+      "store": "workshop",
+      "category": "tools",
+      "name": "Строительный пылесос",
+      "price_per_hour": 4000,
+      "deposit_amount": 500000,
+      "quantity": 3,
+      "attributes": [
+        {
+          "name": "Назначение",
+          "value": "Уборка сухого мусора"
+        }
+      ]
+    }
+  ]
+}

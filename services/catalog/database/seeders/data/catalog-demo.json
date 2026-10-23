@@ -1,0 +1,1655 @@
+{
+    "version": 1,
+    "money_unit": "kopecks",
+    "pricing": "Fixed DEMO hourly rates and deposits; unrelated to DummyJSON sale prices. Stock is synthetic.",
+    "image_policy": "Source URLs are metadata only. Image reuse rights have not been confirmed; no product_images or storage uploads.",
+    "stores": [
+        {
+            "id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "name": "DEMO Студия",
+            "description": "DEMO seed data — fictional rental store.",
+            "location": "Демонстрационная площадка — центр",
+            "active": true
+        },
+        {
+            "id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "name": "DEMO Цифровая мастерская",
+            "description": "DEMO seed data — fictional rental store.",
+            "location": "Демонстрационная площадка — север",
+            "active": true
+        },
+        {
+            "id": "e84265bc-b38c-55d9-8cfe-811e1e2cad00",
+            "name": "DEMO Инструментальная",
+            "description": "DEMO seed data — fictional rental store.",
+            "location": "Демонстрационная площадка — юг",
+            "active": true
+        }
+    ],
+    "categories": [
+        {
+            "id": "b5476072-3caa-52d8-89ee-613a75d59503",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "name": "DEMO Фото/видео",
+            "slug": "demo-photo-video",
+            "parent_id": null
+        },
+        {
+            "id": "58108ef5-9792-59e6-8946-f4e67ef38009",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "name": "DEMO Объективы",
+            "slug": "demo-lenses",
+            "parent_id": null
+        },
+        {
+            "id": "208930fb-f73b-5aa2-92e3-d27a6e598298",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "name": "DEMO Освещение",
+            "slug": "demo-lighting",
+            "parent_id": null
+        },
+        {
+            "id": "c2ffe63f-ba4a-5a69-8f10-18589217bb9c",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "name": "DEMO Звук",
+            "slug": "demo-sound",
+            "parent_id": null
+        },
+        {
+            "id": "da0351ea-c736-5df2-890c-f4a10d510bcc",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "name": "DEMO Компьютеры",
+            "slug": "demo-computers",
+            "parent_id": null
+        },
+        {
+            "id": "77dbbcff-2e68-591b-82c2-e616e9c7d6f8",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "name": "DEMO Проекторы",
+            "slug": "demo-projectors",
+            "parent_id": null
+        },
+        {
+            "id": "59ff72fb-919c-59b5-878d-89dda06041a8",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "name": "DEMO Звук",
+            "slug": "demo-sound",
+            "parent_id": null
+        },
+        {
+            "id": "569fb797-aab6-58be-9d60-c71f71dd7299",
+            "store_id": "e84265bc-b38c-55d9-8cfe-811e1e2cad00",
+            "name": "DEMO Инструменты",
+            "slug": "demo-tools",
+            "parent_id": null
+        },
+        {
+            "id": "085f850d-6961-590f-93f3-d44370034773",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "name": "DEMO Смартфоны для тестирования",
+            "slug": "demo-mobile-testing",
+            "parent_id": null
+        }
+    ],
+    "products": [
+        {
+            "id": "48526972-588c-5643-8648-34597a441002",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "59ff72fb-919c-59b5-878d-89dda06041a8",
+            "name": "DEMO Apple AirPods Max Silver",
+            "slug": "demo-dummyjson-101",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 5000,
+            "deposit_amount": 1000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "078cd87e-e0ff-5144-87b4-125361d10f9e",
+                    "name": "Тип",
+                    "value": "Полноразмерные наушники"
+                },
+                {
+                    "id": "ccf55a78-26ba-52fe-b201-f26c486efd27",
+                    "name": "Бренд (mock-источник)",
+                    "value": "Apple"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 101,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpods-max-silver/1.webp"
+                ]
+            }
+        },
+        {
+            "id": "b62a97c8-47a8-5626-93b3-93cc04d5a8a0",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "b5476072-3caa-52d8-89ee-613a75d59503",
+            "name": "DEMO Monopod",
+            "slug": "demo-dummyjson-109",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 18000,
+            "deposit_amount": 4000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "3141b3c8-e08b-5314-bcd7-04eb9eae8ef2",
+                    "name": "Тип",
+                    "value": "Монопод"
+                },
+                {
+                    "id": "0959bb75-e134-534e-876b-a580f7d6a734",
+                    "name": "Бренд (mock-источник)",
+                    "value": "TechGear"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 109,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/mobile-accessories/monopod/1.webp",
+                    "https://cdn.dummyjson.com/product-images/mobile-accessories/monopod/2.webp"
+                ]
+            }
+        },
+        {
+            "id": "2185fb1f-ff85-5807-869c-5b8ab3417c41",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "208930fb-f73b-5aa2-92e3-d27a6e598298",
+            "name": "DEMO Selfie Lamp with iPhone",
+            "slug": "demo-dummyjson-110",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 5000,
+            "deposit_amount": 600000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "53fe3936-4260-50c9-9959-a8b643784b48",
+                    "name": "Тип",
+                    "value": "Лампа для мобильной съёмки"
+                },
+                {
+                    "id": "c5a21f8f-d6a1-5822-9938-e3ef66e6669b",
+                    "name": "Бренд (mock-источник)",
+                    "value": "GadgetMaster"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 110,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/mobile-accessories/selfie-lamp-with-iphone/1.webp"
+                ]
+            }
+        },
+        {
+            "id": "d5cf7208-88e3-56f7-aee0-d316089cdeb1",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "b5476072-3caa-52d8-89ee-613a75d59503",
+            "name": "DEMO TV Studio Camera Pedestal",
+            "slug": "demo-dummyjson-112",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 18000,
+            "deposit_amount": 4000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "d69864ac-e00e-55bc-b1d6-a00e6b779f1f",
+                    "name": "Тип",
+                    "value": "Пьедестал для студийной камеры"
+                },
+                {
+                    "id": "53a06f67-ec19-57e8-8926-ad09c92c241f",
+                    "name": "Бренд (mock-источник)",
+                    "value": "ProVision"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 112,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/mobile-accessories/tv-studio-camera-pedestal/1.webp"
+                ]
+            }
+        },
+        {
+            "id": "5ea28391-ecdd-55b2-bb3f-13514dfa3315",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "085f850d-6961-590f-93f3-d44370034773",
+            "name": "DEMO iPhone 13 Pro",
+            "slug": "demo-dummyjson-123",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 8000,
+            "deposit_amount": 1500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "0ba09fae-e02e-5b1e-a43b-6f0d6e1f7a36",
+                    "name": "Тип",
+                    "value": "Смартфон для тестирования приложений"
+                },
+                {
+                    "id": "46c3c509-3280-556c-a702-546edd74e2b9",
+                    "name": "Бренд (mock-источник)",
+                    "value": "Apple"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 123,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/smartphones/iphone-13-pro/1.webp",
+                    "https://cdn.dummyjson.com/product-images/smartphones/iphone-13-pro/2.webp",
+                    "https://cdn.dummyjson.com/product-images/smartphones/iphone-13-pro/3.webp"
+                ]
+            }
+        },
+        {
+            "id": "3b673696-3aa1-53e3-b7fb-f434d7ac6027",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "085f850d-6961-590f-93f3-d44370034773",
+            "name": "DEMO iPhone X",
+            "slug": "demo-dummyjson-124",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 8000,
+            "deposit_amount": 1500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "6b4adb85-c089-5a15-a02c-537d7e73527b",
+                    "name": "Тип",
+                    "value": "Смартфон для тестирования приложений"
+                },
+                {
+                    "id": "f6b7665d-6371-52fb-92c5-3b0a210c9112",
+                    "name": "Бренд (mock-источник)",
+                    "value": "Apple"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 124,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/smartphones/iphone-x/1.webp",
+                    "https://cdn.dummyjson.com/product-images/smartphones/iphone-x/2.webp",
+                    "https://cdn.dummyjson.com/product-images/smartphones/iphone-x/3.webp"
+                ]
+            }
+        },
+        {
+            "id": "2905cfdf-49bb-5c9b-b3fe-736ff442cda6",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "085f850d-6961-590f-93f3-d44370034773",
+            "name": "DEMO Oppo A57",
+            "slug": "demo-dummyjson-125",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 8000,
+            "deposit_amount": 1500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "76ebb127-647c-55be-b07b-38106c2592bb",
+                    "name": "Тип",
+                    "value": "Смартфон для тестирования приложений"
+                },
+                {
+                    "id": "d26c4805-8f5d-5e0e-a26d-dd05ef81f43d",
+                    "name": "Бренд (mock-источник)",
+                    "value": "Oppo"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 125,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/smartphones/oppo-a57/1.webp",
+                    "https://cdn.dummyjson.com/product-images/smartphones/oppo-a57/2.webp",
+                    "https://cdn.dummyjson.com/product-images/smartphones/oppo-a57/3.webp"
+                ]
+            }
+        },
+        {
+            "id": "e299a66b-6ca1-5a83-8c5f-342fcd71c56c",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "085f850d-6961-590f-93f3-d44370034773",
+            "name": "DEMO Oppo F19 Pro Plus",
+            "slug": "demo-dummyjson-126",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 8000,
+            "deposit_amount": 1500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "ea10382c-a387-5fb8-93a6-6244e3f69c2e",
+                    "name": "Тип",
+                    "value": "Смартфон для тестирования приложений"
+                },
+                {
+                    "id": "bc4a63ac-606c-59ff-8db2-7ab3bb46fd10",
+                    "name": "Бренд (mock-источник)",
+                    "value": "Oppo"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 126,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/smartphones/oppo-f19-pro-plus/1.webp",
+                    "https://cdn.dummyjson.com/product-images/smartphones/oppo-f19-pro-plus/2.webp",
+                    "https://cdn.dummyjson.com/product-images/smartphones/oppo-f19-pro-plus/3.webp"
+                ]
+            }
+        },
+        {
+            "id": "da6065a4-4fae-5f07-90bd-d98357ddb8a1",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "085f850d-6961-590f-93f3-d44370034773",
+            "name": "DEMO Samsung Galaxy S10",
+            "slug": "demo-dummyjson-133",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 8000,
+            "deposit_amount": 1500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "24f459f7-f402-501f-99aa-f35cc3e6fcb5",
+                    "name": "Тип",
+                    "value": "Смартфон для тестирования приложений"
+                },
+                {
+                    "id": "edb83863-1ebe-54bb-a567-aba6e4ac9026",
+                    "name": "Бренд (mock-источник)",
+                    "value": "Samsung"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 133,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/smartphones/samsung-galaxy-s10/1.webp",
+                    "https://cdn.dummyjson.com/product-images/smartphones/samsung-galaxy-s10/2.webp",
+                    "https://cdn.dummyjson.com/product-images/smartphones/samsung-galaxy-s10/3.webp"
+                ]
+            }
+        },
+        {
+            "id": "0e28d9fa-bf01-5747-b320-7f1ae1401a3a",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "da0351ea-c736-5df2-890c-f4a10d510bcc",
+            "name": "DEMO Apple MacBook Pro 14 Inch Space Grey",
+            "slug": "demo-dummyjson-78",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 15000,
+            "deposit_amount": 5000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "d87ef336-aedc-5786-b394-a8571a6d0d34",
+                    "name": "Тип",
+                    "value": "Ноутбук"
+                },
+                {
+                    "id": "757faeb2-6021-584f-bf63-e7bfd001f82e",
+                    "name": "Бренд (mock-источник)",
+                    "value": "Apple"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 78,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/laptops/apple-macbook-pro-14-inch-space-grey/1.webp",
+                    "https://cdn.dummyjson.com/product-images/laptops/apple-macbook-pro-14-inch-space-grey/2.webp",
+                    "https://cdn.dummyjson.com/product-images/laptops/apple-macbook-pro-14-inch-space-grey/3.webp"
+                ]
+            }
+        },
+        {
+            "id": "aa939982-527a-5841-86d0-bc888e3362e7",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "da0351ea-c736-5df2-890c-f4a10d510bcc",
+            "name": "DEMO Asus Zenbook Pro Dual Screen Laptop",
+            "slug": "demo-dummyjson-79",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 15000,
+            "deposit_amount": 5000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "6eb227bd-161f-5a27-b871-a42a52ce3299",
+                    "name": "Тип",
+                    "value": "Ноутбук"
+                },
+                {
+                    "id": "6750403e-3e10-57ef-ad8b-e4205a5a6121",
+                    "name": "Бренд (mock-источник)",
+                    "value": "Asus"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 79,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/laptops/asus-zenbook-pro-dual-screen-laptop/1.webp",
+                    "https://cdn.dummyjson.com/product-images/laptops/asus-zenbook-pro-dual-screen-laptop/2.webp",
+                    "https://cdn.dummyjson.com/product-images/laptops/asus-zenbook-pro-dual-screen-laptop/3.webp"
+                ]
+            }
+        },
+        {
+            "id": "d2e7db81-876e-5f77-b40e-09cd744b9d86",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "da0351ea-c736-5df2-890c-f4a10d510bcc",
+            "name": "DEMO Huawei Matebook X Pro",
+            "slug": "demo-dummyjson-80",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 15000,
+            "deposit_amount": 5000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "26ce5d6c-3550-50fa-a446-315467772a46",
+                    "name": "Тип",
+                    "value": "Ноутбук"
+                },
+                {
+                    "id": "829601ff-1ead-5122-b8d5-30d9fab0d4a2",
+                    "name": "Бренд (mock-источник)",
+                    "value": "Huawei"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 80,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/laptops/huawei-matebook-x-pro/1.webp",
+                    "https://cdn.dummyjson.com/product-images/laptops/huawei-matebook-x-pro/2.webp",
+                    "https://cdn.dummyjson.com/product-images/laptops/huawei-matebook-x-pro/3.webp"
+                ]
+            }
+        },
+        {
+            "id": "a1f6e494-0737-50ec-85af-c27a1a60bc25",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "da0351ea-c736-5df2-890c-f4a10d510bcc",
+            "name": "DEMO Lenovo Yoga 920",
+            "slug": "demo-dummyjson-81",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 15000,
+            "deposit_amount": 5000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "e1677d78-ba18-5e18-bd5d-d1f3dd4ab07b",
+                    "name": "Тип",
+                    "value": "Ноутбук"
+                },
+                {
+                    "id": "0865da78-7a7c-5797-941e-b9d4407b0298",
+                    "name": "Бренд (mock-источник)",
+                    "value": "Lenovo"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 81,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/laptops/lenovo-yoga-920/1.webp",
+                    "https://cdn.dummyjson.com/product-images/laptops/lenovo-yoga-920/2.webp",
+                    "https://cdn.dummyjson.com/product-images/laptops/lenovo-yoga-920/3.webp"
+                ]
+            }
+        },
+        {
+            "id": "67f5746b-ba83-5be4-b431-b2d942f35185",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "da0351ea-c736-5df2-890c-f4a10d510bcc",
+            "name": "DEMO New DELL XPS 13 9300 Laptop",
+            "slug": "demo-dummyjson-82",
+            "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
+            "price_per_hour": 15000,
+            "deposit_amount": 5000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "5b8cf24f-44e8-5f6b-88c5-e20f38e2103d",
+                    "name": "Тип",
+                    "value": "Ноутбук"
+                },
+                {
+                    "id": "6d240ce4-5e79-5853-80ed-c81c99cfaf02",
+                    "name": "Бренд (mock-источник)",
+                    "value": "Dell"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "dummyjson",
+                "id": 82,
+                "image_urls": [
+                    "https://cdn.dummyjson.com/product-images/laptops/new-dell-xps-13-9300-laptop/1.webp",
+                    "https://cdn.dummyjson.com/product-images/laptops/new-dell-xps-13-9300-laptop/2.webp",
+                    "https://cdn.dummyjson.com/product-images/laptops/new-dell-xps-13-9300-laptop/3.webp"
+                ]
+            }
+        },
+        {
+            "id": "f5b9098a-3d60-5777-9f22-935a53620561",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "b5476072-3caa-52d8-89ee-613a75d59503",
+            "name": "DEMO Камера для учебной съёмки",
+            "slug": "demo-manual-camera-basic",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 18000,
+            "deposit_amount": 4000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "9cc8e544-539c-5746-8df6-9378e7e00720",
+                    "name": "Запись",
+                    "value": "Full HD"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-camera-basic",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "220b4470-5336-5ab5-b82d-e1095d9a82f7",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "b5476072-3caa-52d8-89ee-613a75d59503",
+            "name": "DEMO Камера для трансляций",
+            "slug": "demo-manual-camera-stream",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 18000,
+            "deposit_amount": 4000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "782fadfe-2ab0-5100-a800-6420c2f1a940",
+                    "name": "Подключение",
+                    "value": "USB"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-camera-stream",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "992d25dc-280d-59bd-b3d1-ea0bd38b57e2",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "b5476072-3caa-52d8-89ee-613a75d59503",
+            "name": "DEMO Видеокамера для интервью",
+            "slug": "demo-manual-camera-video",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 18000,
+            "deposit_amount": 4000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "3117ff03-f3ca-5a3c-a94c-6e4c23d25095",
+                    "name": "Комплект",
+                    "value": "Камера и аккумулятор"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-camera-video",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "aa1c3f1b-de41-5f56-8593-e2c63db4bcea",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "da0351ea-c736-5df2-890c-f4a10d510bcc",
+            "name": "DEMO Рабочая станция для обучения",
+            "slug": "demo-manual-desktop",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 15000,
+            "deposit_amount": 5000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "2482f0bd-654b-56f3-b8a5-93f4bd4571f1",
+                    "name": "Оперативная память",
+                    "value": "16 ГБ"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-desktop",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "11f9a70e-ff5f-5de9-8f0c-554983d1def7",
+            "store_id": "e84265bc-b38c-55d9-8cfe-811e1e2cad00",
+            "category_id": "569fb797-aab6-58be-9d60-c71f71dd7299",
+            "name": "DEMO Дрель для бытовых работ",
+            "slug": "demo-manual-drill",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 4000,
+            "deposit_amount": 500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "a914d48e-ab02-58b8-8fd0-7dd7ee27e457",
+                    "name": "Питание",
+                    "value": "От сети"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-drill",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "c658abb7-c596-5719-b7ff-69afdbeed9e5",
+            "store_id": "e84265bc-b38c-55d9-8cfe-811e1e2cad00",
+            "category_id": "569fb797-aab6-58be-9d60-c71f71dd7299",
+            "name": "DEMO Аккумуляторный шуруповёрт",
+            "slug": "demo-manual-driver",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 4000,
+            "deposit_amount": 500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "f594c336-f108-583a-bbef-210588b0572c",
+                    "name": "Комплект",
+                    "value": "Инструмент и аккумулятор"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-driver",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "46686c24-e5cb-54d4-b4b3-edc2d64bb9ec",
+            "store_id": "e84265bc-b38c-55d9-8cfe-811e1e2cad00",
+            "category_id": "569fb797-aab6-58be-9d60-c71f71dd7299",
+            "name": "DEMO Перфоратор для ремонта",
+            "slug": "demo-manual-hammer",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 4000,
+            "deposit_amount": 500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "5dc64b4b-f7b4-52e2-87e8-257ad7629bee",
+                    "name": "Режим",
+                    "value": "Сверление с ударом"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-hammer",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "70ac3ab3-8b9d-5e87-b178-3f799c53d687",
+            "store_id": "e84265bc-b38c-55d9-8cfe-811e1e2cad00",
+            "category_id": "569fb797-aab6-58be-9d60-c71f71dd7299",
+            "name": "DEMO Электролобзик",
+            "slug": "demo-manual-jigsaw",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 4000,
+            "deposit_amount": 500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "f4210f8b-31ea-519e-96a1-0341faa58b34",
+                    "name": "Назначение",
+                    "value": "Распил древесины"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-jigsaw",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "d178da4a-7972-5f49-9708-91e3c0f3dc88",
+            "store_id": "e84265bc-b38c-55d9-8cfe-811e1e2cad00",
+            "category_id": "569fb797-aab6-58be-9d60-c71f71dd7299",
+            "name": "DEMO Лазерный уровень",
+            "slug": "demo-manual-laser",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 4000,
+            "deposit_amount": 500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "0271e807-6694-5618-9213-682793eb867f",
+                    "name": "Назначение",
+                    "value": "Разметка"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-laser",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "a0fefeb2-3dc4-5aa6-9bb7-1144af903bb8",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "208930fb-f73b-5aa2-92e3-d27a6e598298",
+            "name": "DEMO Светодиодная панель",
+            "slug": "demo-manual-led-panel",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 5000,
+            "deposit_amount": 600000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "e2a5d446-e778-55a0-9d25-24925120043a",
+                    "name": "Питание",
+                    "value": "От сети"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-led-panel",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "0e3d609d-8f5b-5016-9328-c8664ad4f634",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "58108ef5-9792-59e6-8946-f4e67ef38009",
+            "name": "DEMO Макрообъектив",
+            "slug": "demo-manual-lens-macro",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 10000,
+            "deposit_amount": 2000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "dfa587a0-20bf-5787-ae94-96c561bfbb57",
+                    "name": "Фокусное расстояние",
+                    "value": "100 мм"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-lens-macro",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "2a91d4fd-24b5-5539-9268-c37ff05d5414",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "58108ef5-9792-59e6-8946-f4e67ef38009",
+            "name": "DEMO Портретный объектив",
+            "slug": "demo-manual-lens-portrait",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 10000,
+            "deposit_amount": 2000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "0d0b3486-1788-599e-b1e4-08188991c745",
+                    "name": "Фокусное расстояние",
+                    "value": "85 мм"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-lens-portrait",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "4a22ea2e-5a49-504e-b68b-2aa6c2a91e88",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "58108ef5-9792-59e6-8946-f4e67ef38009",
+            "name": "DEMO Стандартный объектив",
+            "slug": "demo-manual-lens-standard",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 10000,
+            "deposit_amount": 2000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "548a8bde-0372-56f3-9319-4fe0ba75537c",
+                    "name": "Фокусное расстояние",
+                    "value": "50 мм"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-lens-standard",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "312fa026-03f3-5049-be1f-a6aa3f48cd5a",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "58108ef5-9792-59e6-8946-f4e67ef38009",
+            "name": "DEMO Широкоугольный объектив",
+            "slug": "demo-manual-lens-wide",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 10000,
+            "deposit_amount": 2000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "6743df8b-7123-57c0-a984-bb6e862d359d",
+                    "name": "Фокусное расстояние",
+                    "value": "24 мм"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-lens-wide",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "efe50bd1-c045-54e0-922f-52fba3d215dd",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "58108ef5-9792-59e6-8946-f4e67ef38009",
+            "name": "DEMO Универсальный зум-объектив",
+            "slug": "demo-manual-lens-zoom",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 10000,
+            "deposit_amount": 2000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "67744e85-d54d-5451-bcb5-986c0a72e832",
+                    "name": "Фокусное расстояние",
+                    "value": "24–70 мм"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-lens-zoom",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "2cffd57c-a924-52ff-8542-4280620e1b89",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "208930fb-f73b-5aa2-92e3-d27a6e598298",
+            "name": "DEMO Стойка для освещения",
+            "slug": "demo-manual-light-stand",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 5000,
+            "deposit_amount": 600000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "bd02b156-7f7e-5ede-a735-ebe6b50c98d7",
+                    "name": "Тип",
+                    "value": "Напольная"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-light-stand",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "dc68e179-2d10-5867-863d-8a2ddbf6f637",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "c2ffe63f-ba4a-5a69-8f10-18589217bb9c",
+            "name": "DEMO Микрофон для интервью",
+            "slug": "demo-manual-mic-interview",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 7000,
+            "deposit_amount": 1000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "4b8c43d1-2037-57aa-a1e7-65232ef326ac",
+                    "name": "Тип",
+                    "value": "Динамический"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-mic-interview",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "1549918e-3ee0-59f8-9eeb-383eb4eb63bb",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "c2ffe63f-ba4a-5a69-8f10-18589217bb9c",
+            "name": "DEMO Петличный микрофон",
+            "slug": "demo-manual-mic-lavalier",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 7000,
+            "deposit_amount": 1000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "df32eb89-2a99-5751-8ad6-16e59baf3916",
+                    "name": "Тип",
+                    "value": "Проводной"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-mic-lavalier",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "bd618dfa-b5be-52b2-a839-df602380bce4",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "c2ffe63f-ba4a-5a69-8f10-18589217bb9c",
+            "name": "DEMO Микшер для небольших мероприятий",
+            "slug": "demo-manual-mixer",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 7000,
+            "deposit_amount": 1000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "363e8bfe-173b-54f8-b51a-e0f75ca1de9a",
+                    "name": "Входы",
+                    "value": "4"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-mixer",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "40cce34c-cc55-51eb-95d0-bd342370773c",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "da0351ea-c736-5df2-890c-f4a10d510bcc",
+            "name": "DEMO Монитор для презентаций",
+            "slug": "demo-manual-monitor",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 15000,
+            "deposit_amount": 5000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "378dcc8d-5d10-5d06-ad67-49486211d6bd",
+                    "name": "Диагональ",
+                    "value": "24 дюйма"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-monitor",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "e77d8be4-c877-5fa0-be76-95800b01e390",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "77dbbcff-2e68-591b-82c2-e616e9c7d6f8",
+            "name": "DEMO Проектор для учебной аудитории",
+            "slug": "demo-manual-projector-classroom",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 12000,
+            "deposit_amount": 2500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "336a4b81-fa90-5d39-adc9-91b7974215fa",
+                    "name": "Вход",
+                    "value": "HDMI"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-projector-classroom",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "ffcfe005-200d-52d3-86b2-355735fc0ecb",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "77dbbcff-2e68-591b-82c2-e616e9c7d6f8",
+            "name": "DEMO Проектор для мероприятий",
+            "slug": "demo-manual-projector-event",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 12000,
+            "deposit_amount": 2500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "b973c920-1122-573a-a3d4-f5e7addd9dd7",
+                    "name": "Разрешение",
+                    "value": "Full HD"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-projector-event",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "930d7288-2b30-5f6b-a7ef-9497757ab246",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "77dbbcff-2e68-591b-82c2-e616e9c7d6f8",
+            "name": "DEMO Переносной проектор",
+            "slug": "demo-manual-projector-portable",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 12000,
+            "deposit_amount": 2500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "b9cb9af3-1a6a-5584-aecb-61226320d856",
+                    "name": "Комплект",
+                    "value": "Проектор и сумка"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-projector-portable",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "c7712a6e-f80a-5c47-bdfa-7a7414b548d8",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "c2ffe63f-ba4a-5a69-8f10-18589217bb9c",
+            "name": "DEMO Портативный аудиорекордер",
+            "slug": "demo-manual-recorder",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 7000,
+            "deposit_amount": 1000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "f2125669-ac8e-51c3-b0e4-29e89918fa16",
+                    "name": "Каналы",
+                    "value": "2"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-recorder",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "ce8c1e1b-5b4f-5343-a3e4-35bcf77051f2",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "208930fb-f73b-5aa2-92e3-d27a6e598298",
+            "name": "DEMO Отражатель для съёмки",
+            "slug": "demo-manual-reflector",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 5000,
+            "deposit_amount": 600000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "de320f4a-10ef-571b-a778-01c1d5f4fdd9",
+                    "name": "Форма",
+                    "value": "Круглая"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-reflector",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "90225d37-cfea-5d25-8d65-b312faa11811",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "208930fb-f73b-5aa2-92e3-d27a6e598298",
+            "name": "DEMO Цветной светильник",
+            "slug": "demo-manual-rgb-light",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 5000,
+            "deposit_amount": 600000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "2800980f-c4c7-5b11-ad2f-b0e8346c1753",
+                    "name": "Режим",
+                    "value": "RGB"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-rgb-light",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "22ebd3cd-02dd-5cdb-bb85-8f4645ae96c5",
+            "store_id": "e84265bc-b38c-55d9-8cfe-811e1e2cad00",
+            "category_id": "569fb797-aab6-58be-9d60-c71f71dd7299",
+            "name": "DEMO Шлифовальная машина",
+            "slug": "demo-manual-sander",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 4000,
+            "deposit_amount": 500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "a23dee2b-ba02-5cbf-8f54-20a36cc38217",
+                    "name": "Назначение",
+                    "value": "Обработка поверхностей"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-sander",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "aacf99bb-abd6-5acb-8bac-5e66d52036a2",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "77dbbcff-2e68-591b-82c2-e616e9c7d6f8",
+            "name": "DEMO Экран для проектора",
+            "slug": "demo-manual-screen",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 12000,
+            "deposit_amount": 2500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "dff30bca-e494-5d41-88c4-7935ca120f57",
+                    "name": "Тип",
+                    "value": "На треноге"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-screen",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "00c06608-9261-5d1b-b9b6-92ca7975688b",
+            "store_id": "b0825611-7e72-51d7-9c52-7c52b1202e70",
+            "category_id": "77dbbcff-2e68-591b-82c2-e616e9c7d6f8",
+            "name": "DEMO Настольный проекционный экран",
+            "slug": "demo-manual-screen-table",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 12000,
+            "deposit_amount": 2500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "f1ca7b2d-6c57-5f19-ad32-37b188d9d98c",
+                    "name": "Тип",
+                    "value": "Переносной"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-screen-table",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "08357ccc-d04a-53fd-a3d9-44d5f7fac377",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "208930fb-f73b-5aa2-92e3-d27a6e598298",
+            "name": "DEMO Комплект мягкого света",
+            "slug": "demo-manual-softbox",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 5000,
+            "deposit_amount": 600000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "8719caf4-a2ca-5edb-9c7a-f9fd92791d0b",
+                    "name": "Комплект",
+                    "value": "Светильник и софтбокс"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-softbox",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "156f1c42-7ae9-5fcd-a113-09335caafa54",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "b5476072-3caa-52d8-89ee-613a75d59503",
+            "name": "DEMO Стабилизатор для съёмки",
+            "slug": "demo-manual-stabilizer",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 18000,
+            "deposit_amount": 4000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "18b79fb2-f13a-5f91-b281-1cdd1eaf4828",
+                    "name": "Назначение",
+                    "value": "Плавное движение камеры"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-stabilizer",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "18b0e73e-bd2c-55a3-8173-4a319f3209d0",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "b5476072-3caa-52d8-89ee-613a75d59503",
+            "name": "DEMO Суфлёр для интервью",
+            "slug": "demo-manual-teleprompter",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 18000,
+            "deposit_amount": 4000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "5bb06518-67de-5fd6-9c9a-1a6d944c2623",
+                    "name": "Комплект",
+                    "value": "Держатель и отражающее стекло"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-teleprompter",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "28e5b2d8-3d02-531e-bc17-2e9dfcce987e",
+            "store_id": "4122d059-3fc9-5cef-b48a-763053376266",
+            "category_id": "b5476072-3caa-52d8-89ee-613a75d59503",
+            "name": "DEMO Штатив для камеры",
+            "slug": "demo-manual-tripod",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 18000,
+            "deposit_amount": 4000000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "1e53f739-1fbd-57e3-844b-962d2b9ae09e",
+                    "name": "Тип",
+                    "value": "Напольный"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-tripod",
+                "image_urls": []
+            }
+        },
+        {
+            "id": "eec20351-b227-5e89-a89e-47497c039ca1",
+            "store_id": "e84265bc-b38c-55d9-8cfe-811e1e2cad00",
+            "category_id": "569fb797-aab6-58be-9d60-c71f71dd7299",
+            "name": "DEMO Строительный пылесос",
+            "slug": "demo-manual-vacuum",
+            "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
+            "price_per_hour": 4000,
+            "deposit_amount": 500000,
+            "rating": "0.00",
+            "reviews_count": 0,
+            "is_active": true,
+            "attributes": [
+                {
+                    "id": "104d0113-1acb-5713-af08-0e37d7f0b7e8",
+                    "name": "Назначение",
+                    "value": "Уборка сухого мусора"
+                }
+            ],
+            "stock": {
+                "quantity": 3,
+                "reserved": 0
+            },
+            "images": [],
+            "source": {
+                "provider": "manual",
+                "id": "manual-vacuum",
+                "image_urls": []
+            }
+        }
+    ]
+}
