@@ -8,6 +8,9 @@ use App\Contracts\Repositories\StoreRepositoryInterface;
 use App\Models\Store;
 use App\DTO\StoreFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use App\DTO\CreateStoreData;
+use App\DTO\UpdateStoreData;
+use App\Models\StockReservation;
 
 class StoreRepository implements StoreRepositoryInterface
 {
@@ -41,18 +44,50 @@ class StoreRepository implements StoreRepositoryInterface
 
     /**
      * Save a store.
-     */
-    public function save(Store $store): Store
+    //  */
+    // public function save(Store $store): Store
+    // {
+    //     $store->saveOrFail();
+    //     return $store;
+    // }
+
+    // /**
+    //  * Delete a store.
+    //  */
+    // public function delete(Store $store): void
+    // {
+    //     $store->deleteOrFail();
+    // }
+
+    public function createStore(CreateStoreData $data): Store
     {
+        $store =  new Store();
+        $store->fill($data->toArray());
         $store->saveOrFail();
         return $store;
     }
 
-    /**
-     * Delete a store.
-     */
-    public function delete(Store $store): void
+    public function updateStore(UpdateStoreData $data): Store
     {
-        $store->deleteOrFail();
+        $store = new Store();
+        $store->fill($data->toArray());
+        $store->saveOrFail();
+        return $store;
+    }
+
+    public function hasActiveByStore(string $storeId): bool
+    {
+        return StockReservation::query()
+            ->where('store_id', $storeId)
+            ->whereIn('status', ['reserved', 'issued'])
+            ->exists();
+    }
+
+    public function deleteStore(string $storeID): Store
+    {
+        $store = Store::findOrFail($storeID);
+        if($this->hasActiveByStore($storeID)) {
+            throw StoreHasActiveRentalsException()
+        }
     }
 }

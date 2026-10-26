@@ -32,4 +32,14 @@ final readonly class UpdateStoreData
         $this->locationProvided = $locationProvided || $location !== null;
         $this->activeProvided = $activeProvided || $active !== null;
     }
+
+    public function toArray(): array 
+    {
+        return [
+            'name' => $this->name,
+            'description' => $this->description,
+            'location' => $this->location,
+            'active' => $this->active,
+            ];
+    }
 }
