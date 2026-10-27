@@ -17,6 +17,9 @@ final readonly class CreateStoreData
     ) {
     }
 
+    /**
+     * @return array{name: string, description: string|null, location: string|null, active: bool}
+     */
     public function toArray(): array
     {
         return [
@@ -24,6 +27,6 @@ final readonly class CreateStoreData
             'description' => $this->description,
             'location' => $this->location,
             'active' => $this->active,
-            ];
+        ];
     }
 }

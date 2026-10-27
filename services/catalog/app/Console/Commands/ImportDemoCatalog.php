@@ -38,7 +38,10 @@ class ImportDemoCatalog extends Command
             $manual = json_decode(File::get(database_path('seeders/data/catalog-demo-manual.json')), true, 512, JSON_THROW_ON_ERROR);
             $dataset = (new CatalogSeeder())->validateDataset($this->normalize($payload['products'], $manual));
             $json = json_encode($dataset, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
-            $path = $this->option('output') ?: database_path('seeders/data/catalog-demo.json');
+            $output = $this->option('output');
+            $path = is_string($output) && $output !== ''
+                ? $output
+                : database_path('seeders/data/catalog-demo.json');
             if (! is_dir(dirname($path))) {
                 throw new UnexpectedValueException('The dataset destination directory must exist.');
             }

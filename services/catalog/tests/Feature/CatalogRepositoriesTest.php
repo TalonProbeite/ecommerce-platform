@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\DTO\CreateStoreData;
 use App\DTO\ProductFilters;
 use App\DTO\StoreFilters;
+use App\DTO\UpdateStoreData;
+use App\Exceptions\StoreHasActiveRentalsException;
 use App\Enums\ProductSortField;
 use App\Enums\SortDirection;
 use App\Models\Store;
@@ -51,11 +54,9 @@ class CatalogRepositoriesTest extends PostgresTestCase
     public function test_store_save_find_filter_paginate_and_soft_delete(): void
     {
         $repository = new StoreRepository();
-        $store = new Store(['name' => 'Other', 'active' => false]);
-        self::assertSame($store, $repository->save($store));
+        $store = $repository->createStore(new CreateStoreData(name: 'Other', active: false));
         self::assertInstanceOf(Store::class, $repository->findByID($store->id));
-        $store->name = 'Updated';
-        $repository->save($store);
+        $repository->updateStore($store->id, new UpdateStoreData(name: 'Updated'));
         self::assertSame('Updated', $repository->findByID($store->id)->name);
         $active = $repository->findAll(new StoreFilters());
         self::assertInstanceOf(LengthAwarePaginator::class, $active);
@@ -67,10 +68,32 @@ class CatalogRepositoriesTest extends PostgresTestCase
         self::assertCount(1, $page->items());
         self::assertTrue($this->store->products->contains($this->product));
         self::assertTrue($this->store->categories->contains($this->category));
-        $repository->delete($store);
+        $repository->deleteStore($store->id);
         self::assertNull($repository->findByID($store->id));
         self::assertTrue(Store::withTrashed()->findOrFail($store->id)->trashed());
         self::assertNull($repository->findByID((string) Uuid::uuid7()));
+    }
+
+    public function test_store_delete_is_rejected_while_active_reservations_exist(): void
+    {
+        $repository = new StoreRepository();
+
+        StockReservation::create([
+            'order_id' => (string) Uuid::uuid7(),
+            'product_id' => $this->product->id,
+            'store_id' => $this->store->id,
+            'quantity' => 1,
+            'status' => 'reserved',
+        ]);
+
+        try {
+            $repository->deleteStore($this->store->id);
+            self::fail('Deleting a store with active reservations must be rejected.');
+        } catch (StoreHasActiveRentalsException $exception) {
+            self::assertSame($this->store->id, $exception->storeID);
+        }
+
+        self::assertNotNull($repository->findByID($this->store->id));
     }
 
     public function test_categories_scope_tree_save_update_and_soft_delete(): void
