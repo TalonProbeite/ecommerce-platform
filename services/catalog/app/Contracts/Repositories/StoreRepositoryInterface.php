@@ -29,4 +29,6 @@ interface StoreRepositoryInterface
     public function updateStore(string $id, UpdateStoreData $data): Store;
 
     public function deleteStore(string $storeID): Store;
+
+    public function hasActiveRentals(string $storeId): bool;
 }

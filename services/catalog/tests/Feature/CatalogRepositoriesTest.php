@@ -10,7 +10,6 @@ use App\DTO\ProductFilters;
 use App\DTO\StoreFilters;
 use App\DTO\UpdateCategoryData;
 use App\DTO\UpdateStoreData;
-use App\Exceptions\StoreHasActiveRentalsException;
 use App\Enums\ProductSortField;
 use App\Enums\SortDirection;
 use App\Models\Store;
@@ -76,9 +75,10 @@ class CatalogRepositoriesTest extends PostgresTestCase
         self::assertNull($repository->findByID((string) Uuid::uuid7()));
     }
 
-    public function test_store_delete_is_rejected_while_active_reservations_exist(): void
+    public function test_store_has_active_rentals_detection(): void
     {
         $repository = new StoreRepository();
+        self::assertFalse($repository->hasActiveRentals($this->store->id));
 
         StockReservation::create([
             'order_id' => (string) Uuid::uuid7(),
@@ -88,14 +88,7 @@ class CatalogRepositoriesTest extends PostgresTestCase
             'status' => 'reserved',
         ]);
 
-        try {
-            $repository->deleteStore($this->store->id);
-            self::fail('Deleting a store with active reservations must be rejected.');
-        } catch (StoreHasActiveRentalsException $exception) {
-            self::assertSame($this->store->id, $exception->storeID);
-        }
-
-        self::assertNotNull($repository->findByID($this->store->id));
+        self::assertTrue($repository->hasActiveRentals($this->store->id));
     }
 
     public function test_categories_scope_tree_save_update_and_soft_delete(): void
@@ -125,6 +118,7 @@ class CatalogRepositoriesTest extends PostgresTestCase
         $categoryWithChildren = $repository->getChildren($this->category->id, $this->store->id);
         self::assertInstanceOf(Category::class, $categoryWithChildren);
         self::assertTrue($categoryWithChildren->recursiveChildren->contains($child));
+        self::assertTrue($repository->hasSubcategories($this->category->id, $this->store->id));
 
         $foundByStoreAndId = $repository->findByStoreAndID($child->id, $this->store->id);
         self::assertNotNull($foundByStoreAndId);

@@ -11,7 +11,6 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use App\DTO\CreateStoreData;
 use App\DTO\UpdateStoreData;
 use App\Models\StockReservation;
-use App\Exceptions\StoreHasActiveRentalsException;
 
 class StoreRepository implements StoreRepositoryInterface
 {
@@ -59,7 +58,7 @@ class StoreRepository implements StoreRepositoryInterface
         return $store;
     }
 
-    public function hasActiveByStore(string $storeId): bool
+    public function hasActiveRentals(string $storeId): bool
     {
         return StockReservation::query()
             ->where('store_id', $storeId)
@@ -70,9 +69,6 @@ class StoreRepository implements StoreRepositoryInterface
     public function deleteStore(string $storeID): Store
     {
         $store = Store::findOrFail($storeID);
-        if ($this->hasActiveByStore($storeID)) {
-            throw new StoreHasActiveRentalsException($storeID);
-        }
         $store->deleteOrFail();
         return $store;
     }

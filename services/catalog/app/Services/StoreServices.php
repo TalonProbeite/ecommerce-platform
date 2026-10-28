@@ -10,6 +10,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use App\Contracts\Services\StoreServiceInterface;
 use App\DTO\CreateStoreData;
 use App\DTO\UpdateStoreData;
+use App\Exceptions\StoreHasActiveRentalsException;
 use App\Models\Store;
 use Illuminate\Validation\ValidationException;
 
@@ -57,6 +58,10 @@ final class StoreServices implements StoreServiceInterface
 
     public function delete(string $storeId): void
     {
+        if ($this->storeRepo->hasActiveRentals($storeId)) {
+            throw new StoreHasActiveRentalsException($storeId);
+        }
+
         $this->storeRepo->deleteStore($storeId);
     }
 }

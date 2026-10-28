@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Contracts\Repositories\StoreRepositoryInterface;
 use App\DTO\UpdateStoreData;
+use App\Exceptions\StoreHasActiveRentalsException;
 use App\Models\Store;
 use App\Services\StoreServices;
 use Illuminate\Validation\ValidationException;
@@ -38,5 +39,27 @@ class StoreServicesTest extends TestCase
         $this->expectException(ValidationException::class);
 
         (new StoreServices($repository))->update('store-id', new UpdateStoreData(name: null, nameProvided: true));
+    }
+
+    public function test_delete_removes_store_when_no_active_rentals(): void
+    {
+        $store = new Store(['name' => 'Tools']);
+        $repository = Mockery::mock(StoreRepositoryInterface::class);
+        $repository->shouldReceive('hasActiveRentals')->once()->with('store-id')->andReturn(false);
+        $repository->shouldReceive('deleteStore')->once()->with('store-id')->andReturn($store);
+
+        (new StoreServices($repository))->delete('store-id');
+        $this->addToAssertionCount(1);
+    }
+
+    public function test_delete_throws_exception_when_active_rentals_exist(): void
+    {
+        $repository = Mockery::mock(StoreRepositoryInterface::class);
+        $repository->shouldReceive('hasActiveRentals')->once()->with('store-id')->andReturn(true);
+        $repository->shouldNotReceive('deleteStore');
+
+        $this->expectException(StoreHasActiveRentalsException::class);
+
+        (new StoreServices($repository))->delete('store-id');
     }
 }
