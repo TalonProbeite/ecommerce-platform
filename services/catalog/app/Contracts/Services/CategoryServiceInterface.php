@@ -31,4 +31,8 @@ interface CategoryServiceInterface
      * Enforce business checks explicitly: foreign keys do not guard soft deletion.
      */
     public function delete(string $categoryId, string $storeId): void;
+
+    public function getChildren(string $categoryId, string $storeId): Category;
+
+    public function findById(string $categoryId): ?Category;
 }

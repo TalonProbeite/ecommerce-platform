@@ -64,4 +64,20 @@ class Category extends Model
     {
         return $this->hasMany(Category::class, 'parent_id');
     }
+
+    /**
+     * @return BelongsTo<Category, $this>
+     */
+    public function recursiveParent(): BelongsTo
+    {
+        return $this->parent()->with('recursiveParent');
+    }
+
+    /**
+     * @return HasMany<Category, $this>
+     */
+    public function recursiveChildren(): HasMany
+    {
+        return $this->children()->with('recursiveChildren');
+    }
 }

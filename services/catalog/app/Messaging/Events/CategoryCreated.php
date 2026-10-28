@@ -6,6 +6,7 @@ namespace App\Messaging\Events;
 
 use App\Contracts\Messaging\EventInterface;
 use App\Messaging\RoutingKeys;
+use App\Models\Category;
 
 final readonly class CategoryCreated implements EventInterface
 {
@@ -35,5 +36,16 @@ final readonly class CategoryCreated implements EventInterface
             'slug' => $this->slug,
             'parent_id' => $this->parentId,
         ];
+    }
+
+    public static function fromModel(Category $category): self
+    {
+        return new self(
+            categoryId: $category->id,
+            storeId: $category->store_id,
+            name: $category->name,
+            slug: $category->slug,
+            parentId: $category->parent_id,
+        );
     }
 }

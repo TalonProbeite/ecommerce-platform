@@ -15,4 +15,16 @@ final readonly class CreateCategoryData
         public ?string $parentId = null,
     ) {
     }
+
+    /**
+     * @return array{name: string, slug: string|null, parent_id: string|null}
+     */
+    public function toArray(): array
+    {
+        return [
+            'name' => $this->name,
+            'slug' => $this->slug,
+            'parent_id' => $this->parentId,
+        ];
+    }
 }

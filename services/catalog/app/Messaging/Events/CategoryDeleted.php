@@ -6,6 +6,7 @@ namespace App\Messaging\Events;
 
 use App\Contracts\Messaging\EventInterface;
 use App\Messaging\RoutingKeys;
+use App\Models\Category;
 
 final readonly class CategoryDeleted implements EventInterface
 {
@@ -29,5 +30,13 @@ final readonly class CategoryDeleted implements EventInterface
             'category_id' => $this->categoryId,
             'store_id' => $this->storeId,
         ];
+    }
+
+    public static function fromModel(Category $category): self
+    {
+        return new self(
+            categoryId: $category->id,
+            storeId: $category->store_id,
+        );
     }
 }

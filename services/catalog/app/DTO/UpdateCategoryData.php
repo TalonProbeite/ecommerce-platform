@@ -28,4 +28,26 @@ final readonly class UpdateCategoryData
         $this->slugProvided = $slugProvided || $slug !== null;
         $this->parentIdProvided = $parentIdProvided || $parentId !== null;
     }
+
+    /**
+     * @return array{name?: string|null, slug?: string|null, parent_id?: string|null}
+     */
+    public function toArray(): array
+    {
+        $data = [];
+
+        if($this->nameProvided) {
+            $data['name'] = $this->name;
+        }
+
+        if ($this->slugProvided) {
+            $data['slug'] = $this->slug;
+        }
+
+        if($this->parentIdProvided) {
+            $data['parent_id'] = $this->parentId;
+        }
+
+        return $data;
+    }
 }

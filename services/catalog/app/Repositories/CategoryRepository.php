@@ -7,6 +7,8 @@ namespace App\Repositories;
 use App\Contracts\Repositories\CategoryRepositoryInterface;
 use App\Models\Category;
 use Illuminate\Database\Eloquent\Collection;
+use App\DTO\CreateCategoryData;
+use App\DTO\UpdateCategoryData;
 
 class CategoryRepository implements CategoryRepositoryInterface
 {
@@ -18,6 +20,13 @@ class CategoryRepository implements CategoryRepositoryInterface
         return Category::find($id);
     }
 
+    public function findByStoreAndID(string $id, string $storeId): ?Category
+{
+    return Category::with('recursiveParent')
+        ->where('id', $id)
+        ->where('store_id', $storeId)
+        ->first();
+}
     /**
      * Find all categories for a given store.
      *
@@ -25,7 +34,10 @@ class CategoryRepository implements CategoryRepositoryInterface
      */
     public function findByStore(string $storeID): Collection
     {
-        return Category::where('store_id', $storeID)->get();
+        return Category::whereNull('parent_id')
+                ->where('store_id', $storeID)
+                ->with('recursiveChildren')
+                ->get();
     }
 
     /**
@@ -52,20 +64,41 @@ class CategoryRepository implements CategoryRepositoryInterface
             ->get();
     }
 
-    /**
-     * Save a category.
-     */
-    public function save(Category $category): Category
+    public function createCategory(CreateCategoryData $data, string $storeId): Category
     {
+        $category = new Category();
+        $category->fill($data->toArray());
+        $category->store_id = $storeId; 
         $category->saveOrFail();
         return $category;
     }
 
-    /**
-     * Delete a category.
-     */
-    public function delete(Category $category): void
+    public function updateCategory(string $categoryId, string $storeId, UpdateCategoryData $data): Category
     {
+        $category = Category::where('id', $categoryId)
+            ->where('store_id', $storeId)
+            ->firstOrFail();
+        $category->fill($data->toArray());
+        $category->saveOrFail();
+        return $category;
+    }
+
+    public function deleteCategory(string $categoryId, string $storeId): Category
+    {
+        $category = Category::where('id', $categoryId)
+            ->where('store_id', $storeId)
+            ->firstOrFail();
+
         $category->deleteOrFail();
+
+        return $category;
+    }
+
+    public function getChildren(string $categoryId, string $storeId): Category
+    {
+        return Category::where('id', $categoryId)
+                ->where('store_id', $storeId)
+                ->with('recursiveChildren')
+                ->first();
     }
 }

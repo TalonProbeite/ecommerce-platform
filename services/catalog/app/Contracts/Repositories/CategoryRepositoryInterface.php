@@ -6,6 +6,8 @@ namespace App\Contracts\Repositories;
 
 use App\Models\Category;
 use Illuminate\Database\Eloquent\Collection;
+use App\DTO\CreateCategoryData;
+use App\DTO\UpdateCategoryData;
 
 interface CategoryRepositoryInterface
 {
@@ -35,13 +37,13 @@ interface CategoryRepositoryInterface
      */
     public function findChildren(string $parentID, string $storeID): Collection;
 
-    /**
-     * Save a category.
-     */
-    public function save(Category $category): Category;
+    public function findByStoreAndID(string $id, string $storeId): ?Category;
 
-    /**
-     * Delete a category.
-     */
-    public function delete(Category $category): void;
+     public function createCategory(CreateCategoryData $data, string $storeId): Category;
+
+     public function updateCategory(string $categoryId, string $storeId, UpdateCategoryData $data): Category;
+
+     public function deleteCategory(string $categoryId, string $storeId): Category;
+
+     public function getChildren(string $categoryId, string $storeId): Category;
 }
