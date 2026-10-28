@@ -80,4 +80,9 @@ class Category extends Model
     {
         return $this->children()->with('recursiveChildren');
     }
+
+    public static function cacheTag(string $storeId): string
+    {
+        return "store:{$storeId}:categories";
+    }
 }

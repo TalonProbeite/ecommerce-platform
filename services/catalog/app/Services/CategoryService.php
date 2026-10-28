@@ -15,6 +15,7 @@ use App\Messaging\Events\CategoryCreated;
 use App\Messaging\Events\CategoryUpdated;
 use App\Messaging\Events\CategoryDeleted;
 use App\Exceptions\HasSubcategoriesException;
+use Illuminate\Support\Facades\Cache;
 
 
 class CategoryService implements CategoryServiceInterface
@@ -27,7 +28,11 @@ class CategoryService implements CategoryServiceInterface
 
     public function list(string $storeID): Collection
     {
-        return $this->categoryRepository->findByStore($storeID);
+        return Cache::tags([Category::cacheTag($storeID)])->remember(
+            "store:{$storeID}:categories_tree",
+            now()->addDays(30),
+            fn () => $this->categoryRepository->findByStore($storeID)
+        );
     }
 
     public function get(string $categoryId, string $storeId): ?Category

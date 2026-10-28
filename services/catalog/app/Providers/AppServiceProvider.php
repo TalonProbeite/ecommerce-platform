@@ -21,6 +21,8 @@ use App\Repositories\StoreRepository;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Octane\Events\WorkerStopping;
+use App\Observers\CategoryObserver;
+use App\Models\Category;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -52,5 +54,7 @@ class AppServiceProvider extends ServiceProvider
 
             $event->app->make(RabbitMqPublisher::class)->close();
         });
+
+        Category::observe(CategoryObserver::class);
     }
 }
