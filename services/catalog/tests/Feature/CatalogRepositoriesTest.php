@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\DTO\CreateCategoryData;
 use App\DTO\CreateStoreData;
 use App\DTO\ProductFilters;
 use App\DTO\StoreFilters;
+use App\DTO\UpdateCategoryData;
 use App\DTO\UpdateStoreData;
 use App\Exceptions\StoreHasActiveRentalsException;
 use App\Enums\ProductSortField;
@@ -99,20 +101,43 @@ class CatalogRepositoriesTest extends PostgresTestCase
     public function test_categories_scope_tree_save_update_and_soft_delete(): void
     {
         $repository = new CategoryRepository();
-        $child = new Category(['store_id' => $this->store->id, 'parent_id' => $this->category->id, 'name' => 'Child', 'slug' => 'child']);
-        self::assertSame($child, $repository->save($child));
+        $child = $repository->createCategory(
+            new CreateCategoryData(name: 'Child', slug: 'child', parentId: $this->category->id),
+            $this->store->id,
+        );
+        self::assertInstanceOf(Category::class, $child);
+        self::assertSame('Child', $child->name);
+        self::assertSame($this->store->id, $child->store_id);
+        self::assertSame($this->category->id, $child->parent_id);
+
         $other = Store::create(['name' => 'Other']);
         Category::create(['store_id' => $other->id, 'name' => 'Other', 'slug' => 'tools']);
+
         self::assertInstanceOf(Collection::class, $repository->findByStore($this->store->id));
-        self::assertEqualsCanonicalizing([$this->category->id, $child->id], $repository->findByStore($this->store->id)->modelKeys());
+        // findByStore returns root categories with recursiveChildren loaded
+        self::assertSame([$this->category->id], $repository->findByStore($this->store->id)->modelKeys());
+        self::assertTrue($repository->findByStore($this->store->id)->first()->recursiveChildren->contains($child));
+
         self::assertSame([$this->category->id], $repository->findRoots($this->store->id)->modelKeys());
         self::assertSame([$child->id], $repository->findChildren($this->category->id, $this->store->id)->modelKeys());
         self::assertTrue($repository->findChildren($this->category->id, $other->id)->isEmpty());
+
+        $categoryWithChildren = $repository->getChildren($this->category->id, $this->store->id);
+        self::assertInstanceOf(Category::class, $categoryWithChildren);
+        self::assertTrue($categoryWithChildren->recursiveChildren->contains($child));
+
+        $foundByStoreAndId = $repository->findByStoreAndID($child->id, $this->store->id);
+        self::assertNotNull($foundByStoreAndId);
+        self::assertSame($child->id, $foundByStoreAndId->id);
+        self::assertNull($repository->findByStoreAndID($child->id, $other->id));
+
         self::assertTrue($child->parent->is($this->category));
-        $child->name = 'Updated';
-        $repository->save($child);
+
+        $updated = $repository->updateCategory($child->id, $this->store->id, new UpdateCategoryData(name: 'Updated'));
+        self::assertSame('Updated', $updated->name);
         self::assertSame('Updated', $repository->findByID($child->id)->name);
-        $repository->delete($child);
+
+        $repository->deleteCategory($child->id, $this->store->id);
         self::assertNull($repository->findByID($child->id));
         self::assertTrue(Category::withTrashed()->findOrFail($child->id)->trashed());
         self::assertTrue($repository->findChildren($this->category->id, $this->store->id)->isEmpty());

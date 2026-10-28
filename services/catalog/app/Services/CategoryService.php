@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Contracts\Services\CategoryServiceInterface;
-use App\Repositories\CategoryRepository;
 use Illuminate\Database\Eloquent\Collection;
 use App\DTO\CreateCategoryData;
 use App\DTO\UpdateCategoryData;
@@ -15,7 +14,8 @@ use App\Contracts\Messaging\EventPublisherInterface;
 use App\Messaging\Events\CategoryCreated;
 use App\Messaging\Events\CategoryUpdated;
 use App\Messaging\Events\CategoryDeleted;
-use Override;
+use App\Exceptions\HasSubcategoriesException;
+
 
 class CategoryService implements CategoryServiceInterface
 {
@@ -42,6 +42,7 @@ class CategoryService implements CategoryServiceInterface
 
     public function create(string $storeId, CreateCategoryData $data): Category
     {
+        // NOTE: Does not validate whether parentId belongs to the same storeId.
         $category =  $this->categoryRepository->createCategory($data, $storeId);
         $event = CategoryCreated::fromModel($category);
         $this->eventPublisher->publish($event);
@@ -51,6 +52,7 @@ class CategoryService implements CategoryServiceInterface
 
     public function update(string $categoryId, string $storeId, UpdateCategoryData $data): Category
     {
+         // NOTE: Missing validation for non-nullable fields (e.g. name, slug cannot be explicitly null).
          $category = $this->categoryRepository->updateCategory($categoryId, $storeId, $data);
          $event = CategoryUpdated::fromModel($category);
          $this->eventPublisher->publish($event);
@@ -60,6 +62,11 @@ class CategoryService implements CategoryServiceInterface
 
     public function delete(string $categoryId, string $storeId): void
     {
+        if ($this->categoryRepository->hasSubcategories($categoryId, $storeId))
+            {
+                throw new  HasSubcategoriesException($categoryId);
+            }
+
         $category = $this->categoryRepository->deleteCategory($categoryId, $storeId);
 
         $event= CategoryDeleted::fromModel($category);

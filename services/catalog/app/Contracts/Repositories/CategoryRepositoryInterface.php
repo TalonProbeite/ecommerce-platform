@@ -45,5 +45,7 @@ interface CategoryRepositoryInterface
 
      public function deleteCategory(string $categoryId, string $storeId): Category;
 
-     public function getChildren(string $categoryId, string $storeId): Category;
+     public function getChildren(string $categoryId, string $storeId): ?Category;
+
+     public function hasSubcategories(string $categoryId, string $storeId): bool;
 }

@@ -29,6 +29,7 @@ class CategoryRepository implements CategoryRepositoryInterface
 }
     /**
      * Find all categories for a given store.
+     * NOTE: Currently returns only root categories (with recursiveChildren), unlike previous flat query.
      *
      * @return Collection<int, Category>
      */
@@ -94,7 +95,14 @@ class CategoryRepository implements CategoryRepositoryInterface
         return $category;
     }
 
-    public function getChildren(string $categoryId, string $storeId): Category
+    public function hasSubcategories(string $categoryId, string $storeId): bool
+    {
+        return Category::where('parent_id', $categoryId)
+                ->where('store_id', $storeId)
+                ->exists();
+    }
+
+    public function getChildren(string $categoryId, string $storeId): ?Category
     {
         return Category::where('id', $categoryId)
                 ->where('store_id', $storeId)
