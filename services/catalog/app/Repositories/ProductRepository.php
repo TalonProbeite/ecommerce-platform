@@ -6,6 +6,7 @@ namespace App\Repositories;
 
 use App\Contracts\Repositories\ProductRepositoryInterface;
 use App\DTO\ProductFilters;
+use App\DTO\UpdateProductData;
 use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
@@ -17,7 +18,7 @@ class ProductRepository implements ProductRepositoryInterface
     public function findById(string $id, ?string $storeId = null): ?Product
     {
         return Product::query()
-            ->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId))
+            ->when($storeId !== null, fn($q) => $q->where('store_id', $storeId))
             ->find($id);
     }
 
@@ -30,7 +31,7 @@ class ProductRepository implements ProductRepositoryInterface
             ->with([
                 'category:id,name',
                 'stock',
-                'attributes' => fn ($q) => $q->select(['id', 'product_id', 'name', 'value'])
+                'attributes' => fn($q) => $q->select(['id', 'product_id', 'name', 'value'])
                     ->orderBy('name'),
             ])
             ->find($id);
@@ -60,31 +61,31 @@ class ProductRepository implements ProductRepositoryInterface
 
             ->when(
                 $filters->storeId !== null,
-                fn ($q) => $q->where('products.store_id', $filters->storeId)
+                fn($q) => $q->where('products.store_id', $filters->storeId)
             )
             ->when(
                 $filters->categoryId !== null,
-                fn ($q) => $q->where('products.category_id', $filters->categoryId)
+                fn($q) => $q->where('products.category_id', $filters->categoryId)
             )
             ->when(
                 $filters->minPrice !== null,
-                fn ($q) => $q->where('products.price_per_hour', '>=', $filters->minPrice)
+                fn($q) => $q->where('products.price_per_hour', '>=', $filters->minPrice)
             )
             ->when(
                 $filters->maxPrice !== null,
-                fn ($q) => $q->where('products.price_per_hour', '<=', $filters->maxPrice)
+                fn($q) => $q->where('products.price_per_hour', '<=', $filters->maxPrice)
             )
             ->when(
                 $filters->maxDeposit !== null,
-                fn ($q) => $q->where('products.deposit_amount', '<=', $filters->maxDeposit)
+                fn($q) => $q->where('products.deposit_amount', '<=', $filters->maxDeposit)
             )
             ->when(
                 $filters->isActive !== null,
-                fn ($q) => $q->where('products.is_active', $filters->isActive)
+                fn($q) => $q->where('products.is_active', $filters->isActive)
             )
             ->when(
                 $filters->isAvailable !== null,
-                fn ($q) => $filters->isAvailable
+                fn($q) => $filters->isAvailable
                     ? $q->whereRaw("({$availableExpr}) > 0")
                     : $q->whereRaw("({$availableExpr}) <= 0")
             )
@@ -94,5 +95,16 @@ class ProductRepository implements ProductRepositoryInterface
                 perPage: $filters->limit,
                 page: $filters->page,
             );
+    }
+
+    public function deleteProduct(string $productId): void
+    {
+        $product = Product::findOrFail($productId);
+        $product->deleteOrFail();
+    }
+
+    public function updateProduct(string $product, UpdateProductData $data): Product
+    {
+    
     }
 }
