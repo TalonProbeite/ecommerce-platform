@@ -25,7 +25,7 @@ class Product extends Model
 
     protected $fillable = [
         'name', 'slug', 'description', 'price_per_hour', 'deposit_amount',
-        'rating', 'reviews_count', 'is_active', 'store_id', 'category_id',
+        'is_active', 'store_id', 'category_id',
     ];
 
 
@@ -38,8 +38,6 @@ class Product extends Model
             'description' => 'string',
             'price_per_hour' => 'integer',
             'deposit_amount' => 'integer',
-            'rating' => 'decimal:2',
-            'reviews_count' => 'integer',
         ];
     }
 

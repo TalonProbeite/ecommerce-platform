@@ -22,48 +22,20 @@ class ProductRepository implements ProductRepositoryInterface
     }
 
     /**
-     * Find a product with related data by its ID, optionally scoped to a store.
+     * Find a single product with its category name, stock and attributes.
      */
-    public function findDetailedById(string $id, ?string $storeId = null): ?Product
+    public function findDetailedById(string $id): ?Product
     {
-        return Product::with([
-            'category',
-            'attributes',
-            'images' => fn ($q) => $q->orderBy('sort_order'),
-            'stock',
-        ])
-            ->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId))
+        return Product::query()
+            ->with([
+                'category:id,name',
+                'stock',
+                'attributes' => fn ($q) => $q->select(['id', 'product_id', 'name', 'value'])
+                    ->orderBy('name'),
+            ])
             ->find($id);
     }
 
-    /**
-     * Check if a product with the given slug exists in a store, optionally excluding a product ID.
-     */
-    public function existsBySlug(string $slug, string $storeId, ?string $excludeProductId = null): bool
-    {
-        return Product::withTrashed()
-            ->where('slug', $slug)
-            ->where('store_id', $storeId)
-            ->when($excludeProductId !== null, fn ($q) => $q->where('id', '!=', $excludeProductId))
-            ->exists();
-    }
-
-    /**
-     * Save a product.
-     */
-    public function save(Product $product): Product
-    {
-        $product->saveOrFail();
-        return $product;
-    }
-
-    /**
-     * Delete a product.
-     */
-    public function delete(Product $product): void
-    {
-        $product->deleteOrFail();
-    }
 
     /**
      * Find paginated products matching the given filters.
@@ -72,38 +44,52 @@ class ProductRepository implements ProductRepositoryInterface
      */
     public function findByFilters(ProductFilters $filters): LengthAwarePaginator
     {
+        $availableExpr = 'COALESCE(stocks.quantity, 0) - COALESCE(stocks.reserved, 0)';
+
         return Product::query()
-            ->with(['images' => fn ($q) => $q->where('is_main', true)])
+            ->select([
+                'products.*',
+                'categories.name as category_name',
+            ])
+            ->selectRaw("({$availableExpr}) as available")
+            ->join('categories', function ($join) {
+                $join->on('categories.id', '=', 'products.category_id')
+                    ->on('categories.store_id', '=', 'products.store_id');
+            })
+            ->leftJoin('stocks', 'stocks.product_id', '=', 'products.id')
+
             ->when(
                 $filters->storeId !== null,
-                fn ($q) => $q->where('store_id', $filters->storeId)
+                fn ($q) => $q->where('products.store_id', $filters->storeId)
             )
             ->when(
                 $filters->categoryId !== null,
-                fn ($q) => $q->where('category_id', $filters->categoryId)
+                fn ($q) => $q->where('products.category_id', $filters->categoryId)
             )
             ->when(
                 $filters->minPrice !== null,
-                fn ($q) => $q->where('price_per_hour', '>=', $filters->minPrice)
+                fn ($q) => $q->where('products.price_per_hour', '>=', $filters->minPrice)
             )
             ->when(
                 $filters->maxPrice !== null,
-                fn ($q) => $q->where('price_per_hour', '<=', $filters->maxPrice)
+                fn ($q) => $q->where('products.price_per_hour', '<=', $filters->maxPrice)
             )
             ->when(
                 $filters->maxDeposit !== null,
-                fn ($q) => $q->where('deposit_amount', '<=', $filters->maxDeposit)
-            )
-            ->when(
-                $filters->minRating !== null,
-                fn ($q) => $q->where('rating', '>=', $filters->minRating)
+                fn ($q) => $q->where('products.deposit_amount', '<=', $filters->maxDeposit)
             )
             ->when(
                 $filters->isActive !== null,
-                fn ($q) => $q->where('is_active', $filters->isActive)
+                fn ($q) => $q->where('products.is_active', $filters->isActive)
             )
-            ->orderBy($filters->sortBy->value, $filters->sortDirection->value)
-            ->orderBy('id')
+            ->when(
+                $filters->isAvailable !== null,
+                fn ($q) => $filters->isAvailable
+                    ? $q->whereRaw("({$availableExpr}) > 0")
+                    : $q->whereRaw("({$availableExpr}) <= 0")
+            )
+            ->orderBy("products.{$filters->sortBy->value}", $filters->sortDirection->value)
+            ->orderBy('products.id')
             ->paginate(
                 perPage: $filters->limit,
                 page: $filters->page,
