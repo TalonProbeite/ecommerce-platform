@@ -76,7 +76,7 @@ func (r *oauthUsers) CreateWithOauth(_ context.Context, u *domain.User) (uuid.UU
 
 type oauthTokens struct{ domain.TokenManager }
 
-func (oauthTokens) GenerateToken(string, ...roles.Role) (string, error) { return "access", nil }
+func (oauthTokens) GenerateToken(string, roles.Role, *string) (string, error) { return "access", nil }
 
 type oauthGoogle struct{ domain.GoogleClient }
 

@@ -189,6 +189,33 @@ func TestAuthService_Login(t *testing.T) {
 	}
 }
 
+func TestAuthService_LoginStoreManagerIncludesStoreIDInToken(t *testing.T) {
+	storeID := "33333333-3333-3333-3333-333333333333"
+
+	f := newFixture(t)
+	f.user.Role = roles.RoleStoreManager
+	f.user.StoreID = &storeID
+	f.storeID = &storeID
+
+	tokens, profile, err := f.svc.Login(testCtx(), &dto.LoginRequest{Email: testEmail, Password: testPassword})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assertTokenPair(t, f, tokens, testUserID, roles.RoleStoreManager)
+	if !f.called("users.GetStoreIDByUserID") {
+		t.Fatal("store id was not loaded for the store manager token")
+	}
+
+	req := f.tokenReqs[len(f.tokenReqs)-1]
+	if req.storeID == nil || *req.storeID != storeID {
+		t.Errorf("token store id = %v, want %q", req.storeID, storeID)
+	}
+	if profile.StoreID == nil || *profile.StoreID != storeID {
+		t.Errorf("profile store id = %v, want %q", profile.StoreID, storeID)
+	}
+}
+
 func TestAuthService_VerifyEmail(t *testing.T) {
 	verKey := "ver:" + testUserID
 

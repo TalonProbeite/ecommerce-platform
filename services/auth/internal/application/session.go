@@ -40,7 +40,12 @@ func (as *AuthService) CreateSession(
 		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
 	}
 
-	accessToken, err := as.tokenMng.GenerateToken(userID, role)
+	storeID, err := as.storeIDForToken(ctx, userID, role)
+	if err != nil {
+		return domain.TokenPair{}, err
+	}
+
+	accessToken, err := as.tokenMng.GenerateToken(userID, role, storeID)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error creating access token: %w", err)
 	}
@@ -65,4 +70,21 @@ func (as *AuthService) CreateSession(
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func (as *AuthService) storeIDForToken(
+	ctx context.Context,
+	userID string,
+	role roles.Role,
+) (*string, error) {
+	if role != roles.RoleStoreManager {
+		return nil, nil
+	}
+
+	storeID, err := as.userRepo.GetStoreIDByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting store id for token: %w", err)
+	}
+
+	return storeID, nil
 }

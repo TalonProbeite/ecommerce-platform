@@ -30,14 +30,15 @@ func unset(name string) {
 // ---------------------------------------------------------------------------
 
 type MockUserRepo struct {
-	GetByEmailFunc       func(context.Context, string) (*domain.User, error)
-	CreateFunc           func(context.Context, *domain.User) (uuid.UUID, error)
-	SetVerifiedFunc      func(context.Context, string) (string, string, error)
-	GetStatusFunc        func(context.Context, string) (bool, error)
-	GetByIDFunc          func(context.Context, string) (*domain.User, error)
-	GetByOAuthFunc       func(context.Context, string, string) (*domain.User, error)
-	CreateWithOauthFunc  func(context.Context, *domain.User) (uuid.UUID, error)
-	GetEmailByUserIDFunc func(context.Context, string) (string, error)
+	GetByEmailFunc         func(context.Context, string) (*domain.User, error)
+	CreateFunc             func(context.Context, *domain.User) (uuid.UUID, error)
+	SetVerifiedFunc        func(context.Context, string) (string, string, error)
+	GetStatusFunc          func(context.Context, string) (bool, error)
+	GetByIDFunc            func(context.Context, string) (*domain.User, error)
+	GetByOAuthFunc         func(context.Context, string, string) (*domain.User, error)
+	CreateWithOauthFunc    func(context.Context, *domain.User) (uuid.UUID, error)
+	GetEmailByUserIDFunc   func(context.Context, string) (string, error)
+	GetStoreIDByUserIDFunc func(context.Context, string) (*string, error)
 }
 
 func (m *MockUserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
@@ -94,6 +95,13 @@ func (m *MockUserRepo) GetEmailByUserID(ctx context.Context, userID string) (str
 		unset("GetEmailByUserIDFunc")
 	}
 	return m.GetEmailByUserIDFunc(ctx, userID)
+}
+
+func (m *MockUserRepo) GetStoreIDByUserID(ctx context.Context, userID string) (*string, error) {
+	if m.GetStoreIDByUserIDFunc == nil {
+		unset("GetStoreIDByUserIDFunc")
+	}
+	return m.GetStoreIDByUserIDFunc(ctx, userID)
 }
 
 // ---------------------------------------------------------------------------
@@ -195,19 +203,20 @@ func (m *MockPublisher) PublishEvent(eventKey string, payload []byte) error {
 }
 
 type MockTokenManager struct {
-	GenerateTokenFunc func(string, ...roles.Role) (string, error)
+	GenerateTokenFunc func(string, roles.Role, *string) (string, error)
 	VerifyTokenFunc   func(string) (string, roles.Role, error)
 }
 
 func (m *MockTokenManager) GenerateToken(
 	userID string,
-	role ...roles.Role,
+	role roles.Role,
+	storeID *string,
 ) (string, error) {
 	if m.GenerateTokenFunc == nil {
 		unset("GenerateTokenFunc")
 	}
 
-	return m.GenerateTokenFunc(userID, role...)
+	return m.GenerateTokenFunc(userID, role, storeID)
 }
 
 func (m *MockTokenManager) VerifyToken(

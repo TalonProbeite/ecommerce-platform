@@ -17,6 +17,7 @@ type AuthUserRepository interface {
 	GetByOAuth(ctx context.Context, provider, providerUserID string) (*User, error)
 	CreateWithOauth(ctx context.Context, u *User) (uuid.UUID, error)
 	GetEmailByUserID(ctx context.Context, userID string) (string, error)
+	GetStoreIDByUserID(ctx context.Context, userID string) (*string, error)
 }
 
 type ProfileUserRepository interface {
@@ -80,7 +81,8 @@ type EventPublisher interface {
 type TokenManager interface {
 	GenerateToken(
 		userID string,
-		role ...roles.Role,
+		role roles.Role,
+		storeID *string,
 	) (string, error)
 
 	VerifyToken(

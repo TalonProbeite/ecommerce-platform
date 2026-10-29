@@ -292,6 +292,34 @@ func (r *UserRepo) GetEmailByUserID(
 	return email, nil
 }
 
+func (r *UserRepo) GetStoreIDByUserID(
+	ctx context.Context,
+	userID string,
+) (*string, error) {
+	const query = `SELECT store_id FROM users WHERE id = $1`
+
+	var storeID sql.NullString
+
+	err := r.pg.GetContext(
+		ctx,
+		&storeID,
+		query,
+		userID,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to receive store id: %w", err)
+	}
+
+	if !storeID.Valid {
+		return nil, nil
+	}
+
+	return &storeID.String, nil
+}
+
 func (r *UserRepo) GetByIDProfile(ctx context.Context, userID string) (*domain.User, error) {
 	var u domain.User
 

@@ -64,8 +64,9 @@ type publishedEvent struct {
 }
 
 type tokenRequest struct {
-	userID string
-	role   []roles.Role
+	userID  string
+	role    roles.Role
+	storeID *string
 }
 
 // sessionWrite captures CreateSession / UpdateSessionTokens arguments.
@@ -87,6 +88,7 @@ type fixture struct {
 	user         *domain.User // nil => repo returns (nil, nil)
 	userActive   bool         // GetStatus result
 	newUserID    uuid.UUID    // Create / CreateWithOauth result
+	storeID      *string      // GetStoreIDByUserID result
 	profile      *domain.OAuthProfile
 	session      *domain.Session   // stored session for Refresh / Logout
 	store        map[string]string // key-value part of SessionRepository
@@ -200,6 +202,12 @@ func newFixture(t *testing.T) *fixture {
 				return "", err
 			}
 			return testEmail, nil
+		},
+		GetStoreIDByUserIDFunc: func(context.Context, string) (*string, error) {
+			if err := f.hit("users.GetStoreIDByUserID"); err != nil {
+				return nil, err
+			}
+			return f.storeID, nil
 		},
 	}
 
@@ -319,10 +327,10 @@ func newFixture(t *testing.T) *fixture {
 	}
 
 	tokens := &MockTokenManager{
-		GenerateTokenFunc: func(userID string, role ...roles.Role) (string, error) {
+		GenerateTokenFunc: func(userID string, role roles.Role, storeID *string) (string, error) {
 			f.tokenReqs = append(
 				f.tokenReqs,
-				tokenRequest{userID: userID, role: role},
+				tokenRequest{userID: userID, role: role, storeID: storeID},
 			)
 
 			if err := f.hit("tokens.GenerateToken"); err != nil {
@@ -479,7 +487,7 @@ func assertLastTokenRequest(t *testing.T, f *fixture, userID string, role roles.
 		t.Fatal("token manager was not called")
 	}
 	req := f.tokenReqs[len(f.tokenReqs)-1]
-	if req.userID != userID || len(req.role) != 1 || req.role[0] != role {
+	if req.userID != userID || req.role != role {
 		t.Errorf("GenerateToken(%q, %v), want (%q, [%s])", req.userID, req.role, userID, role)
 	}
 }

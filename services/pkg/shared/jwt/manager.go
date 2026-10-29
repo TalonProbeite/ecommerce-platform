@@ -52,30 +52,36 @@ func (m *JWTManager) WithTokenTTL(ttl time.Duration) *JWTManager {
 }
 
 type CustomClaim struct {
-	UserID string     `json:"user_id"`
-	Role   roles.Role `json:"role"`
+	UserID  string     `json:"user_id"`
+	Role    roles.Role `json:"role"`
+	StoreID *string    `json:"store_id,omitempty"`
 
 	jwt.RegisteredClaims
 }
 
 func (m *JWTManager) GenerateToken(
 	userID string,
-	role ...roles.Role,
+	role roles.Role,
+	storeID *string,
 ) (string, error) {
 	if m.privateKey == nil {
 		return "", ErrPrivateKeyRequired
 	}
 
-	currentRole := roles.RoleCustomer
-	if len(role) > 0 {
-		currentRole = role[0]
+	if role == "" {
+		role = roles.RoleCustomer
+	}
+
+	if role != roles.RoleStoreManager {
+		storeID = nil
 	}
 
 	now := time.Now()
 
 	claims := CustomClaim{
-		UserID: userID,
-		Role:   currentRole,
+		UserID:  userID,
+		Role:    role,
+		StoreID: storeID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(m.tokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
