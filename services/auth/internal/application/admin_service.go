@@ -87,3 +87,12 @@ func (ads *AdminService) BanUser(ctx context.Context, userID, adminID string, is
 
 	return nil
 }
+
+func (ads *AdminService) UpdateStore(ctx context.Context, userID, adminID string, storeID *string) error {
+	err := ads.userRepo.UpdateStoreID(ctx, userID, storeID)
+	if err != nil {
+		return fmt.Errorf("error updating store id: %w", err)
+	}
+
+	return nil
+}

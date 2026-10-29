@@ -15,6 +15,7 @@ type User struct {
 	IsActive        bool       `db:"is_active"`
 	IsEmailVerified bool       `db:"is_email_verified"`
 	IsOAuth         bool       `db:"is_oauth"`
+	StoreID         *string    `db:"store_id"`
 }
 type TokenPair struct {
 	AccessToken  string
@@ -48,6 +49,7 @@ type UserProfile struct {
 	LastName   string     `json:"last_name"`
 	Phone      string     `json:"phone"`
 	Role       roles.Role `json:"role"`
+	StoreID    *string    `json:"store_id,omitempty"`
 	IsVerified bool       `json:"is_verified"`
 	IsOAuth    bool       `json:"is_oauth"`
 }

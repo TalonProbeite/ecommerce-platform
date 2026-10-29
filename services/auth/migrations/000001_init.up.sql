@@ -2,9 +2,10 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255),
-    role VARCHAR(50) NOT NULL DEFAULT 'user',
+    role VARCHAR(50) NOT NULL DEFAULT 'customer',
     is_active BOOLEAN NOT NULL DEFAULT true,
     is_email_verified BOOLEAN NOT NULL DEFAULT false,
+    store_id UUID,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

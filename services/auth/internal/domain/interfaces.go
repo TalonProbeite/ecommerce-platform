@@ -30,6 +30,7 @@ type AdminUserRepository interface {
 	GetByID(ctx context.Context, userID string) (*User, error)
 	UpdateRole(ctx context.Context, userID string, role roles.Role) error
 	UpdateBanStatus(ctx context.Context, userID string, isActive bool) error
+	UpdateStoreID(ctx context.Context, userID string, storeID *string) error
 }
 
 type SessionRepository interface {

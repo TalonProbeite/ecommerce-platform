@@ -26,3 +26,18 @@ export function updateUserRole(id: string, role: UpdateRolePayload['role']) {
 export function updateUserBan(id: string, isBanned: boolean) {
   return updateUser(id, 'ban', { is_banned: isBanned })
 }
+
+export async function updateUserStore(id: string, storeId: string | null) {
+  const targetId = id.trim()
+  if (!targetId) throw new Error('Enter a user ID.')
+  const { data } = await api.patch<unknown>(
+    `/auth/api/admin/users/${encodeURIComponent(targetId)}/store`, { store_id: storeId },
+  )
+  const message = messageResponse(data)
+  const user = useAuthStore.getState().user
+  if (user?.id === targetId) {
+    if (!isMockApi) await useAuthStore.getState().reloadProfile()
+    else useAuthStore.setState({ user: { ...user, storeId } })
+  }
+  return message
+}

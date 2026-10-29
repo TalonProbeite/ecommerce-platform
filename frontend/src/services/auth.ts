@@ -11,7 +11,7 @@ function accountProfile(data: unknown): User {
   for (const field of ['email', 'first_name', 'last_name', 'phone']) {
     if (typeof profile[field] !== 'string') throw new Error('The server returned an invalid profile response.')
   }
-  if (profile.role !== undefined && !['customer', 'analyst', 'admin'].includes(profile.role as string)) {
+  if (profile.role !== undefined && !['customer', 'analyst', 'admin', 'store_manager'].includes(profile.role as string)) {
     throw new Error('The server returned an invalid profile response.')
   }
   if (profile.is_verified !== undefined && typeof profile.is_verified !== 'boolean') {
@@ -24,6 +24,7 @@ function accountProfile(data: unknown): User {
     ...(profile.is_oauth === undefined ? {} : { isOAuth: profile.is_oauth }),
     ...(profile.role === undefined ? {} : { role: profile.role as User['role'] }),
     ...(profile.is_verified === undefined ? {} : { emailVerified: profile.is_verified as boolean }),
+    ...(profile.store_id !== undefined ? { storeId: profile.store_id as string | null } : {}),
     email: profile.email as string,
     firstName: profile.first_name as string,
     lastName: profile.last_name as string,

@@ -1,7 +1,8 @@
-export type Role = 'customer' | 'analyst' | 'admin'
+export type Role = 'customer' | 'analyst' | 'admin' | 'store_manager'
 
 export interface UpdateRolePayload { role: Role }
 export interface UpdateBanPayload { is_banned: boolean }
+export interface UpdateStorePayload { store_id?: string | null }
 
 export interface User {
   id?: string
@@ -10,6 +11,7 @@ export interface User {
   lastName?: string
   phone?: string
   role?: Role
+  storeId?: string | null
   emailVerified?: boolean
   isOAuth?: boolean
   isBanned?: boolean

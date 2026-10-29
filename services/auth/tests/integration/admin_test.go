@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	adminRolePath = "/api/admin/users/%s/role"
-	adminBanPath  = "/api/admin/users/%s/ban"
+	adminRolePath  = "/api/admin/users/%s/role"
+	adminBanPath   = "/api/admin/users/%s/ban"
+	adminStorePath = "/api/admin/users/%s/store"
 )
 
 func requireAdminCredentials(t *testing.T) (string, string) {
@@ -83,8 +84,9 @@ func TestAdminUnauthorized(t *testing.T) {
 	requireIntegration(t)
 
 	for name, path := range map[string]string{
-		"role": fmt.Sprintf(adminRolePath, testTargetID),
-		"ban":  fmt.Sprintf(adminBanPath, testTargetID),
+		"role":  fmt.Sprintf(adminRolePath, testTargetID),
+		"ban":   fmt.Sprintf(adminBanPath, testTargetID),
+		"store": fmt.Sprintf(adminStorePath, testTargetID),
 	} {
 		t.Run(name, func(t *testing.T) {
 			result := doRequest(t, newTestClient(t), http.MethodPatch, path, []byte(`{}`), nil)
@@ -117,6 +119,10 @@ func TestAdminRejectsNonAdmin(t *testing.T) {
 		"ban": {
 			path: fmt.Sprintf(adminBanPath, testTargetID),
 			body: `{"is_banned":true}`,
+		},
+		"store": {
+			path: fmt.Sprintf(adminStorePath, testTargetID),
+			body: `{"store_id":"018f1234-5678-7000-8000-000000000099"}`,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

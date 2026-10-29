@@ -109,3 +109,46 @@ func (ah *AdminHandler) BanUser(c echo.Context, adminID string) error {
 		"message": "user ban status updated successfully",
 	})
 }
+
+func (ah *AdminHandler) UpdateStore(c echo.Context, adminID string) error {
+	targetUserID := c.Param("id")
+	var req dto.UpdateStoreReq
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid request format",
+		})
+	}
+
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{
+			"error": err.Error(),
+		})
+	}
+
+	if err := ah.adminService.UpdateStore(
+		c.Request().Context(),
+		targetUserID,
+		adminID,
+		req.StoreID,
+	); err != nil {
+		switch {
+		case errors.Is(err, domain.ErrUserNotFound):
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"error": "user not found",
+			})
+		default:
+			ah.log.Error(
+				"failed to update user store id",
+				slog.String("err", err.Error()),
+			)
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "internal server error",
+			})
+		}
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "user store updated successfully",
+	})
+}

@@ -15,6 +15,9 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { to: ROUTES.admin, label: 'Admin' },
     { to: ROUTES.notifications, label: 'Notifications' },
   ],
+  store_manager: [
+    { to: ROUTES.catalog, label: 'Catalog' },
+  ],
 }
 
 export function roleHome(role?: Role): string {

@@ -150,6 +150,7 @@ func (as *AuthService) Login(
 		LastName:   user.LastName,
 		Phone:      user.Phone,
 		Role:       user.Role,
+		StoreID:    user.StoreID,
 		IsVerified: user.IsEmailVerified,
 	}, nil
 }
