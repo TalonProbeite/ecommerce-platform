@@ -6,45 +6,42 @@ namespace App\Repositories;
 
 use App\Contracts\Repositories\StockRepositoryInterface;
 use App\Models\Stock;
-use Illuminate\Database\Eloquent\Collection;
+use App\DTO\UpdateStockData;
 
 class StockRepository implements StockRepositoryInterface
 {
-    /**
-     * Find stock by product ID and store ID.
-     */
-    public function findByProductAndStore(string $productID, string $storeID): ?Stock
+    public function findByProductId(string $productId): ?Stock
     {
-        return Stock::where('product_id', $productID)
-            ->where('store_id', $storeID)
+        return Stock::where('product_id', $productId)
             ->first();
     }
 
-    /**
-     * Find all stock records for a given store.
-     *
-     * @return Collection<int, Stock>
-     */
-    public function findByStore(string $storeID): Collection
+    public function findById(string $stockId): ?Stock
     {
-        return Stock::where('store_id', $storeID)
-            ->get();
+        return Stock::find($stockId)->first();
     }
 
-    /**
-     * Save a stock record.
-     */
-    public function save(Stock $stock): Stock
+    public function createStock(string $productId, string $storeId, int $quantity): Stock
     {
+        return Stock::create([
+            'product_id' => $productId,
+            'store_id' => $storeId,
+            'quantity' => $quantity,
+        ]);
+    }
+
+    public function applyDelta(Stock $stock, UpdateStockData $data): Stock
+    {
+        if ($data->quantityDelta !== null) {
+            $stock->quantity += $data->quantityDelta;
+        }
+
+        if ($data->reservedDelta !== null) {
+            $stock->reserved += $data->reservedDelta;
+        }
+
         $stock->saveOrFail();
-        return $stock;
-    }
 
-    /**
-     * Delete a stock record.
-     */
-    public function delete(Stock $stock): void
-    {
-        $stock->deleteOrFail();
+        return $stock;
     }
 }

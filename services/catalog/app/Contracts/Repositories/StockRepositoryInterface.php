@@ -5,29 +5,15 @@ declare(strict_types=1);
 namespace App\Contracts\Repositories;
 
 use App\Models\Stock;
-use Illuminate\Database\Eloquent\Collection;
+use App\DTO\UpdateStockData;
 
 interface StockRepositoryInterface
 {
-    /**
-     * Find stock by product ID and store ID.
-     */
-    public function findByProductAndStore(string $productID, string $storeID): ?Stock;
+    public function findByProductId(string $productId): ?Stock;
 
-    /**
-     * Find all stock records for a given store.
-     *
-     * @return Collection<int, Stock>
-     */
-    public function findByStore(string $storeID): Collection;
+    public function findById(string $stockId): ?Stock;
 
-    /**
-     * Save a stock record.
-     */
-    public function save(Stock $stock): Stock;
+    public function createStock(string $productId, string $storeId, int $quantity): Stock;
 
-    /**
-     * Delete a stock record.
-     */
-    public function delete(Stock $stock): void;
+    public function applyDelta(Stock $stock, UpdateStockData $data): Stock;
 }
