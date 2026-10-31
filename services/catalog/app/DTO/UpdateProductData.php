@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\DTO;
 
-use App\DTO\ProductAttributeData;
-
 /**
  * Non-null values imply presence. To explicitly supply null, set the matching
  * Provided argument to true. A false Provided property means leave unchanged.
@@ -22,13 +20,7 @@ final readonly class UpdateProductData
     public bool $descriptionProvided;
     public bool $depositAmountProvided;
     public bool $isActiveProvided;
-    public bool $attributeProvided;
-    public bool $quantityProvided;
-    public bool $reservedProvided;
 
-    /**
-     * @param array<ProductAttributeData> $attribute
-     */
     public function __construct(
         public ?string $name = null,
         public ?string $slug = null,
@@ -37,9 +29,6 @@ final readonly class UpdateProductData
         public ?string $description = null,
         public ?int $depositAmount = null,
         public ?bool $isActive = null,
-        public ?array $attribute = null,
-        public ?int $quantity = null,
-        public ?int $reserved = null,
         bool $nameProvided = false,
         bool $slugProvided = false,
         bool $categoryIdProvided = false,
@@ -47,9 +36,7 @@ final readonly class UpdateProductData
         bool $descriptionProvided = false,
         bool $depositAmountProvided = false,
         bool $isActiveProvided = false,
-        bool $attributeProvided = false,
-        bool $quantityProvided = false,
-        bool $reservedProvided = false,
+
 
     ) {
         $this->nameProvided = $nameProvided || $name !== null;
@@ -59,8 +46,40 @@ final readonly class UpdateProductData
         $this->descriptionProvided = $descriptionProvided || $description !== null;
         $this->depositAmountProvided = $depositAmountProvided || $depositAmount !== null;
         $this->isActiveProvided = $isActiveProvided || $isActive !== null;
-        $this->reservedProvided = $reservedProvided || $reserved !== null;
-        $this->quantityProvided = $quantityProvided || $quantity !== null;
-        $this->attributeProvided = $attributeProvided || $attribute !== null;
+    }
+
+
+    public function toArray(): array
+    {
+        $data = [];
+
+        if ($this->nameProvided) {
+            $data['name'] = $this->name;
+        }
+        if ($this->slugProvided) {
+            $data['slug'] = $this->slug;
+        }
+
+        if ($this->categoryIdProvided) {
+            $data["category_id"] = $this->categoryId;
+        }
+
+        if ($this->pricePerHourProvided) {
+            $data['price_per_hour'] = $this->pricePerHour;
+        }
+
+        if ($this->descriptionProvided) {
+            $data['description'] = $this->description;
+        }
+
+        if ($this->depositAmountProvided) {
+            $data['deposit_amount'] = $this->depositAmount;
+        }
+
+        if ($this->isActiveProvided) {
+            $data['is_active'] = $this->isActive;
+        }
+
+        return $data;
     }
 }

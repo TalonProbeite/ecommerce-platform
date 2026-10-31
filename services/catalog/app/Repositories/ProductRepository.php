@@ -9,6 +9,7 @@ use App\DTO\ProductFilters;
 use App\DTO\UpdateProductData;
 use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use App\DTO\CreateProductData;
 
 class ProductRepository implements ProductRepositoryInterface
 {
@@ -103,8 +104,27 @@ class ProductRepository implements ProductRepositoryInterface
         $product->deleteOrFail();
     }
 
-    public function updateProduct(string $product, UpdateProductData $data): Product
+    public function restoreProduct(string $productId): Product
     {
-    
+        $product = Product::withTrashed()->findOrFail($productId);
+        $product->restore();
+
+        return $product;
+    }
+
+    public function updateProduct(string $productId, UpdateProductData $data): Product
+    {
+        $product = Product::findOrFail($productId);
+        $product->fill($data->toArray());
+        $product->saveOrFail();
+        return $product;
+    }
+
+    public function createProduct(string $productId, CreateProductData $data): Product
+    {
+        $product = new Product();
+        $product->fill($data->toArray());
+        $product->saveOrFail();
+        return $product;
     }
 }

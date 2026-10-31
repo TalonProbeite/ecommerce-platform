@@ -7,6 +7,8 @@ namespace App\Contracts\Repositories;
 use App\DTO\ProductFilters;
 use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use App\DTO\UpdateProductData;
+use App\DTO\CreateProductData;
 
 interface ProductRepositoryInterface
 {
@@ -18,12 +20,8 @@ interface ProductRepositoryInterface
     /**
      * Find a product with related data by its ID, optionally scoped to a store.
      */
-    public function findDetailedById(string $id, ?string $storeId = null): ?Product;
+    public function findDetailedById(string $id): ?Product;
 
-    /**
-     * Check if a product with the given slug exists in a store, optionally excluding a product ID.
-     */
-    public function existsBySlug(string $slug, string $storeId, ?string $excludeProductId = null): bool;
 
     /**
      * Find paginated products matching the given filters.
@@ -32,13 +30,11 @@ interface ProductRepositoryInterface
      */
     public function findByFilters(ProductFilters $filters): LengthAwarePaginator;
 
-    /**
-     * Save a product.
-     */
-    public function save(Product $product): Product;
+    public function updateProduct(string $productId, UpdateProductData $data): Product;
 
-    /**
-     * Delete a product.
-     */
-    public function delete(Product $product): void;
+    public function restoreProduct(string $productId): Product;
+
+    public function deleteProduct(string $productId): void;
+
+    public function createProduct(string $productId, CreateProductData $data): Product;
 }

@@ -17,6 +17,18 @@ final readonly class CreateProductData
         public ?string $description = null,
         public int $depositAmount = 0,
         public bool $isActive = true,
-    ) {
+    ) {}
+
+    public function toArray(): array
+    {
+        return [
+            'name' => $this->name,
+            'slug' => $this->slug,
+            'category_id' => $this->categoryId,
+            'price_per_hour' => $this->pricePerHour,
+            'description' => $this->description,
+            'deposit_amount' => $this->depositAmount,
+            'is_active' => $this->isActive,
+        ];
     }
 }
