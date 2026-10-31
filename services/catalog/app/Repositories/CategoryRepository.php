@@ -21,12 +21,12 @@ class CategoryRepository implements CategoryRepositoryInterface
     }
 
     public function findByStoreAndID(string $id, string $storeId): ?Category
-{
-    return Category::with('recursiveParent')
-        ->where('id', $id)
-        ->where('store_id', $storeId)
-        ->first();
-}
+    {
+        return Category::with('recursiveParent')
+            ->where('id', $id)
+            ->where('store_id', $storeId)
+            ->first();
+    }
     /**
      * Find all categories for a given store.
      * NOTE: Currently returns only root categories (with recursiveChildren), unlike previous flat query.
@@ -69,7 +69,7 @@ class CategoryRepository implements CategoryRepositoryInterface
     {
         $category = new Category();
         $category->fill($data->toArray());
-        $category->store_id = $storeId; 
+        $category->store_id = $storeId;
         $category->saveOrFail();
         return $category;
     }

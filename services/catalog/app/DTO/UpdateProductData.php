@@ -36,8 +36,6 @@ final readonly class UpdateProductData
         bool $descriptionProvided = false,
         bool $depositAmountProvided = false,
         bool $isActiveProvided = false,
-
-
     ) {
         $this->nameProvided = $nameProvided || $name !== null;
         $this->slugProvided = $slugProvided || $slug !== null;

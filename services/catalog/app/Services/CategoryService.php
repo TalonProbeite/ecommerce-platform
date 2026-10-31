@@ -17,14 +17,13 @@ use App\Messaging\Events\CategoryDeleted;
 use App\Exceptions\HasSubcategoriesException;
 use Illuminate\Support\Facades\Cache;
 
-
 class CategoryService implements CategoryServiceInterface
 {
     public function __construct(
         private CategoryRepositoryInterface $categoryRepository,
         private EventPublisherInterface $eventPublisher,
-
-    ){}
+    ) {
+    }
 
     public function list(string $storeID): Collection
     {
@@ -57,24 +56,23 @@ class CategoryService implements CategoryServiceInterface
 
     public function update(string $categoryId, string $storeId, UpdateCategoryData $data): Category
     {
-         // NOTE: Missing validation for non-nullable fields (e.g. name, slug cannot be explicitly null).
-         $category = $this->categoryRepository->updateCategory($categoryId, $storeId, $data);
-         $event = CategoryUpdated::fromModel($category);
-         $this->eventPublisher->publish($event);
+        // NOTE: Missing validation for non-nullable fields (e.g. name, slug cannot be explicitly null).
+        $category = $this->categoryRepository->updateCategory($categoryId, $storeId, $data);
+        $event = CategoryUpdated::fromModel($category);
+        $this->eventPublisher->publish($event);
 
-         return $category;
-    }    
+        return $category;
+    }
 
     public function delete(string $categoryId, string $storeId): void
     {
-        if ($this->categoryRepository->hasSubcategories($categoryId, $storeId))
-            {
-                throw new  HasSubcategoriesException($categoryId);
-            }
+        if ($this->categoryRepository->hasSubcategories($categoryId, $storeId)) {
+            throw new HasSubcategoriesException($categoryId);
+        }
 
         $category = $this->categoryRepository->deleteCategory($categoryId, $storeId);
 
-        $event= CategoryDeleted::fromModel($category);
+        $event = CategoryDeleted::fromModel($category);
 
         $this->eventPublisher->publish($event);
     }

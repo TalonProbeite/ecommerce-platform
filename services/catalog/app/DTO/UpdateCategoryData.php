@@ -30,13 +30,13 @@ final readonly class UpdateCategoryData
     }
 
     /**
-     * @return array{name?: string|null, slug?: string|null, parent_id?: string|null}
+     * @return array<string, string>
      */
     public function toArray(): array
     {
         $data = [];
 
-        if($this->nameProvided) {
+        if ($this->nameProvided) {
             $data['name'] = $this->name;
         }
 
@@ -44,7 +44,7 @@ final readonly class UpdateCategoryData
             $data['slug'] = $this->slug;
         }
 
-        if($this->parentIdProvided) {
+        if ($this->parentIdProvided) {
             $data['parent_id'] = $this->parentId;
         }
 

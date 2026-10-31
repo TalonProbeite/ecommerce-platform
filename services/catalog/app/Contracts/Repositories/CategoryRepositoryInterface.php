@@ -39,13 +39,13 @@ interface CategoryRepositoryInterface
 
     public function findByStoreAndID(string $id, string $storeId): ?Category;
 
-     public function createCategory(CreateCategoryData $data, string $storeId): Category;
+    public function createCategory(CreateCategoryData $data, string $storeId): Category;
 
-     public function updateCategory(string $categoryId, string $storeId, UpdateCategoryData $data): Category;
+    public function updateCategory(string $categoryId, string $storeId, UpdateCategoryData $data): Category;
 
-     public function deleteCategory(string $categoryId, string $storeId): Category;
+    public function deleteCategory(string $categoryId, string $storeId): Category;
 
-     public function getChildren(string $categoryId, string $storeId): ?Category;
+    public function getChildren(string $categoryId, string $storeId): ?Category;
 
-     public function hasSubcategories(string $categoryId, string $storeId): bool;
+    public function hasSubcategories(string $categoryId, string $storeId): bool;
 }

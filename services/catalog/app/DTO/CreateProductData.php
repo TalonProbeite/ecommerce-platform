@@ -17,8 +17,12 @@ final readonly class CreateProductData
         public ?string $description = null,
         public int $depositAmount = 0,
         public bool $isActive = true,
-    ) {}
+    ) {
+    }
 
+    /**
+     * @return array<string, int|bool|string>
+     */
     public function toArray(): array
     {
         return [
