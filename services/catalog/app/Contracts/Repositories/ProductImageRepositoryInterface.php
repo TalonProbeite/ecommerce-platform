@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Contracts\Repositories;
 
 use App\Models\ProductImage;
@@ -10,24 +8,39 @@ use Illuminate\Database\Eloquent\Collection;
 interface ProductImageRepositoryInterface
 {
     /**
-     * Find all images for a given product.
-     *
-     * @return Collection<int, ProductImage>
+     * @param array{
+     *     id: string,
+     *     product_id: string,
+     *     object_key: string,
+     *     mime_type: string|null,
+     *     size: int|null
+     * } $data
      */
-    public function findByProduct(string $productID): Collection;
+    public function create(array $data): ProductImage;
+
+    public function findByIdForProduct(
+        string $imageId,
+        string $productId,
+    ): ?ProductImage;
+
+    /** @return Collection<int, ProductImage> */
+    public function listForProduct(string $productId): Collection;
 
     /**
-     * Find a product image by its ID and product ID.
+     * @param array{
+     *     object_key?: string,
+     *     mime_type?: string|null,
+     *     size?: int|null
+     * } $data
      */
-    public function findById(string $imageID, string $productID): ?ProductImage;
+    public function update(
+        ProductImage $image,
+        array $data,
+    ): ProductImage;
 
-    /**
-     * Save a product image.
-     */
-    public function save(ProductImage $productImage): ProductImage;
+    public function delete(ProductImage $image): void;
 
-    /**
-     * Delete a product image.
-     */
-    public function delete(ProductImage $productImage): void;
+    public function firstForProduct(
+        string $productId,
+    ): ?ProductImage;
 }
