@@ -1,51 +1,61 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Repositories;
 
-use App\Models\ProductImage;
 use App\Contracts\Repositories\ProductImageRepositoryInterface;
+use App\Models\ProductImage;
 use Illuminate\Database\Eloquent\Collection;
 
-class ProductImageRepository implements ProductImageRepositoryInterface
+final class ProductImageRepository implements ProductImageRepositoryInterface
 {
-    /**
-     * Find all images for a given product.
-     *
-     * @return Collection<int, ProductImage>
-     */
-    public function findByProduct(string $productID): Collection
+    public function create(array $data): ProductImage
     {
-        return ProductImage::where('product_id', $productID)
-            ->orderBy('sort_order')
-            ->get();
+        return ProductImage::query()->create($data);
     }
 
-    /**
-     * Find a product image by its ID and product ID.
-     */
-    public function findById(string $imageID, string $productID): ?ProductImage
-    {
-        return ProductImage::where('id', $imageID)
-            ->where('product_id', $productID)
+    public function findByIdForProduct(
+        string $imageId,
+        string $productId,
+    ): ?ProductImage {
+        return ProductImage::query()
+            ->where('product_id', $productId)
+            ->whereKey($imageId)
             ->first();
     }
 
     /**
-     * Save a product image.
+     * @return Collection<int, ProductImage>
      */
-    public function save(ProductImage $productImage): ProductImage
+    public function listForProduct(string $productId): Collection
     {
-        $productImage->saveOrFail();
-        return $productImage;
+        return ProductImage::query()
+            ->where('product_id', $productId)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
     }
 
-    /**
-     * Delete a product image.
-     */
-    public function delete(ProductImage $productImage): void
+    public function update(
+        ProductImage $image,
+        array $data,
+    ): ProductImage {
+        $image->update($data);
+
+        return $image->refresh();
+    }
+
+    public function delete(ProductImage $image): void
     {
-        $productImage->deleteOrFail();
+        $image->delete();
+    }
+
+    public function firstForProduct(
+        string $productId,
+    ): ?ProductImage {
+        return ProductImage::query()
+            ->where('product_id', $productId)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->first();
     }
 }
