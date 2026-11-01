@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Messaging\Events;
 
-use App\Contracts\Messaging\EventInterface;
+use App\Domain\Contracts\EventInterface;
 use App\Messaging\RoutingKeys;
 
 final readonly class CategoryCreated implements EventInterface

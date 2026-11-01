@@ -81,7 +81,7 @@ class RabbitMqPublisherTest extends TestCase
         $channel = $this->createMock(AMQPChannel::class);
         $connection->expects(self::never())->method('isConnected');
         $channel->expects(self::never())->method('basic_publish');
-        $event = $this->createMock(\App\Contracts\Messaging\EventInterface::class);
+        $event = $this->createMock(\App\Domain\Contracts\EventInterface::class);
         $event->method('toArray')->willReturn(['invalid' => "\xB1\x31"]);
         $event->expects(self::never())->method('routingKey');
         $publisher = $this->publisher($connection, $channel);

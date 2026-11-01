@@ -11,7 +11,7 @@ return new class () extends Migration {
         Schema::create('product_images', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('product_id')->constrained()->cascadeOnDelete();
-            $table->string('path', 255);
+            $table->text('path');
             $table->boolean('is_main')->default(false);
             $table->integer('sort_order')->default(0);
             $table->timestamps();

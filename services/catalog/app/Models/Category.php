@@ -19,7 +19,7 @@ class Category extends Model
 
     public function newUniqueId(): string
     {
-        return (string) Uuid::uuid7();
+        return Uuid::uuid7()->toString();
     }
 
     protected $fillable = ['name', 'slug', 'parent_id', 'store_id'];

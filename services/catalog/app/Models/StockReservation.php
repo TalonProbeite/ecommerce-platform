@@ -19,10 +19,7 @@ class StockReservation extends Model
         return (string) Uuid::uuid7();
     }
 
-    protected $fillable = [
-        'order_id', 'product_id', 'store_id', 'quantity', 'status',
-        'rental_start_at', 'rental_end_at', 'issued_at', 'returned_at',
-    ];
+    protected $guarded = ['id'];
 
     // Preserve the supplied offset when Eloquent writes PostgreSQL TIMESTAMPTZ values.
     protected $dateFormat = 'Y-m-d H:i:sP';
