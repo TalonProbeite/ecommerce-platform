@@ -7,8 +7,8 @@ namespace App\DTO;
 /**
  * Non-null values imply presence. To explicitly supply null, set the matching
  * Provided argument to true. A false Provided property means leave unchanged.
- * Only nullable schema fields (description, location) may be cleared; the service must
- * reject explicit null for all other fields as an invalid business operation.
+ * Only nullable schema fields (description, location) may be cleared; HTTP validation
+ * (Form Requests) must reject explicit null for all other fields.
  */
 final readonly class UpdateStoreData
 {

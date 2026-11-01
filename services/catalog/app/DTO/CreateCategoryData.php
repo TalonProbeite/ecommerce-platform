@@ -17,7 +17,7 @@ final readonly class CreateCategoryData
     }
 
     /**
-     * @return array{name: string, slug: string|null, parent_id: string|null}
+     * @return array{name: string, slug: string, parent_id: string|null}
      */
     public function toArray(): array
     {

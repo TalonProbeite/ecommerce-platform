@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Contracts\Repositories\ProductRepositoryInterface;
+use App\DTO\CreateProductData;
 use App\DTO\ProductFilters;
 use App\DTO\UpdateProductData;
 use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use App\DTO\CreateProductData;
 
 class ProductRepository implements ProductRepositoryInterface
 {
@@ -24,20 +24,21 @@ class ProductRepository implements ProductRepositoryInterface
     }
 
     /**
-     * Find a single product with its category name, stock and attributes.
+     * Find a single product with its category, stock, attributes and images.
      */
-    public function findDetailedById(string $id): ?Product
+    public function findDetailedById(string $id, ?string $storeId = null): ?Product
     {
         return Product::query()
+            ->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId))
             ->with([
                 'category:id,name',
                 'stock',
                 'attributes' => fn ($q) => $q->select(['id', 'product_id', 'name', 'value'])
                     ->orderBy('name'),
+                'images' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
             ])
             ->find($id);
     }
-
 
     /**
      * Find paginated products matching the given filters.
@@ -59,7 +60,6 @@ class ProductRepository implements ProductRepositoryInterface
                     ->on('categories.store_id', '=', 'products.store_id');
             })
             ->leftJoin('stocks', 'stocks.product_id', '=', 'products.id')
-
             ->when(
                 $filters->storeId !== null,
                 fn ($q) => $q->where('products.store_id', $filters->storeId)
@@ -98,33 +98,53 @@ class ProductRepository implements ProductRepositoryInterface
             );
     }
 
-    public function deleteProduct(string $productId): void
+    public function createProduct(string $productId, string $storeId, CreateProductData $data): Product
     {
-        $product = Product::findOrFail($productId);
+        $product = new Product();
+        $product->id = $productId;
+        $product->store_id = $storeId;
+        $product->fill($data->toArray());
+        $product->saveOrFail();
+
+        return $product;
+    }
+
+    public function updateProduct(string $productId, string $storeId, UpdateProductData $data): Product
+    {
+        $product = Product::query()
+            ->where('store_id', $storeId)
+            ->findOrFail($productId);
+        $product->fill($data->toArray());
+        $product->saveOrFail();
+
+        return $product;
+    }
+
+    public function deleteProduct(string $productId, string $storeId): void
+    {
+        $product = Product::query()
+            ->where('store_id', $storeId)
+            ->findOrFail($productId);
         $product->deleteOrFail();
     }
 
-    public function restoreProduct(string $productId): Product
+    public function restoreProduct(string $productId, string $storeId): Product
     {
-        $product = Product::withTrashed()->findOrFail($productId);
+        $product = Product::withTrashed()
+            ->where('store_id', $storeId)
+            ->findOrFail($productId);
         $product->restore();
 
         return $product;
     }
 
-    public function updateProduct(string $productId, UpdateProductData $data): Product
+    /**
+     * Determine whether any product, including a soft-deleted one, belongs to the category.
+     */
+    public function hasByCategory(string $categoryId): bool
     {
-        $product = Product::findOrFail($productId);
-        $product->fill($data->toArray());
-        $product->saveOrFail();
-        return $product;
-    }
-
-    public function createProduct(string $productId, CreateProductData $data): Product
-    {
-        $product = new Product();
-        $product->fill($data->toArray());
-        $product->saveOrFail();
-        return $product;
+        return Product::withTrashed()
+            ->where('category_id', $categoryId)
+            ->exists();
     }
 }

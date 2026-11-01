@@ -36,6 +36,10 @@ final readonly class UpdateProductData
         bool $descriptionProvided = false,
         bool $depositAmountProvided = false,
         bool $isActiveProvided = false,
+        /**
+         * @var array<int, ProductAttributeData>|null
+         */
+        public ?array $attributes = null,
     ) {
         $this->nameProvided = $nameProvided || $name !== null;
         $this->slugProvided = $slugProvided || $slug !== null;

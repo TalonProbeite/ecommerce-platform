@@ -29,4 +29,6 @@ interface ProductAttributeRepositoryInterface
     public function updateProductAttribute(string $attributeId, UpdateProductAttribute $data): ProductAttribute;
 
     public function deleteProductAttribute(string $attributeId): void;
+
+    public function deleteAllByProductId(string $productId): void;
 }

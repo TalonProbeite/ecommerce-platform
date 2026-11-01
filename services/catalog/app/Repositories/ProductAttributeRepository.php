@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
-use App\Models\ProductAttribute;
-use App\DTO\ProductAttributeData;
-use Illuminate\Database\Eloquent\Collection;
-use App\DTO\UpdateProductAttribute;
 use App\Contracts\Repositories\ProductAttributeRepositoryInterface;
+use App\DTO\ProductAttributeData;
+use App\DTO\UpdateProductAttribute;
+use App\Models\ProductAttribute;
+use Illuminate\Database\Eloquent\Collection;
+use Ramsey\Uuid\Uuid;
 
 class ProductAttributeRepository implements ProductAttributeRepositoryInterface
 {
@@ -26,22 +27,22 @@ class ProductAttributeRepository implements ProductAttributeRepositoryInterface
     }
 
     /**
-     * Undocumented function
-     *
      * @param array<int, ProductAttributeData> $data
-     * @param string $productId
-     * @return void
      */
     public function createProductAttribute(array $data, string $productId): void
     {
         if ($data === []) {
             return;
         }
+
+        $now = now();
         $rows = array_map(
             static fn (ProductAttributeData $dto): array => [
-                ...$dto->toArray(),
+                'id' => (string) Uuid::uuid7(),
                 'product_id' => $productId,
-
+                ...$dto->toArray(),
+                'created_at' => $now,
+                'updated_at' => $now,
             ],
             $data,
         );
@@ -63,5 +64,12 @@ class ProductAttributeRepository implements ProductAttributeRepositoryInterface
     {
         $attribute = ProductAttribute::findOrFail($attributeId);
         $attribute->deleteOrFail();
+    }
+
+    public function deleteAllByProductId(string $productId): void
+    {
+        ProductAttribute::query()
+            ->where('product_id', $productId)
+            ->delete();
     }
 }

@@ -30,7 +30,7 @@ final readonly class UpdateCategoryData
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, string|null>
      */
     public function toArray(): array
     {

@@ -16,9 +16,18 @@ class StockRepository implements StockRepositoryInterface
             ->first();
     }
 
+    public function lockByProductId(string $productId, ?string $storeId = null): ?Stock
+    {
+        return Stock::query()
+            ->where('product_id', $productId)
+            ->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId))
+            ->lockForUpdate()
+            ->first();
+    }
+
     public function findById(string $stockId): ?Stock
     {
-        return Stock::find($stockId)->first();
+        return Stock::find($stockId);
     }
 
     public function createStock(string $productId, string $storeId, int $quantity): Stock
@@ -27,6 +36,7 @@ class StockRepository implements StockRepositoryInterface
             'product_id' => $productId,
             'store_id' => $storeId,
             'quantity' => $quantity,
+            'reserved' => 0,
         ]);
     }
 

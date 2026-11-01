@@ -9,6 +9,9 @@ namespace App\DTO;
  */
 final readonly class CreateProductData
 {
+    /**
+     * @param array<int, ProductAttributeData> $attributes
+     */
     public function __construct(
         public string $name,
         public string $slug,
@@ -17,6 +20,8 @@ final readonly class CreateProductData
         public ?string $description = null,
         public int $depositAmount = 0,
         public bool $isActive = true,
+        public int $quantity = 0,
+        public array $attributes = [],
     ) {
     }
 

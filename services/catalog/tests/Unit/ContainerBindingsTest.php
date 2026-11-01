@@ -16,7 +16,7 @@ class ContainerBindingsTest extends TestCase
     {
         $app = new Application();
         (new AppServiceProvider($app))->register();
-        foreach (['Store', 'Category', 'Product', 'ProductImage', 'Stock', 'StockReservation'] as $name) {
+        foreach (['Store', 'Category', 'Product', 'ProductAttribute', 'ProductImage', 'Stock', 'StockReservation'] as $name) {
             $interface = 'App\\Contracts\\Repositories\\' . $name . 'RepositoryInterface';
             self::assertTrue($app->bound($interface));
             self::assertInstanceOf('App\\Repositories\\' . $name . 'Repository', $app->make($interface));
@@ -26,5 +26,14 @@ class ContainerBindingsTest extends TestCase
         self::assertInstanceOf(RabbitMqPublisher::class, $publisher);
         self::assertSame($publisher, $app->make(EventPublisherInterface::class));
         self::assertSame($publisher, $app->make(RabbitMqPublisher::class));
+
+        foreach ([
+            'App\\Contracts\\Services\\CategoryServiceInterface' => 'App\\Services\\CategoryService',
+            'App\\Contracts\\Services\\ProductServiceInterface' => 'App\\Services\\ProductService',
+            'App\\Contracts\\Services\\StoreServiceInterface' => 'App\\Services\\StoreService',
+        ] as $interface => $implementation) {
+            self::assertTrue($app->bound($interface));
+            self::assertInstanceOf($implementation, $app->make($interface));
+        }
     }
 }

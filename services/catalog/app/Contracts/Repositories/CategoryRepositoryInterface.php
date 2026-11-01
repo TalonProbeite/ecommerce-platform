@@ -12,12 +12,7 @@ use App\DTO\UpdateCategoryData;
 interface CategoryRepositoryInterface
 {
     /**
-     * Find a category by its ID.
-     */
-    public function findByID(string $id): ?Category;
-
-    /**
-     * Find all categories for a given store.
+     * Find all root categories for a given store with their descendant tree.
      *
      * @return Collection<int, Category>
      */
@@ -37,6 +32,9 @@ interface CategoryRepositoryInterface
      */
     public function findChildren(string $parentID, string $storeID): Collection;
 
+    /**
+     * Find a category within a store with its ancestor chain eager loaded.
+     */
     public function findByStoreAndID(string $id, string $storeId): ?Category;
 
     public function createCategory(CreateCategoryData $data, string $storeId): Category;
@@ -44,8 +42,6 @@ interface CategoryRepositoryInterface
     public function updateCategory(string $categoryId, string $storeId, UpdateCategoryData $data): Category;
 
     public function deleteCategory(string $categoryId, string $storeId): Category;
-
-    public function getChildren(string $categoryId, string $storeId): ?Category;
 
     public function hasSubcategories(string $categoryId, string $storeId): bool;
 }

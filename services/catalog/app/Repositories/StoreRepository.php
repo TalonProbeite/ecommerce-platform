@@ -10,7 +10,6 @@ use App\DTO\StoreFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use App\DTO\CreateStoreData;
 use App\DTO\UpdateStoreData;
-use App\Models\StockReservation;
 
 class StoreRepository implements StoreRepositoryInterface
 {
@@ -56,14 +55,6 @@ class StoreRepository implements StoreRepositoryInterface
         $store->fill($data->toArray());
         $store->saveOrFail();
         return $store;
-    }
-
-    public function hasActiveRentals(string $storeId): bool
-    {
-        return StockReservation::query()
-            ->where('store_id', $storeId)
-            ->whereIn('status', ['reserved', 'issued'])
-            ->exists();
     }
 
     public function deleteStore(string $storeID): Store
