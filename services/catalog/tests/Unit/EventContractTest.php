@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Contracts\Messaging\EventInterface;
+use App\Domain\Contracts\EventInterface;
 use App\Messaging\Events\CategoryCreated;
 use App\Messaging\Events\CategoryUpdated;
 use App\Messaging\Events\CategoryDeleted;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Contracts\Messaging;
+namespace App\Domain\Contracts;
 
 interface EventInterface
 {

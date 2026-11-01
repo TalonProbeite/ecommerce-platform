@@ -62,6 +62,9 @@ class Stock extends Model
         return $this->hasMany(StockReservation::class, 'product_id', 'product_id');
     }
 
+    /**
+     * @return Attribute<int, int>
+     */
     protected function available(): Attribute
     {
         return Attribute::get(fn () => $this->quantity - $this->reserved);

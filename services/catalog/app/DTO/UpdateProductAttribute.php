@@ -19,6 +19,9 @@ final readonly class UpdateProductAttribute
         $this->nameProvided = $nameProvided || $name !== null;
     }
 
+    /**
+     * @return array<string, string|null>
+     */
     public function toArray(): array
     {
         $data = [];

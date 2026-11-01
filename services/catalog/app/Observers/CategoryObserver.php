@@ -19,7 +19,7 @@ class CategoryObserver
         $this->flushStore($category->store_id);
     }
 
-    private function flushStore(string|int $storeId): void
+    private function flushStore(string $storeId): void
     {
         Cache::tags(Category::cacheTag($storeId))->flush();
     }

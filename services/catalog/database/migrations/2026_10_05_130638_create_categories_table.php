@@ -12,9 +12,7 @@ return new class () extends Migration {
     public function up(): void
     {
         Schema::create('categories', function (Blueprint $table) {
-            $table->uuid('id');
-            // PostgreSQL requires the referenced key before the self-referencing FK.
-            $table->primary('id');
+            $table->uuid('id')->primary();
             $table->string('name', 255);
             $table->string('slug', 255);
             $table->uuid('parent_id')->nullable();

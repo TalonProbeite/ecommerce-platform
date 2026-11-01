@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Messaging;
 
-use App\Contracts\Messaging\EventInterface;
 use App\Contracts\Messaging\EventPublisherInterface;
+use App\Domain\Contracts\EventInterface;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;

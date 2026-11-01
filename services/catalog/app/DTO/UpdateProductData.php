@@ -47,6 +47,9 @@ final readonly class UpdateProductData
     }
 
 
+    /**
+     * @return array<string, string|int|bool|null>
+     */
     public function toArray(): array
     {
         $data = [];
