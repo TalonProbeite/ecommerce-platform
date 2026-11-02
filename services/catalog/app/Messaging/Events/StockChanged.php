@@ -6,6 +6,7 @@ namespace App\Messaging\Events;
 
 use App\Domain\Contracts\EventInterface;
 use App\Messaging\RoutingKeys;
+use App\Models\Stock;
 
 /**
  * Quantity counts usable equipment; reserved includes both reserved and issued units.
@@ -37,5 +38,15 @@ final readonly class StockChanged implements EventInterface
             'reserved' => $this->reserved,
             'available' => $this->quantity - $this->reserved,
         ];
+    }
+
+    public static function fromModel(Stock $stock): self
+    {
+        return new self(
+            productId: $stock->product_id,
+            storeId: $stock->store_id,
+            quantity: $stock->quantity,
+            reserved: $stock->reserved,
+        );
     }
 }

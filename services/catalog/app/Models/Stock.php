@@ -31,12 +31,6 @@ class Stock extends Model
         ];
     }
 
-
-    public function getAvailableAttribute(): int
-    {
-        return $this->quantity - $this->reserved;
-    }
-
     /**
      * @return BelongsTo<Product, $this>
      */

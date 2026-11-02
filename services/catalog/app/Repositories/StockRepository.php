@@ -6,28 +6,25 @@ namespace App\Repositories;
 
 use App\Contracts\Repositories\StockRepositoryInterface;
 use App\Models\Stock;
-use App\DTO\UpdateStockData;
+use Illuminate\Support\Facades\DB;
 
-class StockRepository implements StockRepositoryInterface
+final class StockRepository implements StockRepositoryInterface
 {
-    public function findByProductId(string $productId): ?Stock
-    {
-        return Stock::where('product_id', $productId)
-            ->first();
-    }
-
-    public function lockByProductId(string $productId, ?string $storeId = null): ?Stock
+    public function findByProductId(string $productId, string $storeId): ?Stock
     {
         return Stock::query()
             ->where('product_id', $productId)
-            ->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId))
-            ->lockForUpdate()
+            ->where('store_id', $storeId)
             ->first();
     }
 
-    public function findById(string $stockId): ?Stock
+    public function lockByProductId(string $productId, string $storeId): ?Stock
     {
-        return Stock::find($stockId);
+        return Stock::query()
+            ->where('product_id', $productId)
+            ->where('store_id', $storeId)
+            ->lockForUpdate()
+            ->first();
     }
 
     public function createStock(string $productId, string $storeId, int $quantity): Stock
@@ -40,18 +37,25 @@ class StockRepository implements StockRepositoryInterface
         ]);
     }
 
-    public function applyDelta(Stock $stock, UpdateStockData $data): Stock
+    public function setQuantityIfNotBelowReserved(string $stockId, int $quantity): int
     {
-        if ($data->quantityDelta !== null) {
-            $stock->quantity += $data->quantityDelta;
-        }
+        return Stock::query()
+            ->whereKey($stockId)
+            ->where('reserved', '<=', $quantity)
+            ->update([
+                'quantity' => $quantity,
+                'updated_at' => now(),
+            ]);
+    }
 
-        if ($data->reservedDelta !== null) {
-            $stock->reserved += $data->reservedDelta;
-        }
-
-        $stock->saveOrFail();
-
-        return $stock;
+    public function adjustReserved(string $stockId, int $delta): int
+    {
+        return Stock::query()
+            ->whereKey($stockId)
+            ->whereRaw('reserved + ? BETWEEN 0 AND quantity', [$delta])
+            ->update([
+                'reserved' => DB::raw('reserved + ' . $delta),
+                'updated_at' => now(),
+            ]);
     }
 }
