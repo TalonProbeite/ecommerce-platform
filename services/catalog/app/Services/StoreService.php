@@ -11,6 +11,7 @@ use App\DTO\CreateStoreData;
 use App\DTO\StoreFilters;
 use App\DTO\UpdateStoreData;
 use App\Exceptions\StoreHasActiveRentalsException;
+use App\Exceptions\StoreNotFoundException;
 use App\Models\Store;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
@@ -27,9 +28,10 @@ final class StoreService implements StoreServiceInterface
         return $this->storeRepository->findAll($filters);
     }
 
-    public function get(string $storeId): ?Store
+    public function get(string $storeId): Store
     {
-        return $this->storeRepository->findByID($storeId);
+        return $this->storeRepository->findByID($storeId)
+            ?? throw new StoreNotFoundException($storeId);
     }
 
     public function create(CreateStoreData $data): Store

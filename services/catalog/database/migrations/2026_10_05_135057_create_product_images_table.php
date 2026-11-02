@@ -11,9 +11,10 @@ return new class () extends Migration {
         Schema::create('product_images', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('product_id')->constrained()->cascadeOnDelete();
-            $table->string('object_key', 512);
+            $table->string('object_key', 512)->unique();
+            $table->string('mime_type', 100)->nullable();
+            $table->unsignedBigInteger('size')->nullable();
             $table->boolean('is_main')->default(false);
-            $table->integer('sort_order')->default(0);
             $table->timestamps();
 
             $table->index(['product_id', 'is_main']);

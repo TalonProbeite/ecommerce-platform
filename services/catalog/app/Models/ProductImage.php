@@ -19,14 +19,13 @@ class ProductImage extends Model
         return (string) Uuid::uuid7();
     }
 
-    protected $fillable = ['product_id', 'path', 'is_main', 'sort_order'];
+    protected $fillable = ['id', 'product_id', 'object_key', 'mime_type', 'size', 'is_main'];
 
     protected function casts(): array
     {
         return [
-            'path'       => 'string',
-            'is_main'    => 'boolean',
-            'sort_order' => 'integer',
+            'is_main' => 'boolean',
+            'size' => 'integer',
         ];
     }
 

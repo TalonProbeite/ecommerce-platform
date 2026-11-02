@@ -11,6 +11,7 @@ use App\Contracts\Services\CategoryServiceInterface;
 use App\Domain\Contracts\EventInterface;
 use App\DTO\CreateCategoryData;
 use App\DTO\UpdateCategoryData;
+use App\Exceptions\CategoryNotFoundException;
 use App\Exceptions\HasProductsException;
 use App\Exceptions\HasSubcategoriesException;
 use App\Messaging\Events\CategoryCreated;
@@ -97,15 +98,8 @@ final class CategoryService implements CategoryServiceInterface
 
     private function findCategoryInStore(string $categoryId, string $storeId): Category
     {
-        $category = $this->categoryRepository->findByStoreAndID($categoryId, $storeId);
-
-        if ($category === null) {
-            throw ValidationException::withMessages([
-                'category' => 'The selected category does not exist in this store.',
-            ]);
-        }
-
-        return $category;
+        return $this->categoryRepository->findByStoreAndID($categoryId, $storeId)
+            ?? throw new CategoryNotFoundException($categoryId);
     }
 
     private function assertParentBelongsToStore(?string $parentId, string $storeId): void

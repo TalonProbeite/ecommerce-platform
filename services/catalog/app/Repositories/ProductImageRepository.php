@@ -49,6 +49,14 @@ final class ProductImageRepository implements ProductImageRepositoryInterface
         $image->delete();
     }
 
+    public function clearMainForProduct(string $productId): void
+    {
+        ProductImage::query()
+            ->where('product_id', $productId)
+            ->where('is_main', true)
+            ->update(['is_main' => false]);
+    }
+
     public function firstForProduct(
         string $productId,
     ): ?ProductImage {

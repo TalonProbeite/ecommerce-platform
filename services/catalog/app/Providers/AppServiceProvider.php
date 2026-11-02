@@ -13,7 +13,9 @@ use App\Contracts\Repositories\StockRepositoryInterface;
 use App\Contracts\Repositories\StockReservationRepositoryInterface;
 use App\Contracts\Repositories\StoreRepositoryInterface;
 use App\Contracts\Services\CategoryServiceInterface;
+use App\Contracts\Services\ProductImageServiceInterface;
 use App\Contracts\Services\ProductServiceInterface;
+use App\Contracts\Services\StockServiceInterface;
 use App\Contracts\Services\StoreServiceInterface;
 use App\Messaging\RabbitMqPublisher;
 use App\Repositories\CategoryRepository;
@@ -24,7 +26,9 @@ use App\Repositories\StockRepository;
 use App\Repositories\StockReservationRepository;
 use App\Repositories\StoreRepository;
 use App\Services\CategoryService;
+use App\Services\ProductImageService;
 use App\Services\ProductService;
+use App\Services\StockService;
 use App\Services\StoreService;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
@@ -46,7 +50,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(StoreRepositoryInterface::class, StoreRepository::class);
 
         $this->app->bind(CategoryServiceInterface::class, CategoryService::class);
+        $this->app->bind(ProductImageServiceInterface::class, ProductImageService::class);
         $this->app->bind(ProductServiceInterface::class, ProductService::class);
+        $this->app->bind(StockServiceInterface::class, StockService::class);
         $this->app->bind(StoreServiceInterface::class, StoreService::class);
 
         $this->app->singleton(RabbitMqPublisher::class);

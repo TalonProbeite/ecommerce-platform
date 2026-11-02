@@ -20,8 +20,8 @@ interface StoreServiceInterface
     /** @return LengthAwarePaginator<int, Store> */
     public function list(StoreFilters $filters): LengthAwarePaginator;
 
-    /** Return null when absent within the requested scope. */
-    public function get(string $storeId): ?Store;
+    /** Return the store, or throw when it is absent. */
+    public function get(string $storeId): Store;
 
     public function create(CreateStoreData $data): Store;
 

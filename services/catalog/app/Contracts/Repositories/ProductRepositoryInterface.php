@@ -18,6 +18,12 @@ interface ProductRepositoryInterface
     public function findById(string $id, ?string $storeId = null): ?Product;
 
     /**
+     * Lock a product row for the rest of the current transaction.
+     * Must be called inside a DB transaction.
+     */
+    public function lockById(string $productId, string $storeId): ?Product;
+
+    /**
      * Find a product with related data by its ID, optionally scoped to a store.
      */
     public function findDetailedById(string $id, ?string $storeId = null): ?Product;

@@ -16,12 +16,12 @@ use App\DTO\ProductFilters;
 use App\DTO\UpdateProductData;
 use App\Exceptions\ProductCategoryNotFoundException;
 use App\Exceptions\ProductHasActiveReservationsException;
+use App\Exceptions\ProductNotFoundException;
 use App\Messaging\Events\ProductCreated;
 use App\Messaging\Events\ProductDeleted;
 use App\Messaging\Events\ProductUpdated;
 use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Ramsey\Uuid\Uuid;
@@ -50,7 +50,7 @@ final class ProductService implements ProductServiceInterface
         return $this->productRepository->findDetailedById(
             $productId,
             $storeId,
-        ) ?? $this->throwProductNotFound($productId);
+        ) ?? throw new ProductNotFoundException($productId);
     }
 
     public function create(
@@ -196,7 +196,7 @@ final class ProductService implements ProductServiceInterface
         return $this->productRepository->findById(
             $productId,
             $storeId,
-        ) ?? $this->throwProductNotFound($productId);
+        ) ?? throw new ProductNotFoundException($productId);
     }
 
     private function assertCategoryBelongsToStore(
@@ -232,11 +232,5 @@ final class ProductService implements ProductServiceInterface
                 ]);
             }
         }
-    }
-
-    private function throwProductNotFound(string $productId): never
-    {
-        throw (new ModelNotFoundException())
-            ->setModel(Product::class, [$productId]);
     }
 }

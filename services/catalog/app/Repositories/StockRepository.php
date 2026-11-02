@@ -50,12 +50,10 @@ final class StockRepository implements StockRepositoryInterface
 
     public function adjustReserved(string $stockId, int $delta): int
     {
-        return Stock::query()
-            ->whereKey($stockId)
-            ->whereRaw('reserved + ? BETWEEN 0 AND quantity', [$delta])
-            ->update([
-                'reserved' => DB::raw('reserved + ' . $delta),
-                'updated_at' => now(),
-            ]);
+        return DB::update(
+            'UPDATE stocks SET reserved = reserved + ?, updated_at = ? '
+                . 'WHERE id = ? AND reserved + ? BETWEEN 0 AND quantity',
+            [$delta, now(), $stockId, $delta],
+        );
     }
 }

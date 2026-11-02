@@ -24,6 +24,19 @@ class ProductRepository implements ProductRepositoryInterface
     }
 
     /**
+     * Lock a product row for the rest of the current transaction.
+     * Must be called inside a DB transaction.
+     */
+    public function lockById(string $productId, string $storeId): ?Product
+    {
+        return Product::query()
+            ->whereKey($productId)
+            ->where('store_id', $storeId)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /**
      * Find a single product with its category, stock, attributes and images.
      */
     public function findDetailedById(string $id, ?string $storeId = null): ?Product
@@ -35,7 +48,7 @@ class ProductRepository implements ProductRepositoryInterface
                 'stock',
                 'attributes' => fn ($q) => $q->select(['id', 'product_id', 'name', 'value'])
                     ->orderBy('name'),
-                'images' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
+                'images' => fn ($q) => $q->orderBy('created_at')->orderBy('id'),
             ])
             ->find($id);
     }
