@@ -33,6 +33,7 @@ use App\Services\StoreService;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Octane\Events\WorkerStopping;
+use App\Infrastructure\Storage\S3BucketGuard;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -57,6 +58,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(RabbitMqPublisher::class);
         $this->app->alias(RabbitMqPublisher::class, EventPublisherInterface::class);
+        $this->app->singleton(S3BucketGuard::class);
     }
 
     /**

@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Ramsey\Uuid\Uuid;
 use SplFileInfo;
+use App\Infrastructure\Storage\S3BucketGuard;
 
 final class ProductImageService implements ProductImageServiceInterface
 {
@@ -29,6 +30,7 @@ final class ProductImageService implements ProductImageServiceInterface
     public function __construct(
         private readonly ProductImageRepositoryInterface $imageRepository,
         private readonly ProductRepositoryInterface $productRepository,
+        private readonly S3BucketGuard $bucketGuard,
         #[Config('catalog.product_images.disk')] private readonly string $disk,
         #[Config('catalog.product_images.max_per_product')] private readonly int $maxImagesPerProduct,
         #[Config('catalog.product_images.allowed_mime_types')] private readonly array $allowedMimeTypes,
@@ -209,6 +211,8 @@ final class ProductImageService implements ProductImageServiceInterface
      */
     private function storeObject(string $objectKey, SplFileInfo $file): void
     {
+        $this->bucketGuard->ensure($this->disk);
+
         $stream = fopen($file->getPathname(), 'rb');
 
         if ($stream === false) {
