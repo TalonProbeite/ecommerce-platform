@@ -101,8 +101,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 5000,
             "deposit_amount": 1000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -138,8 +136,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 18000,
             "deposit_amount": 4000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -176,8 +172,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 5000,
             "deposit_amount": 600000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -213,8 +207,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 18000,
             "deposit_amount": 4000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -250,8 +242,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 8000,
             "deposit_amount": 1500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -289,8 +279,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 8000,
             "deposit_amount": 1500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -328,8 +316,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 8000,
             "deposit_amount": 1500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -367,8 +353,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 8000,
             "deposit_amount": 1500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -406,8 +390,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 8000,
             "deposit_amount": 1500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -445,8 +427,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 15000,
             "deposit_amount": 5000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -484,8 +464,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 15000,
             "deposit_amount": 5000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -523,8 +501,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 15000,
             "deposit_amount": 5000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -562,8 +538,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 15000,
             "deposit_amount": 5000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -601,8 +575,6 @@
             "description": "DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.",
             "price_per_hour": 15000,
             "deposit_amount": 5000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -640,8 +612,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 18000,
             "deposit_amount": 4000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -670,8 +640,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 18000,
             "deposit_amount": 4000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -700,8 +668,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 18000,
             "deposit_amount": 4000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -730,8 +696,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 15000,
             "deposit_amount": 5000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -760,8 +724,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 4000,
             "deposit_amount": 500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -790,8 +752,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 4000,
             "deposit_amount": 500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -820,8 +780,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 4000,
             "deposit_amount": 500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -850,8 +808,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 4000,
             "deposit_amount": 500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -880,8 +836,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 4000,
             "deposit_amount": 500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -910,8 +864,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 5000,
             "deposit_amount": 600000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -940,8 +892,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 10000,
             "deposit_amount": 2000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -970,8 +920,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 10000,
             "deposit_amount": 2000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1000,8 +948,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 10000,
             "deposit_amount": 2000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1030,8 +976,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 10000,
             "deposit_amount": 2000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1060,8 +1004,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 10000,
             "deposit_amount": 2000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1090,8 +1032,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 5000,
             "deposit_amount": 600000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1120,8 +1060,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 7000,
             "deposit_amount": 1000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1150,8 +1088,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 7000,
             "deposit_amount": 1000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1180,8 +1116,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 7000,
             "deposit_amount": 1000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1210,8 +1144,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 15000,
             "deposit_amount": 5000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1240,8 +1172,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 12000,
             "deposit_amount": 2500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1270,8 +1200,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 12000,
             "deposit_amount": 2500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1300,8 +1228,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 12000,
             "deposit_amount": 2500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1330,8 +1256,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 7000,
             "deposit_amount": 1000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1360,8 +1284,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 5000,
             "deposit_amount": 600000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1390,8 +1312,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 5000,
             "deposit_amount": 600000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1420,8 +1340,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 4000,
             "deposit_amount": 500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1450,8 +1368,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 12000,
             "deposit_amount": 2500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1480,8 +1396,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 12000,
             "deposit_amount": 2500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1510,8 +1424,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 5000,
             "deposit_amount": 600000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1540,8 +1452,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 18000,
             "deposit_amount": 4000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1570,8 +1480,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 18000,
             "deposit_amount": 4000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1600,8 +1508,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 18000,
             "deposit_amount": 4000000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {
@@ -1630,8 +1536,6 @@
             "description": "DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.",
             "price_per_hour": 4000,
             "deposit_amount": 500000,
-            "rating": "0.00",
-            "reviews_count": 0,
             "is_active": true,
             "attributes": [
                 {

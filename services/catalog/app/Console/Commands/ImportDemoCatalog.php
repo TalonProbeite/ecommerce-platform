@@ -15,7 +15,7 @@ use UnexpectedValueException;
  * @phpstan-type Attribute array{id: string, name: string, value: string}
  * @phpstan-type StoreRow array{id: string, name: string, description: string, location: string, active: bool}
  * @phpstan-type CategoryRow array{id: string, store_id: string, name: string, slug: string, parent_id: null}
- * @phpstan-type ProductRow array{id: string, store_id: string, category_id: string, name: string, slug: string, description: string, price_per_hour: int, deposit_amount: int, rating: string, reviews_count: int, is_active: bool, attributes: list<Attribute>, stock: array{quantity: int, reserved: int}, images: array{}, source: array{provider: string, id: int|string, image_urls: list<string>}}
+ * @phpstan-type ProductRow array{id: string, store_id: string, category_id: string, name: string, slug: string, description: string, price_per_hour: int, deposit_amount: int, is_active: bool, attributes: list<Attribute>, stock: array{quantity: int, reserved: int}, images: array{}, source: array{provider: string, id: int|string, image_urls: list<string>}}
  * @phpstan-type Dataset array{version: int, money_unit: string, pricing: string, image_policy: string, stores: list<StoreRow>, categories: list<CategoryRow>, products: list<ProductRow>}
  */
 class ImportDemoCatalog extends Command
@@ -59,7 +59,7 @@ class ImportDemoCatalog extends Command
 
     /**
      * IDs, titles and source categories form an explicit allowlist in the manual input.
-     * Price, stock, ratings and unverified technical descriptions from the mock API are ignored.
+     * Price, stock and unverified technical descriptions from the mock API are ignored.
      *
      * @param list<array<string, mixed>> $products
      * @param array{stores: list<array{key: string, name: string, location: string}>, categories: list<array{store: string, key: string, name: string, price_per_hour: int, deposit_amount: int}>, imports: list<array{id: int, title: string, source_category: string, store: string, category: string, kind: string}>, products: list<array{key: string, store: string, category: string, name: string, price_per_hour: int, deposit_amount: int, quantity: int, attributes: list<array{name: string, value: string}>}>} $manual
@@ -166,7 +166,7 @@ class ImportDemoCatalog extends Command
             'description' => str_starts_with($key, 'manual-')
                 ? 'DEMO: вымышленный товар и демонстрационные характеристики; не спецификация реальной модели.'
                 : 'DEMO: название и бренд из DummyJSON (mock API), характеристики реальной модели не проверены. Условия аренды демонстрационные.',
-            'price_per_hour' => $price, 'deposit_amount' => $deposit, 'rating' => '0.00', 'reviews_count' => 0,
+            'price_per_hour' => $price, 'deposit_amount' => $deposit,
             'is_active' => true, 'attributes' => [], 'stock' => ['quantity' => $quantity, 'reserved' => 0], 'images' => [],
             'source' => ['provider' => 'manual', 'id' => $key, 'image_urls' => []]];
     }

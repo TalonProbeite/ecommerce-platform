@@ -83,6 +83,8 @@ class DemoCatalogTest extends TestCase
             self::assertArrayHasKey($category['store_id'], $stores);
         }
         foreach ($dataset['products'] as $product) {
+            self::assertArrayNotHasKey('rating', $product);
+            self::assertArrayNotHasKey('reviews_count', $product);
             self::assertTrue(Uuid::isValid($product['id']));
             self::assertNotContains($product['id'], $ids);
             $ids[] = $product['id'];
