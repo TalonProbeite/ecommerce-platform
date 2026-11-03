@@ -14,6 +14,7 @@ use App\Exceptions\ProductNotFoundException;
 use App\Exceptions\TooManyProductImagesException;
 use App\Exceptions\UnsupportedImageTypeException;
 use App\Models\ProductImage;
+use Illuminate\Container\Attributes\Config;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -22,24 +23,15 @@ use SplFileInfo;
 
 final class ProductImageService implements ProductImageServiceInterface
 {
-    private const DISK = 'seaweedfs';
-
-    private const MAX_IMAGES_PER_PRODUCT = 10;
-
     /**
-     * Allowed MIME types mapped to the file extension used in the object key.
-     *
-     * @var array<string, string>
+     * @param array<string, string> $allowedMimeTypes
      */
-    private const ALLOWED_MIME_TYPES = [
-        'image/jpeg' => 'jpg',
-        'image/png' => 'png',
-        'image/webp' => 'webp',
-    ];
-
     public function __construct(
         private readonly ProductImageRepositoryInterface $imageRepository,
         private readonly ProductRepositoryInterface $productRepository,
+        #[Config('catalog.product_images.disk')] private readonly string $disk,
+        #[Config('catalog.product_images.max_per_product')] private readonly int $maxImagesPerProduct,
+        #[Config('catalog.product_images.allowed_mime_types')] private readonly array $allowedMimeTypes,
     ) {
     }
 
@@ -63,7 +55,7 @@ final class ProductImageService implements ProductImageServiceInterface
         $this->assertReadableFile($file);
 
         $mimeType = $this->detectMimeType($file);
-        $extension = self::ALLOWED_MIME_TYPES[$mimeType]
+        $extension = $this->allowedMimeTypes[$mimeType]
             ?? throw new UnsupportedImageTypeException($mimeType);
         $size = $this->readSize($file);
 
@@ -72,8 +64,8 @@ final class ProductImageService implements ProductImageServiceInterface
 
             $existing = $this->imageRepository->listForProduct($productId);
 
-            if ($existing->count() >= self::MAX_IMAGES_PER_PRODUCT) {
-                throw new TooManyProductImagesException($productId, self::MAX_IMAGES_PER_PRODUCT);
+            if ($existing->count() >= $this->maxImagesPerProduct) {
+                throw new TooManyProductImagesException($productId, $this->maxImagesPerProduct);
             }
 
             $imageId = (string) Uuid::uuid7();
@@ -133,8 +125,8 @@ final class ProductImageService implements ProductImageServiceInterface
             }
 
             // Remove the object only after a successful commit, so a rollback keeps the file.
-            DB::afterCommit(static function () use ($objectKey): void {
-                Storage::disk(self::DISK)->delete($objectKey);
+            DB::afterCommit(function () use ($objectKey): void {
+                Storage::disk($this->disk)->delete($objectKey);
             });
         });
     }
@@ -223,7 +215,7 @@ final class ProductImageService implements ProductImageServiceInterface
             throw new InvalidImageFileException('Unable to open file for reading.');
         }
 
-        $stored = Storage::disk(self::DISK)->put($objectKey, $stream);
+        $stored = Storage::disk($this->disk)->put($objectKey, $stream);
 
         fclose($stream);
 

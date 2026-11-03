@@ -62,6 +62,23 @@ return [
             'report' => false,
         ],
 
+        // SeaweedFS exposes an S3-compatible API. Path-style addressing is required.
+        // Public URLs point to the Nginx route that proxies to SeaweedFS, not to the
+        // SeaweedFS endpoint itself, so the browser never talks to the storage directly.
+        'seaweedfs' => [
+            'driver' => 's3',
+            'key' => env('SEAWEEDFS_ACCESS_KEY_ID'),
+            'secret' => env('SEAWEEDFS_SECRET_ACCESS_KEY'),
+            'region' => env('SEAWEEDFS_REGION', 'us-east-1'),
+            'bucket' => env('SEAWEEDFS_BUCKET', 'catalog'),
+            'endpoint' => env('SEAWEEDFS_ENDPOINT', 'http://seaweedfs:8333'),
+            'use_path_style_endpoint' => true,
+            'url' => env('SEAWEEDFS_PUBLIC_URL'),
+            'visibility' => 'public',
+            'throw' => true,
+            'report' => false,
+        ],
+
     ],
 
     /*
