@@ -1,4 +1,4 @@
-COMPOSE_FILE := docker-compose.local.yaml
+COMPOSE_FILE ?= docker-compose.local.yaml
 COMPOSE := docker compose -f $(COMPOSE_FILE)
 
 MIGRATIONS_PATH := ./migrations
@@ -11,6 +11,7 @@ DB_URL ?= postgres://postgres:postgres@localhost:5432/shop_auth?sslmode=disable
 
 info:
 	@echo "Available commands:"
+	@echo "  make seed                            Add DEMO data to the running stack"
 	@echo ""
 	@echo "Docker:"
 	@echo "  make up                              Start local services"
@@ -86,3 +87,9 @@ migrate-version:
 
 migrate-force:
 	migrate -path $(MIGRATIONS_PATH) -database "$(DB_URL)" force $(VERSION)
+
+.PHONY: seed
+
+# Explicit opt-in; requires a running database (and auth migrations).
+seed:
+	$(COMPOSE) exec -T auth-db sh -ec 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < seeds/demo.sql

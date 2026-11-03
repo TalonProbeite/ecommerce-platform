@@ -1,0 +1,19 @@
+{
+    "git.ignoreLimitWarning": true,
+    "php.suggest.basic": false,
+    "intelephense.environment.phpVersion": "8.5.0",
+    "intelephense.files.maxSize": 5000000,
+    "intelephense.files.exclude": [
+        "**/.git/**",
+        "**/node_modules/**",
+        "**/vendor/**/{Tests,tests}/**"
+    ],
+    "[php]": {
+        "editor.suggestOnTriggerCharacters": true,
+        "editor.quickSuggestions": {
+            "other": true,
+            "comments": false,
+            "strings": true
+        }
+    }
+}

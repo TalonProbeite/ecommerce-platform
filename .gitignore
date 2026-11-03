@@ -15,7 +15,9 @@ Thumbs.db
 # IDEs / Editors
 # ============================================================
 
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 .idea/
 *.suo
 *.ntvs*
@@ -179,3 +181,7 @@ dist/
 # ============================================================
 
 notes/
+
+# Generated Laravel IDE helpers
+/services/catalog/_ide_helper.php
+/services/catalog/.phpstorm.meta.php
