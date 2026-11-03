@@ -11,6 +11,7 @@ use App\DTO\ProductAttributeData;
 use App\DTO\UpdateProductData;
 use App\Exceptions\ProductCategoryNotFoundException;
 use App\Exceptions\ProductHasActiveReservationsException;
+use App\Exceptions\ProductNotFoundException;
 use App\Messaging\Events\ProductCreated;
 use App\Messaging\Events\ProductDeleted;
 use App\Messaging\Events\ProductUpdated;
@@ -164,16 +165,51 @@ class ProductServiceTest extends PostgresTestCase
         ));
 
         foreach ([
-            fn () => $service->get($product->id, $otherStore->id),
-            fn () => $service->update($otherStore->id, $product->id, new UpdateProductData(name: 'Hijacked')),
-            fn () => $service->delete($otherStore->id, $product->id),
-            fn () => $service->restore($otherStore->id, $product->id),
-        ] as $operation) {
+            [fn () => $service->get($product->id, $otherStore->id), ProductNotFoundException::class],
+            [fn () => $service->update($otherStore->id, $product->id, new UpdateProductData(name: 'Hijacked')), ProductNotFoundException::class],
+            [fn () => $service->delete($otherStore->id, $product->id), ProductNotFoundException::class],
+            [fn () => $service->restore($otherStore->id, $product->id), ModelNotFoundException::class],
+        ] as [$operation, $exception]) {
             try {
                 $operation();
                 self::fail('Cross-store product operations must fail.');
-            } catch (ModelNotFoundException) {
+            } catch (\Throwable $thrown) {
+                self::assertInstanceOf($exception, $thrown);
             }
+        }
+    }
+
+    public function test_update_replaces_attributes_and_validates_category_ownership(): void
+    {
+        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $publisher->shouldReceive('publish')->twice();
+        $service = $this->service($publisher);
+
+        $product = $service->create($this->store->id, new CreateProductData(
+            name: 'Drill',
+            slug: 'drill',
+            categoryId: $this->category->id,
+            pricePerHour: 500,
+        ));
+
+        $updated = $service->update($this->store->id, $product->id, new UpdateProductData(
+            description: 'Updated description',
+            attributes: [new ProductAttributeData('Power', '1200 W')],
+        ));
+        self::assertSame('Updated description', $updated->description);
+        self::assertSame(['Power' => '1200 W'], $updated->attributes->pluck('value', 'name')->all());
+
+        $otherStore = Store::create(['name' => 'Other']);
+        $otherCategory = Category::create([
+            'store_id' => $otherStore->id,
+            'name' => 'Other',
+            'slug' => 'other',
+        ]);
+
+        try {
+            $service->update($this->store->id, $product->id, new UpdateProductData(categoryId: $otherCategory->id));
+            self::fail('Updating a product with another store category must fail.');
+        } catch (ProductCategoryNotFoundException) {
         }
     }
 

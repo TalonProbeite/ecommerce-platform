@@ -16,6 +16,7 @@ use App\DTO\ProductFilters;
 use App\DTO\UpdateProductData;
 use App\Exceptions\ProductCategoryNotFoundException;
 use App\Exceptions\ProductHasActiveReservationsException;
+use App\Exceptions\ProductNotFoundException;
 use App\Messaging\Events\ProductCreated;
 use App\Messaging\Events\ProductDeleted;
 use App\Messaging\Events\ProductUpdated;
@@ -24,7 +25,6 @@ use App\Models\Product;
 use App\Models\Stock;
 use App\Services\ProductService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Mockery;
@@ -86,7 +86,7 @@ class ProductServiceTest extends TestCase
             ->with('product-123', 'other-store')
             ->andReturn(null);
 
-        $this->expectException(ModelNotFoundException::class);
+        $this->expectException(ProductNotFoundException::class);
 
         $this->service($productRepository)->get('product-123', 'other-store');
     }
