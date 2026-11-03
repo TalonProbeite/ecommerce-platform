@@ -9,11 +9,13 @@ COMPOSE_FILE := docker-compose.local.yaml
 COMPOSE := $(DOCKER) compose -f $(COMPOSE_FILE)
 APP := catalog-app
 TEST_DATABASE ?= catalog_test
+IDE_DB_HOST ?= 127.0.0.1
+IDE_DB_PORT ?= 5433
 
 .PHONY: help \
 	test test-docker test-unit test-feature test-integration test-db \
 	lint format analyse check \
-	ide ide-models \
+	ide ide-generate ide-models ide-db \
 	up down restart build logs ps \
 	exec sh artisan migrate seed
 
@@ -46,8 +48,10 @@ help:
 		'  seed              Run CatalogSeeder' \
 		'' \
 		'Other:' \
-		'  ide               Generate IDE helper files' \
-		'  ide-models        Generate model metadata (requires DB)'
+		'  ide               Generate facade/meta and model IDE helpers' \
+		'  ide-generate      Generate only facade/meta IDE helpers' \
+		'  ide-models        Generate model metadata using catalog-db' \
+		'  ide-db            Start catalog-db for IDE model generation'
 
 # --------------------------------------------------
 # Tests
@@ -101,11 +105,17 @@ check: lint analyse test
 # IDE helpers
 # --------------------------------------------------
 
-ide:
+ide: ide-generate ide-models
+
+ide-generate:
 	$(COMPOSER) run ide:generate
 
-ide-models:
-	$(COMPOSE) exec $(APP) php artisan ide-helper:models
+ide-models: ide-db
+	DB_CONNECTION=pgsql DB_HOST=$(IDE_DB_HOST) DB_PORT=$(IDE_DB_PORT) DB_URL= \
+		$(PHP) artisan ide-helper:models --write-mixin --no-interaction
+
+ide-db:
+	$(COMPOSE) up -d --wait catalog-db
 
 # --------------------------------------------------
 # Docker Compose
