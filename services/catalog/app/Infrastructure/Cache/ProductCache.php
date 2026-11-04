@@ -14,7 +14,7 @@ use UnitEnum;
 
 final class ProductCache
 {
-    public const LIST_TAG = 'products:list';
+    private const LIST_VERSION_KEY = 'products:ver:list';
 
     public function __construct(
         #[Config('catalog.cache.products.list_ttl')] private readonly int $listTtl,
@@ -23,23 +23,24 @@ final class ProductCache
     ) {
     }
 
-    public static function cardTag(string $productId): string
-    {
-        return "product:{$productId}";
-    }
-
     /**
      * @param array<string, mixed> $filters
      * @param Closure(): mixed $callback
      */
     public function rememberList(array $filters, int $page, int $perPage, Closure $callback): mixed
     {
-        $key = 'products:list:' . sha1((string) json_encode(
+        $version = $this->currentVersion(self::LIST_VERSION_KEY);
+
+        $hash = sha1((string) json_encode(
             $this->normalize(['filters' => $filters, 'page' => $page, 'per_page' => $perPage]),
             JSON_THROW_ON_ERROR,
         ));
 
-        return Cache::tags([self::LIST_TAG])->remember($key, $this->listTtl, $callback);
+        return Cache::remember(
+            sprintf('products:list:v%d:%s', $version, $hash),
+            $this->listTtl,
+            $callback,
+        );
     }
 
     /**
@@ -47,36 +48,50 @@ final class ProductCache
      */
     public function rememberCard(string $productId, Closure $callback): mixed
     {
-        return Cache::tags([self::cardTag($productId)])->remember(
-            "products:card:{$productId}",
+        $version = $this->currentVersion($this->cardVersionKey($productId));
+
+        return Cache::remember(
+            sprintf('products:card:%s:v%d', $productId, $version),
             $this->cardTtl,
             $callback,
         );
     }
 
-    public function forgetProduct(string $productId): void
+    public function invalidateCard(string $productId): void
     {
-        Cache::tags([self::cardTag($productId)])->flush();
+        $this->bump($this->cardVersionKey($productId));
     }
 
-    public function forgetLists(): void
+    public function invalidateLists(): void
     {
-        Cache::tags([self::LIST_TAG])->flush();
+        $this->bump(self::LIST_VERSION_KEY);
     }
 
-    public function forgetProductAndLists(string $productId): void
-    {
-        $this->forgetProduct($productId);
-        $this->forgetLists();
-    }
-
-    public function forgetCategoryCards(string $categoryId): void
+    public function invalidateCategory(string $categoryId): void
     {
         foreach ($this->productRepository->findIdsByCategory($categoryId) as $productId) {
-            $this->forgetProduct($productId);
+            $this->invalidateCard($productId);
         }
 
-        $this->forgetLists();
+        $this->invalidateLists();
+    }
+
+    private function currentVersion(string $key): int
+    {
+        Cache::add($key, 1, null);
+
+        return (int) Cache::get($key);
+    }
+
+    private function bump(string $key): void
+    {
+        Cache::add($key, 1, null);
+        Cache::increment($key);
+    }
+
+    private function cardVersionKey(string $productId): string
+    {
+        return 'products:ver:card:' . $productId;
     }
 
     private function normalize(mixed $value): mixed

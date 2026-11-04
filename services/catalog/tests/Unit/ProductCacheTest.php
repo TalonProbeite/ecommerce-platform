@@ -55,7 +55,7 @@ class ProductCacheTest extends TestCase
         self::assertSame(1, $listCalls);
     }
 
-    public function test_forget_product_only_flushes_the_requested_card(): void
+    public function test_invalidate_card_only_resets_the_requested_card(): void
     {
         $cache = $this->cache();
         $firstCalls = 0;
@@ -72,7 +72,7 @@ class ProductCacheTest extends TestCase
             return 'second';
         });
 
-        $cache->forgetProduct('product-1');
+        $cache->invalidateCard('product-1');
 
         self::assertSame('first-refreshed', $cache->rememberCard('product-1', function () use (&$firstCalls): string {
             $firstCalls++;
@@ -89,7 +89,7 @@ class ProductCacheTest extends TestCase
         self::assertSame(1, $secondCalls);
     }
 
-    public function test_forget_lists_only_flushes_lists(): void
+    public function test_invalidate_lists_only_resets_lists(): void
     {
         $cache = $this->cache();
         $listCalls = 0;
@@ -106,7 +106,7 @@ class ProductCacheTest extends TestCase
             return 'card';
         });
 
-        $cache->forgetLists();
+        $cache->invalidateLists();
 
         self::assertSame('list-refreshed', $cache->rememberList(['store_id' => 'store-1'], 1, 20, function () use (&$listCalls): string {
             $listCalls++;
@@ -123,7 +123,7 @@ class ProductCacheTest extends TestCase
         self::assertSame(1, $cardCalls);
     }
 
-    public function test_forget_category_cards_flushes_all_category_products_and_lists_only(): void
+    public function test_invalidate_category_resets_all_category_products_and_lists_only(): void
     {
         $repository = Mockery::mock(ProductRepositoryInterface::class);
         $repository->shouldReceive('findIdsByCategory')
@@ -138,7 +138,7 @@ class ProductCacheTest extends TestCase
         $cache->rememberCard('product-3', fn (): string => 'cached-product-3');
         $cache->rememberList([], 1, 20, fn (): string => 'cached-list');
 
-        $cache->forgetCategoryCards('category-1');
+        $cache->invalidateCategory('category-1');
 
         self::assertSame('refreshed-product-1', $cache->rememberCard('product-1', fn (): string => 'refreshed-product-1'));
         self::assertSame('refreshed-product-2', $cache->rememberCard('product-2', fn (): string => 'refreshed-product-2'));
@@ -174,6 +174,74 @@ class ProductCacheTest extends TestCase
 
         self::assertSame('fresh list', $cache->rememberList([], 1, 20, fn (): string => 'fresh list'));
         self::assertSame('card', $cache->rememberCard('product-123', fn (): string => 'fresh card'));
+    }
+
+    public function test_late_writer_to_the_old_card_key_cannot_overwrite_the_fresh_card(): void
+    {
+        $cache = $this->cache();
+
+        $cache->rememberCard('product-1', fn (): string => 'initial');
+
+        $oldKey = 'products:card:product-1:v' . (int) Cache::get('products:ver:card:product-1');
+
+        $cache->invalidateCard('product-1');
+        Cache::put($oldKey, 'stale', 600);
+
+        $calls = 0;
+        $fresh = $cache->rememberCard('product-1', function () use (&$calls): string {
+            $calls++;
+
+            return 'fresh';
+        });
+
+        self::assertSame('fresh', $fresh);
+        self::assertSame(1, $calls);
+        self::assertSame('stale', Cache::get($oldKey));
+    }
+
+    public function test_late_writer_to_the_old_list_key_cannot_overwrite_the_fresh_list(): void
+    {
+        $cache = $this->cache();
+        $filters = ['store_id' => 'store-1'];
+
+        $cache->rememberList($filters, 1, 20, fn (): string => 'initial');
+
+        $hash = sha1((string) json_encode(
+            ['filters' => $filters, 'page' => 1, 'per_page' => 20],
+            JSON_THROW_ON_ERROR,
+        ));
+        $oldKey = 'products:list:v' . (int) Cache::get('products:ver:list') . ':' . $hash;
+
+        $cache->invalidateLists();
+        Cache::put($oldKey, 'stale', 600);
+
+        $calls = 0;
+        $fresh = $cache->rememberList($filters, 1, 20, function () use (&$calls): string {
+            $calls++;
+
+            return 'fresh';
+        });
+
+        self::assertSame('fresh', $fresh);
+        self::assertSame(1, $calls);
+        self::assertSame('stale', Cache::get($oldKey));
+    }
+
+    public function test_remember_card_uses_the_new_version_after_invalidation(): void
+    {
+        $cache = $this->cache();
+
+        $cache->rememberCard('product-1', fn (): string => 'initial');
+
+        $versionBefore = (int) Cache::get('products:ver:card:product-1');
+
+        $cache->invalidateCard('product-1');
+
+        $versionAfter = (int) Cache::get('products:ver:card:product-1');
+
+        self::assertSame($versionBefore + 1, $versionAfter);
+        self::assertSame('fresh', $cache->rememberCard('product-1', fn (): string => 'fresh'));
+        self::assertSame('fresh', Cache::get('products:card:product-1:v' . $versionAfter));
     }
 
     private function cache(

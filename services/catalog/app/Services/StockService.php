@@ -99,7 +99,7 @@ final class StockService implements StockServiceInterface
         $updated = $stock->refresh();
 
         DB::afterCommit(function () use ($updated): void {
-            $this->productCache->forgetProductAndLists($updated->product_id);
+            $this->productCache->invalidateCard($updated->product_id);
             $this->eventPublisher->publish(StockChanged::fromModel($updated));
         });
 

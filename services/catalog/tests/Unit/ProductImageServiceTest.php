@@ -31,11 +31,17 @@ class ProductImageServiceTest extends TestCase
 {
     private const DISK = 'images';
 
+    private ProductCache $productCache;
+
+    /** @var list<string> */
+    private array $tempFiles = [];
+
     protected function setUp(): void
     {
         parent::setUp();
 
         Cache::flush();
+        $this->productCache = $this->cache();
         Storage::fake(self::DISK);
         DB::shouldReceive('transaction')
             ->andReturnUsing(fn (callable $callback) => $callback());
@@ -45,6 +51,14 @@ class ProductImageServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        foreach ($this->tempFiles as $path) {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+
+        $this->tempFiles = [];
+
         Mockery::close();
 
         parent::tearDown();
@@ -146,15 +160,11 @@ class ProductImageServiceTest extends TestCase
             }))
             ->andReturnUsing(fn (array $data): ProductImage => new ProductImage($data));
 
-        try {
-            $image = $this->service($imageRepository, $productRepository, $guard)->upload(
-                'store-123',
-                'product-123',
-                new \SplFileInfo($file),
-            );
-        } finally {
-            unlink($file);
-        }
+        $image = $this->service($imageRepository, $productRepository, $guard)->upload(
+            'store-123',
+            'product-123',
+            new \SplFileInfo($file),
+        );
 
         self::assertSame($stored['object_key'], $image->object_key);
         Storage::disk(self::DISK)->assertExists($image->object_key);
@@ -177,11 +187,7 @@ class ProductImageServiceTest extends TestCase
             ->with(Mockery::on(fn (array $data): bool => $data['is_main'] === false))
             ->andReturnUsing(fn (array $data): ProductImage => new ProductImage($data));
 
-        try {
-            $this->service($imageRepository, $productRepository, $guard)->upload('store-123', 'product-123', new \SplFileInfo($file));
-        } finally {
-            unlink($file);
-        }
+        $this->service($imageRepository, $productRepository, $guard)->upload('store-123', 'product-123', new \SplFileInfo($file));
 
         $this->addToAssertionCount(1);
     }
@@ -201,11 +207,7 @@ class ProductImageServiceTest extends TestCase
 
         $this->expectException(TooManyProductImagesException::class);
 
-        try {
-            $this->service($imageRepository, $productRepository, $guard)->upload('store-123', 'product-123', new \SplFileInfo($file));
-        } finally {
-            unlink($file);
-        }
+        $this->service($imageRepository, $productRepository, $guard)->upload('store-123', 'product-123', new \SplFileInfo($file));
     }
 
     public function test_upload_rejects_missing_product(): void
@@ -223,11 +225,7 @@ class ProductImageServiceTest extends TestCase
 
         $this->expectException(ProductNotFoundException::class);
 
-        try {
-            $this->service($imageRepository, $productRepository, $guard)->upload('store-123', 'missing', new \SplFileInfo($file));
-        } finally {
-            unlink($file);
-        }
+        $this->service($imageRepository, $productRepository, $guard)->upload('store-123', 'missing', new \SplFileInfo($file));
     }
 
     public function test_upload_rejects_unreadable_file_before_database_access(): void
@@ -249,21 +247,18 @@ class ProductImageServiceTest extends TestCase
     {
         $path = tempnam(sys_get_temp_dir(), 'catalog-text-');
         file_put_contents($path, 'not an image');
+        $this->tempFiles[] = $path;
         $imageRepository = Mockery::mock(ProductImageRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
         $productRepository->shouldNotReceive('lockById');
 
         $this->expectException(UnsupportedImageTypeException::class);
 
-        try {
-            $this->service($imageRepository, $productRepository)->upload(
-                'store-123',
-                'product-123',
-                new \SplFileInfo($path),
-            );
-        } finally {
-            unlink($path);
-        }
+        $this->service($imageRepository, $productRepository)->upload(
+            'store-123',
+            'product-123',
+            new \SplFileInfo($path),
+        );
     }
 
     public function test_upload_throws_when_storage_write_fails(): void
@@ -284,11 +279,7 @@ class ProductImageServiceTest extends TestCase
 
         $this->expectException(ProductImageStorageException::class);
 
-        try {
-            $this->service($imageRepository, $productRepository, $guard)->upload('store-123', 'product-123', new \SplFileInfo($file));
-        } finally {
-            unlink($file);
-        }
+        $this->service($imageRepository, $productRepository, $guard)->upload('store-123', 'product-123', new \SplFileInfo($file));
     }
 
     public function test_set_main_clears_previous_main_image(): void
@@ -327,6 +318,7 @@ class ProductImageServiceTest extends TestCase
         $imageRepository = Mockery::mock(ProductImageRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
         $cache = $this->cache();
+        $this->productCache = $cache;
 
         $cache->rememberCard('product-123', fn (): string => 'old-card');
         $cache->rememberCard('product-999', fn (): string => 'other-card');
@@ -347,7 +339,7 @@ class ProductImageServiceTest extends TestCase
             ->with($image, ['is_main' => true])
             ->andReturn($updated);
 
-        $this->service($imageRepository, $productRepository, null, $cache)
+        $this->service($imageRepository, $productRepository)
             ->setMain('store-123', 'product-123', 'image-1');
 
         self::assertSame('new-card', $cache->rememberCard('product-123', fn (): string => 'new-card'));
@@ -423,7 +415,6 @@ class ProductImageServiceTest extends TestCase
         ProductImageRepositoryInterface $imageRepository,
         ProductRepositoryInterface $productRepository,
         ?S3BucketGuard $guard = null,
-        ?ProductCache $productCache = null,
     ): ProductImageService {
         return new ProductImageService(
             $imageRepository,
@@ -432,7 +423,7 @@ class ProductImageServiceTest extends TestCase
             self::DISK,
             2,
             ['image/png' => 'png'],
-            $productCache ?? $this->cache(),
+            $this->productCache,
         );
     }
 
@@ -472,6 +463,8 @@ class ProductImageServiceTest extends TestCase
             'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
             true,
         ));
+
+        $this->tempFiles[] = $path;
 
         return $path;
     }

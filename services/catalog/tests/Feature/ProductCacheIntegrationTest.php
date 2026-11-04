@@ -43,6 +43,9 @@ class ProductCacheIntegrationTest extends PostgresTestCase
     private ProductCache $cache;
     private EventPublisherInterface $publisher;
 
+    /** @var list<string> */
+    private array $tempFiles = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -68,6 +71,14 @@ class ProductCacheIntegrationTest extends PostgresTestCase
 
     protected function tearDown(): void
     {
+        foreach ($this->tempFiles as $path) {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+
+        $this->tempFiles = [];
+
         Mockery::close();
 
         parent::tearDown();
@@ -123,13 +134,13 @@ class ProductCacheIntegrationTest extends PostgresTestCase
         self::assertSame(0, $this->countQueries(fn () => $service->get($productB->id, $this->store->id)));
     }
 
-    public function test_stock_change_flushes_the_product_card_and_lists_but_not_other_cards(): void
+    public function test_stock_change_flushes_only_the_product_card_and_keeps_the_list(): void
     {
         $productA = $this->createProduct('Drill A', quantity: 10);
         $productB = $this->createProduct('Drill B', quantity: 10);
         $productService = $this->productService();
         $stockService = $this->stockService();
-        $filters = new ProductFilters(storeId: $this->store->id);
+        $filters = new ProductFilters(storeId: $this->store->id, isAvailable: null);
 
         $productService->get($productA->id, $this->store->id);
         $productService->get($productB->id, $this->store->id);
@@ -137,9 +148,17 @@ class ProductCacheIntegrationTest extends PostgresTestCase
 
         $stockService->setQuantity($this->store->id, $productA->id, 7);
 
-        self::assertGreaterThan(0, $this->countQueries(fn () => $productService->get($productA->id, $this->store->id)));
+        self::assertSame(0, $this->countQueries(fn () => $productService->list($filters)));
+
+        $refreshed = null;
+        $cardQueries = $this->countQueries(function () use ($productService, $productA, &$refreshed): void {
+            $refreshed = $productService->get($productA->id, $this->store->id);
+        });
+
+        self::assertGreaterThan(0, $cardQueries);
+        self::assertNotNull($refreshed);
+        self::assertSame(7, $refreshed->stock->available);
         self::assertSame(0, $this->countQueries(fn () => $productService->get($productB->id, $this->store->id)));
-        self::assertGreaterThan(0, $this->countQueries(fn () => $productService->list($filters)));
     }
 
     public function test_image_upload_flushes_only_the_product_card(): void
@@ -152,19 +171,39 @@ class ProductCacheIntegrationTest extends PostgresTestCase
         $productService->get($productA->id, $this->store->id);
         $productService->get($productB->id, $this->store->id);
 
-        $file = $this->pngFile();
-
-        try {
-            $imageService->upload($this->store->id, $productA->id, new SplFileInfo($file));
-        } finally {
-            unlink($file);
-        }
+        $imageService->upload($this->store->id, $productA->id, new SplFileInfo($this->pngFile()));
 
         self::assertGreaterThan(0, $this->countQueries(fn () => $productService->get($productA->id, $this->store->id)));
         self::assertSame(0, $this->countQueries(fn () => $productService->get($productB->id, $this->store->id)));
     }
 
-    public function test_category_update_flushes_all_its_product_cards_and_lists(): void
+    public function test_invalidation_runs_only_after_the_transaction_commits(): void
+    {
+        $product = $this->createProduct('Drill');
+        $service = $this->productService();
+        $service->get($product->id, $this->store->id);
+
+        $versionKey = 'products:ver:card:' . $product->id;
+        $versionBefore = (int) Cache::get($versionKey);
+        $versionDuring = null;
+
+        DB::transaction(function () use ($service, $product, $versionKey, &$versionDuring): void {
+            $service->update(
+                $this->store->id,
+                $product->id,
+                new UpdateProductData(name: 'Drill updated'),
+            );
+
+            $versionDuring = (int) Cache::get($versionKey);
+        });
+
+        $versionAfter = (int) Cache::get($versionKey);
+
+        self::assertSame($versionBefore, $versionDuring);
+        self::assertSame($versionBefore + 1, $versionAfter);
+    }
+
+    public function test_category_update_flushes_all_its_product_cards_but_not_other_categories(): void
     {
         $otherCategory = Category::create([
             'store_id' => $this->store->id,
@@ -210,7 +249,7 @@ class ProductCacheIntegrationTest extends PostgresTestCase
     {
         $this->createProduct('Drill A');
         $service = $this->productService();
-        $filters = new ProductFilters(storeId: $this->store->id);
+        $filters = new ProductFilters(storeId: $this->store->id, isAvailable: null);
 
         self::assertSame(1, $service->list($filters)->total());
         self::assertSame(0, $this->countQueries(fn () => $service->list($filters)));
@@ -244,6 +283,61 @@ class ProductCacheIntegrationTest extends PostgresTestCase
         $this->expectException(ProductNotFoundException::class);
 
         $service->get($product->id, $otherStore->id);
+    }
+
+    public function test_cache_connection_uses_the_dedicated_test_database(): void
+    {
+        self::assertSame('2', (string) config('database.redis.cache.database'));
+    }
+
+    public function test_late_writer_to_the_old_card_key_cannot_overwrite_the_fresh_card(): void
+    {
+        $product = $this->createProduct('Drill');
+
+        $this->cache->rememberCard($product->id, fn (): string => 'initial');
+
+        $oldKey = 'products:card:' . $product->id . ':v' . (int) Cache::get('products:ver:card:' . $product->id);
+
+        $this->cache->invalidateCard($product->id);
+        Cache::put($oldKey, 'stale', 600);
+
+        $calls = 0;
+        $fresh = $this->cache->rememberCard($product->id, function () use (&$calls): string {
+            $calls++;
+
+            return 'fresh';
+        });
+
+        self::assertSame('fresh', $fresh);
+        self::assertSame(1, $calls);
+        self::assertSame('stale', Cache::get($oldKey));
+    }
+
+    public function test_late_writer_to_the_old_list_key_cannot_overwrite_the_fresh_list(): void
+    {
+        $filters = ['store_id' => $this->store->id];
+
+        $this->cache->rememberList($filters, 1, 20, fn (): string => 'initial');
+
+        $hash = sha1((string) json_encode(
+            ['filters' => $filters, 'page' => 1, 'per_page' => 20],
+            JSON_THROW_ON_ERROR,
+        ));
+        $oldKey = 'products:list:v' . (int) Cache::get('products:ver:list') . ':' . $hash;
+
+        $this->cache->invalidateLists();
+        Cache::put($oldKey, 'stale', 600);
+
+        $calls = 0;
+        $fresh = $this->cache->rememberList($filters, 1, 20, function () use (&$calls): string {
+            $calls++;
+
+            return 'fresh';
+        });
+
+        self::assertSame('fresh', $fresh);
+        self::assertSame(1, $calls);
+        self::assertSame('stale', Cache::get($oldKey));
     }
 
     private function productService(): ProductService
@@ -329,6 +423,8 @@ class ProductCacheIntegrationTest extends PostgresTestCase
             'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
             true,
         ));
+
+        $this->tempFiles[] = $path;
 
         return $path;
     }

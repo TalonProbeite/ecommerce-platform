@@ -154,14 +154,14 @@ class ProductServiceTest extends TestCase
         self::assertSame($first->items(), $second->items());
     }
 
-    public function test_list_caches_availability_filtered_requests(): void
+    public function test_list_availability_filters_bypass_the_cache(): void
     {
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
         $filters = new ProductFilters(storeId: 'store-123', isAvailable: true);
         $paginator = new Paginator([$this->product()], 1, $filters->limit, $filters->page);
 
         $productRepository->shouldReceive('findByFilters')
-            ->once()
+            ->twice()
             ->with($filters)
             ->andReturn($paginator);
 
@@ -634,7 +634,6 @@ class ProductServiceTest extends TestCase
 
     private function service(
         ProductRepositoryInterface $productRepository,
-        ?ProductCache $productCache = null,
     ): ProductService {
         return new ProductService(
             $productRepository,
@@ -643,7 +642,7 @@ class ProductServiceTest extends TestCase
             Mockery::mock(StockRepositoryInterface::class),
             Mockery::mock(StockReservationRepositoryInterface::class),
             Mockery::mock(EventPublisherInterface::class),
-            $productCache ?? $this->cache(),
+            $this->cache(),
         );
     }
 

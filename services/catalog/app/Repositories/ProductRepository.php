@@ -67,7 +67,6 @@ class ProductRepository implements ProductRepositoryInterface
                 'products.*',
                 'categories.name as category_name',
             ])
-            ->selectRaw("({$availableExpr}) as available")
             ->join('categories', function ($join) {
                 $join->on('categories.id', '=', 'products.category_id')
                     ->on('categories.store_id', '=', 'products.store_id');

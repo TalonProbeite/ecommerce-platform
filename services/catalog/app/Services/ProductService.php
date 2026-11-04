@@ -42,6 +42,18 @@ final class ProductService implements ProductServiceInterface
 
     public function list(ProductFilters $filters): LengthAwarePaginator
     {
+        if ($filters->isAvailable !== null) {
+            $paginator = $this->productRepository->findByFilters($filters);
+
+            return new Paginator(
+                $paginator->items(),
+                $paginator->total(),
+                $filters->limit,
+                $filters->page,
+                ['path' => Paginator::resolveCurrentPath()],
+            );
+        }
+
         $payload = $this->productCache->rememberList(
             get_object_vars($filters),
             $filters->page,
@@ -109,7 +121,7 @@ final class ProductService implements ProductServiceInterface
             $created = $this->findDetailedProductOrFail($product->id, $storeId);
 
             DB::afterCommit(function () use ($created): void {
-                $this->productCache->forgetLists();
+                $this->productCache->invalidateLists();
                 $this->eventPublisher->publish(
                     ProductCreated::fromModel($created),
                 );
@@ -157,7 +169,8 @@ final class ProductService implements ProductServiceInterface
             $product = $this->findDetailedProductOrFail($productId, $storeId);
 
             DB::afterCommit(function () use ($product, $productId): void {
-                $this->productCache->forgetProductAndLists($productId);
+                $this->productCache->invalidateCard($productId);
+                $this->productCache->invalidateLists();
                 $this->eventPublisher->publish(
                     ProductUpdated::fromModel($product),
                 );
@@ -186,7 +199,8 @@ final class ProductService implements ProductServiceInterface
             );
 
             DB::afterCommit(function () use ($product, $productId): void {
-                $this->productCache->forgetProductAndLists($productId);
+                $this->productCache->invalidateCard($productId);
+                $this->productCache->invalidateLists();
                 $this->eventPublisher->publish(
                     ProductDeleted::fromModel($product),
                 );
@@ -210,7 +224,8 @@ final class ProductService implements ProductServiceInterface
             $product = $this->findDetailedProductOrFail($productId, $storeId);
 
             DB::afterCommit(function () use ($product, $productId): void {
-                $this->productCache->forgetProductAndLists($productId);
+                $this->productCache->invalidateCard($productId);
+                $this->productCache->invalidateLists();
                 $this->eventPublisher->publish(
                     ProductUpdated::fromModel($product),
                 );

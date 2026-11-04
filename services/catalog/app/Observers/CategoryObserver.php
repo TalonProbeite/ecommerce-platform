@@ -17,23 +17,23 @@ final class CategoryObserver
 
     public function updated(Category $category): void
     {
-        $this->forgetCategoryCards($category);
+        $this->invalidateCategory($category);
     }
 
     public function deleted(Category $category): void
     {
-        $this->forgetCategoryCards($category);
+        $this->invalidateCategory($category);
     }
 
     public function restored(Category $category): void
     {
-        $this->forgetCategoryCards($category);
+        $this->invalidateCategory($category);
     }
 
-    private function forgetCategoryCards(Category $category): void
+    private function invalidateCategory(Category $category): void
     {
         DB::afterCommit(function () use ($category): void {
-            $this->productCache->forgetCategoryCards($category->id);
+            $this->productCache->invalidateCategory($category->id);
         });
     }
 }

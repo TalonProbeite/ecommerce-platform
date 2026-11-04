@@ -24,11 +24,14 @@ use Tests\TestCase;
 
 class StockServiceTest extends TestCase
 {
+    private ProductCache $productCache;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         Cache::flush();
+        $this->productCache = $this->cache();
 
         DB::shouldReceive('transaction')
             ->andReturnUsing(fn (callable $callback) => $callback());
@@ -174,12 +177,13 @@ class StockServiceTest extends TestCase
         $this->service($repository)->releaseUnits('store-123', 'product-123', -1);
     }
 
-    public function test_set_quantity_flushes_the_product_card_and_lists_only(): void
+    public function test_set_quantity_flushes_only_the_product_card(): void
     {
         $stock = $this->stock(10, 2, fn (Stock $model) => $model->forceFill(['quantity' => 7]));
         $repository = Mockery::mock(StockRepositoryInterface::class);
         $publisher = Mockery::mock(EventPublisherInterface::class);
         $cache = $this->cache();
+        $this->productCache = $cache;
 
         $cache->rememberCard('product-123', fn (): string => 'old-card');
         $cache->rememberCard('product-999', fn (): string => 'other-card');
@@ -195,11 +199,11 @@ class StockServiceTest extends TestCase
             ->andReturn(1);
         $publisher->shouldReceive('publish')->once();
 
-        $this->service($repository, $publisher, $cache)->setQuantity('store-123', 'product-123', 7);
+        $this->service($repository, $publisher)->setQuantity('store-123', 'product-123', 7);
 
         self::assertSame('new-card', $cache->rememberCard('product-123', fn (): string => 'new-card'));
         self::assertSame('other-card', $cache->rememberCard('product-999', fn (): string => 'refreshed-other-card'));
-        self::assertSame('new-list', $cache->rememberList(['store_id' => 'store-123'], 1, 20, fn (): string => 'new-list'));
+        self::assertSame('old-list', $cache->rememberList(['store_id' => 'store-123'], 1, 20, fn (): string => 'new-list'));
     }
 
     public function test_release_units_decreases_reserved_and_publishes_event(): void
@@ -256,12 +260,11 @@ class StockServiceTest extends TestCase
     private function service(
         StockRepositoryInterface $repository,
         ?EventPublisherInterface $publisher = null,
-        ?ProductCache $productCache = null,
     ): StockService {
         return new StockService(
             $repository,
             $publisher ?? Mockery::mock(EventPublisherInterface::class),
-            $productCache ?? $this->cache(),
+            $this->productCache,
         );
     }
 
