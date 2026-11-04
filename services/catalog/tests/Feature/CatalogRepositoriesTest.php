@@ -144,7 +144,6 @@ class CatalogRepositoriesTest extends PostgresTestCase
     {
         $repository = new ProductRepository();
         $product = $repository->createProduct(
-            (string) Uuid::uuid7(),
             $this->store->id,
             new CreateProductData(
                 name: 'Saw',

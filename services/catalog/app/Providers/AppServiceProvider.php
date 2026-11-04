@@ -17,7 +17,10 @@ use App\Contracts\Services\ProductImageServiceInterface;
 use App\Contracts\Services\ProductServiceInterface;
 use App\Contracts\Services\StockServiceInterface;
 use App\Contracts\Services\StoreServiceInterface;
+use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\RabbitMqPublisher;
+use App\Models\Category;
+use App\Observers\CategoryObserver;
 use App\Repositories\CategoryRepository;
 use App\Repositories\ProductAttributeRepository;
 use App\Repositories\ProductImageRepository;
@@ -58,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(RabbitMqPublisher::class);
         $this->app->alias(RabbitMqPublisher::class, EventPublisherInterface::class);
+        $this->app->singleton(ProductCache::class);
         $this->app->singleton(S3BucketGuard::class);
     }
 
@@ -66,6 +70,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Category::observe(CategoryObserver::class);
+
         Event::listen(WorkerStopping::class, static function (WorkerStopping $event): void {
             if (! $event->app->resolved(RabbitMqPublisher::class)) {
                 return;

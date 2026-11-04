@@ -35,7 +35,14 @@ interface ProductRepositoryInterface
      */
     public function findByFilters(ProductFilters $filters): LengthAwarePaginator;
 
-    public function createProduct(string $productId, string $storeId, CreateProductData $data): Product;
+    /**
+     * Find IDs of all products in the category, including soft-deleted ones.
+     *
+     * @return array<int, string>
+     */
+    public function findIdsByCategory(string $categoryId): array;
+
+    public function createProduct(string $storeId, CreateProductData $data): Product;
 
     public function updateProduct(string $productId, string $storeId, UpdateProductData $data): Product;
 

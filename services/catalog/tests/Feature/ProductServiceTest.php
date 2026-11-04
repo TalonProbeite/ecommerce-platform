@@ -12,6 +12,7 @@ use App\DTO\UpdateProductData;
 use App\Exceptions\ProductCategoryNotFoundException;
 use App\Exceptions\ProductHasActiveReservationsException;
 use App\Exceptions\ProductNotFoundException;
+use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\Events\ProductCreated;
 use App\Messaging\Events\ProductDeleted;
 use App\Messaging\Events\ProductUpdated;
@@ -222,6 +223,7 @@ class ProductServiceTest extends PostgresTestCase
             new StockRepository(),
             new StockReservationRepository(),
             $publisher,
+            app(ProductCache::class),
         );
     }
 }

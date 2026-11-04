@@ -17,14 +17,15 @@ use App\DTO\UpdateProductData;
 use App\Exceptions\ProductCategoryNotFoundException;
 use App\Exceptions\ProductHasActiveReservationsException;
 use App\Exceptions\ProductNotFoundException;
+use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\Events\ProductCreated;
 use App\Messaging\Events\ProductDeleted;
 use App\Messaging\Events\ProductUpdated;
 use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use Ramsey\Uuid\Uuid;
 
 final class ProductService implements ProductServiceInterface
 {
@@ -35,22 +36,51 @@ final class ProductService implements ProductServiceInterface
         private readonly StockRepositoryInterface $stockRepository,
         private readonly StockReservationRepositoryInterface $reservationRepository,
         private readonly EventPublisherInterface $eventPublisher,
+        private readonly ProductCache $productCache,
     ) {
     }
 
     public function list(ProductFilters $filters): LengthAwarePaginator
     {
-        return $this->productRepository->findByFilters($filters);
+        $payload = $this->productCache->rememberList(
+            get_object_vars($filters),
+            $filters->page,
+            $filters->limit,
+            function () use ($filters): array {
+                $paginator = $this->productRepository->findByFilters($filters);
+
+                return [
+                    'items' => $paginator->items(),
+                    'total' => $paginator->total(),
+                ];
+            },
+        );
+
+        /** @var array{items: array<int, Product>, total: int} $payload */
+        return new Paginator(
+            $payload['items'],
+            $payload['total'],
+            $filters->limit,
+            $filters->page,
+            ['path' => Paginator::resolveCurrentPath()],
+        );
     }
 
     public function get(
         string $productId,
         ?string $storeId = null,
     ): Product {
-        return $this->productRepository->findDetailedById(
+        /** @var Product $product */
+        $product = $this->productCache->rememberCard(
             $productId,
-            $storeId,
-        ) ?? throw new ProductNotFoundException($productId);
+            fn (): Product => $this->findDetailedProductOrFail($productId, $storeId),
+        );
+
+        if ($storeId !== null && $product->store_id !== $storeId) {
+            throw new ProductNotFoundException($productId);
+        }
+
+        return $product;
     }
 
     public function create(
@@ -60,34 +90,32 @@ final class ProductService implements ProductServiceInterface
         return DB::transaction(function () use ($storeId, $data): Product {
             $this->assertCategoryBelongsToStore($data->categoryId, $storeId);
 
-            $productId = (string) Uuid::uuid7();
-
-            $this->productRepository->createProduct(
-                $productId,
+            $product = $this->productRepository->createProduct(
                 $storeId,
                 $data,
             );
 
             $this->stockRepository->createStock(
-                $productId,
+                $product->id,
                 $storeId,
                 $data->quantity,
             );
 
             $this->attributeRepository->createProductAttribute(
                 $data->attributes,
-                $productId,
+                $product->id,
             );
 
-            $product = $this->get($productId, $storeId);
+            $created = $this->findDetailedProductOrFail($product->id, $storeId);
 
-            DB::afterCommit(function () use ($product): void {
+            DB::afterCommit(function () use ($created): void {
+                $this->productCache->forgetLists();
                 $this->eventPublisher->publish(
-                    ProductCreated::fromModel($product),
+                    ProductCreated::fromModel($created),
                 );
             });
 
-            return $product;
+            return $created;
         });
     }
 
@@ -126,9 +154,10 @@ final class ProductService implements ProductServiceInterface
                 }
             }
 
-            $product = $this->get($productId, $storeId);
+            $product = $this->findDetailedProductOrFail($productId, $storeId);
 
-            DB::afterCommit(function () use ($product): void {
+            DB::afterCommit(function () use ($product, $productId): void {
+                $this->productCache->forgetProductAndLists($productId);
                 $this->eventPublisher->publish(
                     ProductUpdated::fromModel($product),
                 );
@@ -156,7 +185,8 @@ final class ProductService implements ProductServiceInterface
                 $storeId,
             );
 
-            DB::afterCommit(function () use ($product): void {
+            DB::afterCommit(function () use ($product, $productId): void {
+                $this->productCache->forgetProductAndLists($productId);
                 $this->eventPublisher->publish(
                     ProductDeleted::fromModel($product),
                 );
@@ -177,9 +207,10 @@ final class ProductService implements ProductServiceInterface
                 $storeId,
             );
 
-            $product = $this->get($productId, $storeId);
+            $product = $this->findDetailedProductOrFail($productId, $storeId);
 
-            DB::afterCommit(function () use ($product): void {
+            DB::afterCommit(function () use ($product, $productId): void {
+                $this->productCache->forgetProductAndLists($productId);
                 $this->eventPublisher->publish(
                     ProductUpdated::fromModel($product),
                 );
@@ -187,6 +218,16 @@ final class ProductService implements ProductServiceInterface
 
             return $product;
         });
+    }
+
+    private function findDetailedProductOrFail(
+        string $productId,
+        ?string $storeId = null,
+    ): Product {
+        return $this->productRepository->findDetailedById(
+            $productId,
+            $storeId,
+        ) ?? throw new ProductNotFoundException($productId);
     }
 
     private function findProductOrFail(

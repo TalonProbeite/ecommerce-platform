@@ -12,8 +12,32 @@ TEST_DATABASE ?= catalog_test
 IDE_DB_HOST ?= 127.0.0.1
 IDE_DB_PORT ?= 5433
 
+TEST_DB_ENV := -e APP_ENV=testing \
+	-e CATALOG_TEST_DATABASE="$(TEST_DATABASE)" \
+	-e DB_CONNECTION=pgsql \
+	-e DB_HOST=catalog-db \
+	-e DB_PORT=5432 \
+	-e DB_DATABASE="$(TEST_DATABASE)" \
+	-e DB_URL= \
+	-e BROADCAST_CONNECTION=null \
+	-e MAIL_MAILER=array \
+	-e QUEUE_CONNECTION=sync \
+	-e SESSION_DRIVER=array
+
+UNIT_TEST_ENV := $(TEST_DB_ENV) -e CACHE_STORE=array
+
+FEATURE_TEST_ENV := $(TEST_DB_ENV) \
+	-e CACHE_STORE=redis \
+	-e REDIS_CLIENT=phpredis \
+	-e REDIS_HOST=catalog-test-redis \
+	-e REDIS_PORT=6379 \
+	-e REDIS_PASSWORD=null \
+	-e REDIS_DB=2 \
+	-e REDIS_CACHE_DB=2
+
 .PHONY: help \
-	test test-docker test-unit test-feature test-integration test-db \
+	test test-docker test-unit test-feature test-integration \
+	test-services test-db test-redis \
 	lint format analyse check \
 	ide ide-generate ide-models ide-db \
 	up down restart build logs ps \
@@ -22,11 +46,13 @@ IDE_DB_PORT ?= 5433
 help:
 	@printf '%s\n' \
 		'Tests:' \
-		'  test / test-docker Run all tests in Docker against PostgreSQL' \
-		'  test-unit         Run unit tests on host (SQLite)' \
-		'  test-feature      Run feature/integration tests in Docker' \
+		'  test / test-docker Run unit tests on array and feature tests on Redis in Docker' \
+		'  test-unit         Run unit tests on host (SQLite, array cache)' \
+		'  test-feature      Run feature/integration tests in Docker against Redis' \
 		'  test-integration  Alias for test-feature' \
+		'  test-services     Start catalog-db and catalog-test-redis' \
 		'  test-db           Start catalog-db and ensure test database exists' \
+		'  test-redis        Start catalog-test-redis and wait for health' \
 		'' \
 		'Local development tools:' \
 		'  lint              Check PHP syntax on host' \
@@ -60,34 +86,31 @@ help:
 test: test-docker
 
 test-unit:
-	$(PHP) vendor/bin/phpunit --testsuite Unit
+	CACHE_STORE=array $(PHP) vendor/bin/phpunit --testsuite Unit
 
-test-feature:
-	$(MAKE) test-docker PHPUNIT_ARGS="--testsuite Feature"
+test-feature: test-services
+	$(COMPOSE) build $(APP)
+	$(COMPOSE) run --rm --no-deps $(FEATURE_TEST_ENV) \
+		$(APP) php vendor/bin/phpunit --testsuite Feature --do-not-cache-result $(PHPUNIT_ARGS)
 
 test-integration: test-feature
 
-test-docker: test-db
+test-docker: test-services
 	$(COMPOSE) build $(APP)
-	$(COMPOSE) run --rm --no-deps \
-		-e APP_ENV=testing \
-		-e CATALOG_TEST_DATABASE="$(TEST_DATABASE)" \
-		-e DB_CONNECTION=pgsql \
-		-e DB_HOST=catalog-db \
-		-e DB_PORT=5432 \
-		-e DB_DATABASE="$(TEST_DATABASE)" \
-		-e DB_URL= \
-		-e BROADCAST_CONNECTION=null \
-		-e CACHE_STORE=array \
-		-e MAIL_MAILER=array \
-		-e QUEUE_CONNECTION=sync \
-		-e SESSION_DRIVER=array \
-		$(APP) php vendor/bin/phpunit --do-not-cache-result $(PHPUNIT_ARGS)
+	$(COMPOSE) run --rm --no-deps $(UNIT_TEST_ENV) \
+		$(APP) php vendor/bin/phpunit --testsuite Unit --do-not-cache-result
+	$(COMPOSE) run --rm --no-deps $(FEATURE_TEST_ENV) \
+		$(APP) php vendor/bin/phpunit --testsuite Feature --do-not-cache-result $(PHPUNIT_ARGS)
+
+test-services: test-db test-redis
 
 test-db:
 	$(COMPOSE) up -d --wait catalog-db
 	@$(COMPOSE) exec -T catalog-db sh -c \
 		'psql -U "$$POSTGRES_USER" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '\''$(TEST_DATABASE)'\''" | grep -q 1 || createdb -U "$$POSTGRES_USER" "$(TEST_DATABASE)"'
+
+test-redis:
+	$(COMPOSE) up -d --wait catalog-test-redis
 
 lint:
 	find app bootstrap config database routes tests \

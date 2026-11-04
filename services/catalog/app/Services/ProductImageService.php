@@ -13,6 +13,7 @@ use App\Exceptions\ProductImageStorageException;
 use App\Exceptions\ProductNotFoundException;
 use App\Exceptions\TooManyProductImagesException;
 use App\Exceptions\UnsupportedImageTypeException;
+use App\Infrastructure\Cache\ProductCache;
 use App\Models\ProductImage;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Database\Eloquent\Collection;
@@ -34,6 +35,7 @@ final class ProductImageService implements ProductImageServiceInterface
         #[Config('catalog.product_images.disk')] private readonly string $disk,
         #[Config('catalog.product_images.max_per_product')] private readonly int $maxImagesPerProduct,
         #[Config('catalog.product_images.allowed_mime_types')] private readonly array $allowedMimeTypes,
+        private readonly ProductCache $productCache,
     ) {
     }
 
@@ -85,6 +87,10 @@ final class ProductImageService implements ProductImageServiceInterface
             // Write the object after the row: if the write fails, the transaction rolls back the row.
             $this->storeObject($objectKey, $file);
 
+            DB::afterCommit(function () use ($productId): void {
+                $this->productCache->forgetProduct($productId);
+            });
+
             return $image;
         });
     }
@@ -103,7 +109,13 @@ final class ProductImageService implements ProductImageServiceInterface
             // Clear first: the partial unique index rejects a second main image at statement time.
             $this->imageRepository->clearMainForProduct($productId);
 
-            return $this->imageRepository->update($image, ['is_main' => true]);
+            $updated = $this->imageRepository->update($image, ['is_main' => true]);
+
+            DB::afterCommit(function () use ($productId): void {
+                $this->productCache->forgetProduct($productId);
+            });
+
+            return $updated;
         });
     }
 
@@ -127,7 +139,8 @@ final class ProductImageService implements ProductImageServiceInterface
             }
 
             // Remove the object only after a successful commit, so a rollback keeps the file.
-            DB::afterCommit(function () use ($objectKey): void {
+            DB::afterCommit(function () use ($productId, $objectKey): void {
+                $this->productCache->forgetProduct($productId);
                 Storage::disk($this->disk)->delete($objectKey);
             });
         });

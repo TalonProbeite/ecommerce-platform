@@ -12,12 +12,14 @@ use App\Exceptions\ProductImageStorageException;
 use App\Exceptions\ProductNotFoundException;
 use App\Exceptions\TooManyProductImagesException;
 use App\Exceptions\UnsupportedImageTypeException;
+use App\Infrastructure\Cache\ProductCache;
 use App\Infrastructure\Storage\S3BucketGuard;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Services\ProductImageService;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
@@ -33,6 +35,7 @@ class ProductImageServiceTest extends TestCase
     {
         parent::setUp();
 
+        Cache::flush();
         Storage::fake(self::DISK);
         DB::shouldReceive('transaction')
             ->andReturnUsing(fn (callable $callback) => $callback());
@@ -317,6 +320,40 @@ class ProductImageServiceTest extends TestCase
         );
     }
 
+    public function test_set_main_flushes_only_the_affected_product_card(): void
+    {
+        $image = $this->image('image-1', 'object-1');
+        $updated = $this->image('image-1', 'object-1', true);
+        $imageRepository = Mockery::mock(ProductImageRepositoryInterface::class);
+        $productRepository = Mockery::mock(ProductRepositoryInterface::class);
+        $cache = $this->cache();
+
+        $cache->rememberCard('product-123', fn (): string => 'old-card');
+        $cache->rememberCard('product-999', fn (): string => 'other-card');
+
+        $productRepository->shouldReceive('lockById')
+            ->once()
+            ->with('product-123', 'store-123')
+            ->andReturn(new Product());
+        $imageRepository->shouldReceive('findByIdForProduct')
+            ->once()
+            ->with('image-1', 'product-123')
+            ->andReturn($image);
+        $imageRepository->shouldReceive('clearMainForProduct')
+            ->once()
+            ->with('product-123');
+        $imageRepository->shouldReceive('update')
+            ->once()
+            ->with($image, ['is_main' => true])
+            ->andReturn($updated);
+
+        $this->service($imageRepository, $productRepository, null, $cache)
+            ->setMain('store-123', 'product-123', 'image-1');
+
+        self::assertSame('new-card', $cache->rememberCard('product-123', fn (): string => 'new-card'));
+        self::assertSame('other-card', $cache->rememberCard('product-999', fn (): string => 'refreshed-other-card'));
+    }
+
     public function test_set_main_is_idempotent_for_the_current_main_image(): void
     {
         $image = $this->image('image-1', 'object-1', true);
@@ -386,6 +423,7 @@ class ProductImageServiceTest extends TestCase
         ProductImageRepositoryInterface $imageRepository,
         ProductRepositoryInterface $productRepository,
         ?S3BucketGuard $guard = null,
+        ?ProductCache $productCache = null,
     ): ProductImageService {
         return new ProductImageService(
             $imageRepository,
@@ -394,6 +432,16 @@ class ProductImageServiceTest extends TestCase
             self::DISK,
             2,
             ['image/png' => 'png'],
+            $productCache ?? $this->cache(),
+        );
+    }
+
+    private function cache(): ProductCache
+    {
+        return new ProductCache(
+            300,
+            600,
+            Mockery::mock(ProductRepositoryInterface::class),
         );
     }
 

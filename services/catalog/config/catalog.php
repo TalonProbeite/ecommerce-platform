@@ -16,4 +16,16 @@ return [
 
     ],
 
+    'cache' => [
+
+        'products' => [
+
+            'list_ttl' => (int) env('CATALOG_CACHE_PRODUCTS_LIST_TTL', 300),
+
+            'card_ttl' => (int) env('CATALOG_CACHE_PRODUCTS_CARD_TTL', 600),
+
+        ],
+
+    ],
+
 ];

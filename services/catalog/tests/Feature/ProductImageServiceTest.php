@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Exceptions\ProductImageNotFoundException;
 use App\Exceptions\ProductNotFoundException;
 use App\Exceptions\TooManyProductImagesException;
+use App\Infrastructure\Cache\ProductCache;
 use App\Infrastructure\Storage\S3BucketGuard;
 use App\Models\Category;
 use App\Models\Product;
@@ -172,6 +173,7 @@ class ProductImageServiceTest extends PostgresTestCase
             self::DISK,
             2,
             ['image/png' => 'png'],
+            app(ProductCache::class),
         );
     }
 

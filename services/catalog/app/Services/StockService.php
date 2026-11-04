@@ -12,6 +12,7 @@ use App\Exceptions\QuantityBelowReservedException;
 use App\Exceptions\ReservedUnderflowException;
 use App\Exceptions\StockConcurrencyException;
 use App\Exceptions\StockNotFoundException;
+use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\Events\StockChanged;
 use App\Models\Stock;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,7 @@ final class StockService implements StockServiceInterface
     public function __construct(
         private StockRepositoryInterface $stockRepository,
         private EventPublisherInterface $eventPublisher,
+        private readonly ProductCache $productCache,
     ) {
     }
 
@@ -97,7 +99,7 @@ final class StockService implements StockServiceInterface
         $updated = $stock->refresh();
 
         DB::afterCommit(function () use ($updated): void {
-            // Verify StockChanged::fromModel() exists; adapt if the event has a different factory.
+            $this->productCache->forgetProductAndLists($updated->product_id);
             $this->eventPublisher->publish(StockChanged::fromModel($updated));
         });
 

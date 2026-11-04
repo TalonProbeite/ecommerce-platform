@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Contracts\Messaging\EventPublisherInterface;
+use App\Contracts\Repositories\ProductRepositoryInterface;
 use App\Contracts\Repositories\StockRepositoryInterface;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\QuantityBelowReservedException;
 use App\Exceptions\ReservedUnderflowException;
 use App\Exceptions\StockConcurrencyException;
 use App\Exceptions\StockNotFoundException;
+use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\Events\StockChanged;
 use App\Models\Stock;
 use App\Services\StockService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Mockery;
@@ -24,6 +27,8 @@ class StockServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Cache::flush();
 
         DB::shouldReceive('transaction')
             ->andReturnUsing(fn (callable $callback) => $callback());
@@ -149,26 +154,52 @@ class StockServiceTest extends TestCase
         $this->service($repository, $publisher)->reserveUnits('store-123', 'product-123', 3);
     }
 
-    public function test_reserve_and_release_reject_non_positive_quantities(): void
+    public function test_reserve_rejects_a_non_positive_quantity(): void
     {
         $repository = Mockery::mock(StockRepositoryInterface::class);
         $repository->shouldNotReceive('lockByProductId');
 
-        foreach ([0, -1] as $quantity) {
-            try {
-                $this->service($repository)->reserveUnits('store-123', 'product-123', $quantity);
-                self::fail('Reserving a non-positive quantity must fail.');
-            } catch (InvalidArgumentException) {
-            }
+        $this->expectException(InvalidArgumentException::class);
 
-            try {
-                $this->service($repository)->releaseUnits('store-123', 'product-123', $quantity);
-                self::fail('Releasing a non-positive quantity must fail.');
-            } catch (InvalidArgumentException) {
-            }
-        }
+        $this->service($repository)->reserveUnits('store-123', 'product-123', 0);
+    }
 
-        $this->addToAssertionCount(1);
+    public function test_release_rejects_a_non_positive_quantity(): void
+    {
+        $repository = Mockery::mock(StockRepositoryInterface::class);
+        $repository->shouldNotReceive('lockByProductId');
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->service($repository)->releaseUnits('store-123', 'product-123', -1);
+    }
+
+    public function test_set_quantity_flushes_the_product_card_and_lists_only(): void
+    {
+        $stock = $this->stock(10, 2, fn (Stock $model) => $model->forceFill(['quantity' => 7]));
+        $repository = Mockery::mock(StockRepositoryInterface::class);
+        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $cache = $this->cache();
+
+        $cache->rememberCard('product-123', fn (): string => 'old-card');
+        $cache->rememberCard('product-999', fn (): string => 'other-card');
+        $cache->rememberList(['store_id' => 'store-123'], 1, 20, fn (): string => 'old-list');
+
+        $repository->shouldReceive('lockByProductId')
+            ->once()
+            ->with('product-123', 'store-123')
+            ->andReturn($stock);
+        $repository->shouldReceive('setQuantityIfNotBelowReserved')
+            ->once()
+            ->with('stock-123', 7)
+            ->andReturn(1);
+        $publisher->shouldReceive('publish')->once();
+
+        $this->service($repository, $publisher, $cache)->setQuantity('store-123', 'product-123', 7);
+
+        self::assertSame('new-card', $cache->rememberCard('product-123', fn (): string => 'new-card'));
+        self::assertSame('other-card', $cache->rememberCard('product-999', fn (): string => 'refreshed-other-card'));
+        self::assertSame('new-list', $cache->rememberList(['store_id' => 'store-123'], 1, 20, fn (): string => 'new-list'));
     }
 
     public function test_release_units_decreases_reserved_and_publishes_event(): void
@@ -225,10 +256,21 @@ class StockServiceTest extends TestCase
     private function service(
         StockRepositoryInterface $repository,
         ?EventPublisherInterface $publisher = null,
+        ?ProductCache $productCache = null,
     ): StockService {
         return new StockService(
             $repository,
             $publisher ?? Mockery::mock(EventPublisherInterface::class),
+            $productCache ?? $this->cache(),
+        );
+    }
+
+    private function cache(): ProductCache
+    {
+        return new ProductCache(
+            300,
+            600,
+            Mockery::mock(ProductRepositoryInterface::class),
         );
     }
 

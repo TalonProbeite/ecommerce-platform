@@ -10,6 +10,7 @@ use App\Exceptions\InsufficientStockException;
 use App\Exceptions\QuantityBelowReservedException;
 use App\Exceptions\ReservedUnderflowException;
 use App\Exceptions\StockNotFoundException;
+use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\Events\StockChanged;
 use App\Models\Category;
 use App\Models\Product;
@@ -189,6 +190,6 @@ class StockServiceTest extends PostgresTestCase
                 $this->events[] = $event;
             });
 
-        return new StockService(new StockRepository(), $publisher);
+        return new StockService(new StockRepository(), $publisher, app(ProductCache::class));
     }
 }

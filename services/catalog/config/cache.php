@@ -126,11 +126,21 @@ return [
     |--------------------------------------------------------------------------
     |
     | This value determines the classes that can be unserialized from cache
-    | storage. By default, no PHP classes will be unserialized from your
-    | cache to prevent gadget chain attacks if your APP_KEY is leaked.
+    | storage. Only the catalog models required by cached product reads are
+    | allowed to prevent gadget chain attacks if your APP_KEY is leaked.
     |
     */
 
-    'serializable_classes' => false,
+    'serializable_classes' => [
+        App\Models\Product::class,
+        App\Models\Category::class,
+        App\Models\ProductAttribute::class,
+        App\Models\ProductImage::class,
+        App\Models\Stock::class,
+        Illuminate\Database\Eloquent\Collection::class,
+        Illuminate\Support\Carbon::class,
+        Carbon\Carbon::class,
+        Carbon\CarbonImmutable::class,
+    ],
 
 ];

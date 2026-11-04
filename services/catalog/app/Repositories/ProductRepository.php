@@ -111,10 +111,22 @@ class ProductRepository implements ProductRepositoryInterface
             );
     }
 
-    public function createProduct(string $productId, string $storeId, CreateProductData $data): Product
+    /**
+     * Find IDs of all products in the category, including soft-deleted ones.
+     *
+     * @return array<int, string>
+     */
+    public function findIdsByCategory(string $categoryId): array
+    {
+        return Product::withTrashed()
+            ->where('category_id', $categoryId)
+            ->pluck('id')
+            ->all();
+    }
+
+    public function createProduct(string $storeId, CreateProductData $data): Product
     {
         $product = new Product();
-        $product->id = $productId;
         $product->store_id = $storeId;
         $product->fill($data->toArray());
         $product->saveOrFail();
