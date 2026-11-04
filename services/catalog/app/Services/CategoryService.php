@@ -14,12 +14,12 @@ use App\DTO\UpdateCategoryData;
 use App\Exceptions\CategoryNotFoundException;
 use App\Exceptions\HasProductsException;
 use App\Exceptions\HasSubcategoriesException;
+use App\Infrastructure\Cache\CategoryCache;
 use App\Messaging\Events\CategoryCreated;
 use App\Messaging\Events\CategoryDeleted;
 use App\Messaging\Events\CategoryUpdated;
 use App\Models\Category;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -29,14 +29,14 @@ final class CategoryService implements CategoryServiceInterface
         private CategoryRepositoryInterface $categoryRepository,
         private ProductRepositoryInterface $productRepository,
         private EventPublisherInterface $eventPublisher,
+        private readonly CategoryCache $categoryCache,
     ) {
     }
 
     public function list(string $storeId): Collection
     {
-        return Cache::tags([Category::cacheTag($storeId)])->remember(
-            "store:{$storeId}:categories_tree",
-            now()->addMinutes(30),
+        return $this->categoryCache->rememberTree(
+            $storeId,
             fn () => $this->categoryRepository->findByStore($storeId),
         );
     }
@@ -175,7 +175,7 @@ final class CategoryService implements CategoryServiceInterface
     private function afterMutation(string $storeId, EventInterface $event): void
     {
         DB::afterCommit(function () use ($storeId, $event): void {
-            Cache::tags([Category::cacheTag($storeId)])->flush();
+            $this->categoryCache->invalidateStore($storeId);
             $this->eventPublisher->publish($event);
         });
     }

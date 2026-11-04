@@ -9,6 +9,7 @@ use BackedEnum;
 use Closure;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use JsonSerializable;
 use UnitEnum;
 
@@ -19,6 +20,7 @@ final class ProductCache
     public function __construct(
         #[Config('catalog.cache.products.list_ttl')] private readonly int $listTtl,
         #[Config('catalog.cache.products.card_ttl')] private readonly int $cardTtl,
+        #[Config('catalog.cache.version_ttl')] private readonly int $versionTtl,
         private readonly ProductRepositoryInterface $productRepository,
     ) {
     }
@@ -29,16 +31,16 @@ final class ProductCache
      */
     public function rememberList(array $filters, int $page, int $perPage, Closure $callback): mixed
     {
-        $version = $this->currentVersion(self::LIST_VERSION_KEY);
+        $token = $this->readVersion(self::LIST_VERSION_KEY);
 
         $hash = sha1((string) json_encode(
             $this->normalize(['filters' => $filters, 'page' => $page, 'per_page' => $perPage]),
             JSON_THROW_ON_ERROR,
         ));
 
-        return Cache::remember(
-            sprintf('products:list:v%d:%s', $version, $hash),
-            $this->listTtl,
+        return Cache::flexible(
+            sprintf('products:list:%s:%s', $token, $hash),
+            [$this->listTtl, $this->listTtl * 2],
             $callback,
         );
     }
@@ -48,11 +50,11 @@ final class ProductCache
      */
     public function rememberCard(string $productId, Closure $callback): mixed
     {
-        $version = $this->currentVersion($this->cardVersionKey($productId));
+        $token = $this->readVersion($this->cardVersionKey($productId));
 
-        return Cache::remember(
-            sprintf('products:card:%s:v%d', $productId, $version),
-            $this->cardTtl,
+        return Cache::flexible(
+            sprintf('products:card:%s:%s', $productId, $token),
+            [$this->cardTtl, $this->cardTtl * 2],
             $callback,
         );
     }
@@ -76,17 +78,21 @@ final class ProductCache
         $this->invalidateLists();
     }
 
-    private function currentVersion(string $key): int
+    public function readVersion(string $key): string
     {
-        Cache::add($key, 1, null);
+        Cache::add($key, $this->newToken(), $this->versionTtl);
 
-        return (int) Cache::get($key);
+        return (string) Cache::get($key);
     }
 
     private function bump(string $key): void
     {
-        Cache::add($key, 1, null);
-        Cache::increment($key);
+        Cache::put($key, $this->newToken(), $this->versionTtl);
+    }
+
+    private function newToken(): string
+    {
+        return Str::random(16);
     }
 
     private function cardVersionKey(string $productId): string

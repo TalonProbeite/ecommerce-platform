@@ -17,6 +17,7 @@ use App\Contracts\Services\ProductImageServiceInterface;
 use App\Contracts\Services\ProductServiceInterface;
 use App\Contracts\Services\StockServiceInterface;
 use App\Contracts\Services\StoreServiceInterface;
+use App\Infrastructure\Cache\CategoryCache;
 use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\RabbitMqPublisher;
 use App\Models\Category;
@@ -61,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(RabbitMqPublisher::class);
         $this->app->alias(RabbitMqPublisher::class, EventPublisherInterface::class);
+        $this->app->singleton(CategoryCache::class);
         $this->app->singleton(ProductCache::class);
         $this->app->singleton(S3BucketGuard::class);
     }

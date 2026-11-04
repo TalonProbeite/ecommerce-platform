@@ -432,6 +432,7 @@ class ProductImageServiceTest extends TestCase
         return new ProductCache(
             300,
             600,
+            86400,
             Mockery::mock(ProductRepositoryInterface::class),
         );
     }

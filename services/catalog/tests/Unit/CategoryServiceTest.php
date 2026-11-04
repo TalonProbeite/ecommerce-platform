@@ -11,13 +11,13 @@ use App\DTO\CreateCategoryData;
 use App\DTO\UpdateCategoryData;
 use App\Exceptions\HasProductsException;
 use App\Exceptions\HasSubcategoriesException;
+use App\Infrastructure\Cache\CategoryCache;
 use App\Messaging\Events\CategoryCreated;
 use App\Messaging\Events\CategoryDeleted;
 use App\Messaging\Events\CategoryUpdated;
 use App\Models\Category;
 use App\Services\CategoryService;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Mockery;
 use Tests\TestCase;
@@ -408,7 +408,8 @@ class CategoryServiceTest extends TestCase
 
     public function test_create_invalidates_the_category_tree_cache(): void
     {
-        Cache::tags([Category::cacheTag('store-123')])->put('tree', 'cached', 60);
+        $categoryCache = new CategoryCache(1800, 86400);
+        $categoryCache->rememberTree('store-123', fn (): string => 'cached');
 
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
@@ -429,9 +430,13 @@ class CategoryServiceTest extends TestCase
             ->andReturn($category);
         $publisher->shouldReceive('publish')->once();
 
-        $this->service($repository, $productRepository, $publisher)->create('store-123', $data);
+        (new CategoryService($repository, $productRepository, $publisher, $categoryCache))
+            ->create('store-123', $data);
 
-        self::assertNull(Cache::tags([Category::cacheTag('store-123')])->get('tree'));
+        self::assertSame(
+            'refreshed',
+            $categoryCache->rememberTree('store-123', fn (): string => 'refreshed'),
+        );
     }
 
     private function service(
@@ -439,6 +444,11 @@ class CategoryServiceTest extends TestCase
         ProductRepositoryInterface $productRepository,
         EventPublisherInterface $eventPublisher,
     ): CategoryService {
-        return new CategoryService($categoryRepository, $productRepository, $eventPublisher);
+        return new CategoryService(
+            $categoryRepository,
+            $productRepository,
+            $eventPublisher,
+            new CategoryCache(1800, 86400),
+        );
     }
 }

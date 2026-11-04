@@ -651,6 +651,7 @@ class ProductServiceTest extends TestCase
         return new ProductCache(
             300,
             600,
+            86400,
             $productRepository ?? Mockery::mock(ProductRepositoryInterface::class),
         );
     }

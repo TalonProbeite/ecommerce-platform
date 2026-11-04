@@ -18,11 +18,19 @@ return [
 
     'cache' => [
 
+        'version_ttl' => (int) env('CATALOG_CACHE_VERSION_TTL', 86400),
+
         'products' => [
 
             'list_ttl' => (int) env('CATALOG_CACHE_PRODUCTS_LIST_TTL', 300),
 
             'card_ttl' => (int) env('CATALOG_CACHE_PRODUCTS_CARD_TTL', 600),
+
+        ],
+
+        'categories' => [
+
+            'tree_ttl' => (int) env('CATALOG_CACHE_CATEGORIES_TREE_TTL', 1800),
 
         ],
 

@@ -29,6 +29,45 @@ class ProductCacheTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_missing_card_version_triggers_recompute_with_a_new_token(): void
+    {
+        $cache = $this->cache();
+
+        self::assertSame('initial', $cache->rememberCard('product-1', fn (): string => 'initial'));
+
+        Cache::forget('products:ver:card:product-1');
+
+        $calls = 0;
+        $value = $cache->rememberCard('product-1', function () use (&$calls): string {
+            $calls++;
+
+            return 'fresh';
+        });
+
+        self::assertSame('fresh', $value);
+        self::assertSame(1, $calls);
+    }
+
+    public function test_bump_changes_the_version_token(): void
+    {
+        $cache = $this->cache();
+        $key = 'products:ver:card:product-1';
+
+        $before = $cache->readVersion($key);
+        $cache->invalidateCard('product-1');
+        $after = $cache->readVersion($key);
+
+        self::assertNotSame($before, $after);
+    }
+
+    public function test_read_version_is_stable_when_called_twice(): void
+    {
+        $cache = $this->cache();
+        $key = 'products:ver:list';
+
+        self::assertSame($cache->readVersion($key), $cache->readVersion($key));
+    }
+
     public function test_remember_card_and_list_return_cached_values_without_calling_callbacks_again(): void
     {
         $cache = $this->cache();
@@ -162,7 +201,7 @@ class ProductCacheTest extends TestCase
         self::assertSame(1, $calls);
     }
 
-    public function test_list_and_card_use_their_configured_ttl(): void
+    public function test_card_and_list_are_recomputed_after_the_stale_window_expires(): void
     {
         Carbon::setTestNow('2026-01-01 00:00:00');
 
@@ -170,10 +209,13 @@ class ProductCacheTest extends TestCase
         $cache->rememberList([], 1, 20, fn (): string => 'list');
         $cache->rememberCard('product-123', fn (): string => 'card');
 
-        Carbon::setTestNow('2026-01-01 00:00:02');
+        Carbon::setTestNow('2026-01-01 00:00:04');
 
         self::assertSame('fresh list', $cache->rememberList([], 1, 20, fn (): string => 'fresh list'));
-        self::assertSame('card', $cache->rememberCard('product-123', fn (): string => 'fresh card'));
+
+        Carbon::setTestNow('2026-01-01 00:00:31');
+
+        self::assertSame('fresh card', $cache->rememberCard('product-123', fn (): string => 'fresh card'));
     }
 
     public function test_late_writer_to_the_old_card_key_cannot_overwrite_the_fresh_card(): void
@@ -182,7 +224,7 @@ class ProductCacheTest extends TestCase
 
         $cache->rememberCard('product-1', fn (): string => 'initial');
 
-        $oldKey = 'products:card:product-1:v' . (int) Cache::get('products:ver:card:product-1');
+        $oldKey = 'products:card:product-1:' . (string) Cache::get('products:ver:card:product-1');
 
         $cache->invalidateCard('product-1');
         Cache::put($oldKey, 'stale', 600);
@@ -210,7 +252,7 @@ class ProductCacheTest extends TestCase
             ['filters' => $filters, 'page' => 1, 'per_page' => 20],
             JSON_THROW_ON_ERROR,
         ));
-        $oldKey = 'products:list:v' . (int) Cache::get('products:ver:list') . ':' . $hash;
+        $oldKey = 'products:list:' . (string) Cache::get('products:ver:list') . ':' . $hash;
 
         $cache->invalidateLists();
         Cache::put($oldKey, 'stale', 600);
@@ -227,23 +269,6 @@ class ProductCacheTest extends TestCase
         self::assertSame('stale', Cache::get($oldKey));
     }
 
-    public function test_remember_card_uses_the_new_version_after_invalidation(): void
-    {
-        $cache = $this->cache();
-
-        $cache->rememberCard('product-1', fn (): string => 'initial');
-
-        $versionBefore = (int) Cache::get('products:ver:card:product-1');
-
-        $cache->invalidateCard('product-1');
-
-        $versionAfter = (int) Cache::get('products:ver:card:product-1');
-
-        self::assertSame($versionBefore + 1, $versionAfter);
-        self::assertSame('fresh', $cache->rememberCard('product-1', fn (): string => 'fresh'));
-        self::assertSame('fresh', Cache::get('products:card:product-1:v' . $versionAfter));
-    }
-
     private function cache(
         ?ProductRepositoryInterface $productRepository = null,
         int $listTtl = 300,
@@ -252,6 +277,7 @@ class ProductCacheTest extends TestCase
         return new ProductCache(
             $listTtl,
             $cardTtl,
+            86400,
             $productRepository ?? Mockery::mock(ProductRepositoryInterface::class),
         );
     }
