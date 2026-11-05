@@ -36,4 +36,10 @@ return [
 
     ],
 
+    'rate_limits' => [
+
+        'public_read' => (int) env('CATALOG_RATE_LIMIT_PUBLIC_READ', 120),
+
+    ],
+
 ];

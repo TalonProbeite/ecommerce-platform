@@ -34,7 +34,10 @@ use App\Services\ProductImageService;
 use App\Services\ProductService;
 use App\Services\StockService;
 use App\Services\StoreService;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Octane\Events\WorkerStopping;
 use App\Infrastructure\Storage\S3BucketGuard;
@@ -72,6 +75,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('catalog-public', static function (Request $request): Limit {
+            return Limit::perMinute(
+                (int) config('catalog.rate_limits.public_read', 120)
+            )->by($request->ip());
+        });
+
         Category::observe(CategoryObserver::class);
 
         Event::listen(WorkerStopping::class, static function (WorkerStopping $event): void {
