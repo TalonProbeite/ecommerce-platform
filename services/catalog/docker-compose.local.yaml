@@ -156,7 +156,7 @@ services:
       - catalog_internal
 
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/up"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/healthz"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -178,7 +178,7 @@ services:
       - shop_global
       - catalog_internal
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-check-certificate -q --spider https://127.0.0.1/api/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget --no-check-certificate -q --spider https://127.0.0.1/healthz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
