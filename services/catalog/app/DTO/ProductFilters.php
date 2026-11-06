@@ -18,12 +18,13 @@ final readonly class ProductFilters
         public ?int $minPrice = null,
         public ?int $maxPrice = null,
         public ?int $maxDeposit = null,
-        public ?bool $isActive = true,
-        public ?bool $isAvailable = true,
+        public ?bool $isActive = null,
+        public ?bool $isAvailable = null,
         public ProductSortField $sortBy = ProductSortField::CREATED_AT,
         public SortDirection $sortDirection = SortDirection::DESC,
         public int $limit = 20,
         public int $page = 1,
+        public bool $publicOnly = false,
     ) {
     }
 }

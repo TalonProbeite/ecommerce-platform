@@ -59,7 +59,7 @@ class Stock extends Model
     /**
      * @return Attribute<int, int>
      */
-    protected function available(): Attribute
+    public function available(): Attribute
     {
         return Attribute::get(fn () => $this->quantity - $this->reserved);
     }

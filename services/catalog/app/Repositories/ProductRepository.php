@@ -10,6 +10,7 @@ use App\DTO\ProductFilters;
 use App\DTO\UpdateProductData;
 use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 
 class ProductRepository implements ProductRepositoryInterface
 {
@@ -39,9 +40,9 @@ class ProductRepository implements ProductRepositoryInterface
     /**
      * Find a single product with its category, stock, attributes and images.
      */
-    public function findDetailedById(string $id, ?string $storeId = null): ?Product
+    public function findDetailedById(string $id, ?string $storeId = null, bool $publicOnly = false): ?Product
     {
-        return Product::query()
+        $query = Product::query()
             ->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId))
             ->with([
                 'category:id,name',
@@ -49,8 +50,13 @@ class ProductRepository implements ProductRepositoryInterface
                 'attributes' => fn ($q) => $q->select(['id', 'product_id', 'name', 'value'])
                     ->orderBy('name'),
                 'images' => fn ($q) => $q->orderBy('created_at')->orderBy('id'),
-            ])
-            ->find($id);
+            ]);
+
+        if ($publicOnly) {
+            $this->applyPublicScope($query);
+        }
+
+        return $query->find($id);
     }
 
     /**
@@ -62,7 +68,7 @@ class ProductRepository implements ProductRepositoryInterface
     {
         $availableExpr = 'COALESCE(stocks.quantity, 0) - COALESCE(stocks.reserved, 0)';
 
-        return Product::query()
+        $query = Product::query()
             ->select([
                 'products.*',
                 'categories.name as category_name',
@@ -72,6 +78,7 @@ class ProductRepository implements ProductRepositoryInterface
                     ->on('categories.store_id', '=', 'products.store_id');
             })
             ->leftJoin('stocks', 'stocks.product_id', '=', 'products.id')
+            ->with(['mainImage' => fn ($q) => $q->select(['id', 'product_id', 'object_key', 'is_main'])])
             ->when(
                 $filters->storeId !== null,
                 fn ($q) => $q->where('products.store_id', $filters->storeId)
@@ -91,11 +98,15 @@ class ProductRepository implements ProductRepositoryInterface
             ->when(
                 $filters->maxDeposit !== null,
                 fn ($q) => $q->where('products.deposit_amount', '<=', $filters->maxDeposit)
-            )
-            ->when(
-                $filters->isActive !== null,
-                fn ($q) => $q->where('products.is_active', $filters->isActive)
-            )
+            );
+
+        if ($filters->publicOnly) {
+            $this->applyPublicScope($query);
+        } elseif ($filters->isActive !== null) {
+            $query->where('products.is_active', $filters->isActive);
+        }
+
+        return $query
             ->when(
                 $filters->isAvailable !== null,
                 fn ($q) => $filters->isAvailable
@@ -123,6 +134,30 @@ class ProductRepository implements ProductRepositoryInterface
             ->all();
     }
 
+    /**
+     * Find IDs of all products in the store, including soft-deleted ones.
+     *
+     * @return array<int, string>
+     */
+    public function findIdsByStore(string $storeId): array
+    {
+        return Product::withTrashed()
+            ->where('store_id', $storeId)
+            ->pluck('id')
+            ->all();
+    }
+
+    /**
+     * Find a soft-deleted product by its ID and store.
+     */
+    public function findTrashedByIdAndStore(string $productId, string $storeId): ?Product
+    {
+        return Product::onlyTrashed()
+            ->whereKey($productId)
+            ->where('store_id', $storeId)
+            ->first();
+    }
+
     public function createProduct(string $storeId, CreateProductData $data): Product
     {
         $product = new Product();
@@ -133,11 +168,17 @@ class ProductRepository implements ProductRepositoryInterface
         return $product;
     }
 
-    public function updateProduct(string $productId, string $storeId, UpdateProductData $data): Product
+    public function updateProduct(string $productId, string $storeId, UpdateProductData $data): ?Product
     {
         $product = Product::query()
+            ->whereKey($productId)
             ->where('store_id', $storeId)
-            ->findOrFail($productId);
+            ->first();
+
+        if ($product === null) {
+            return null;
+        }
+
         $product->fill($data->toArray());
         $product->saveOrFail();
 
@@ -147,16 +188,28 @@ class ProductRepository implements ProductRepositoryInterface
     public function deleteProduct(string $productId, string $storeId): void
     {
         $product = Product::query()
+            ->whereKey($productId)
             ->where('store_id', $storeId)
-            ->findOrFail($productId);
+            ->first();
+
+        if ($product === null) {
+            return;
+        }
+
         $product->deleteOrFail();
     }
 
-    public function restoreProduct(string $productId, string $storeId): Product
+    public function restoreProduct(string $productId, string $storeId): ?Product
     {
         $product = Product::withTrashed()
+            ->whereKey($productId)
             ->where('store_id', $storeId)
-            ->findOrFail($productId);
+            ->first();
+
+        if ($product === null) {
+            return null;
+        }
+
         $product->restore();
 
         return $product;
@@ -170,5 +223,15 @@ class ProductRepository implements ProductRepositoryInterface
         return Product::withTrashed()
             ->where('category_id', $categoryId)
             ->exists();
+    }
+
+    /**
+     * @param Builder<Product> $query
+     * @return Builder<Product>
+     */
+    private function applyPublicScope(Builder $query): Builder
+    {
+        return $query->where('products.is_active', true)
+            ->whereHas('store', fn ($q) => $q->where('active', true));
     }
 }

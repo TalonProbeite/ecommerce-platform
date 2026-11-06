@@ -82,6 +82,14 @@ class Product extends Model
     }
 
     /**
+     * @return HasOne<ProductImage, $this>
+     */
+    public function mainImage(): HasOne
+    {
+        return $this->hasOne(ProductImage::class)->where('is_main', true);
+    }
+
+    /**
      * @return HasMany<StockReservation, $this>
      */
     public function stockReservations(): HasMany

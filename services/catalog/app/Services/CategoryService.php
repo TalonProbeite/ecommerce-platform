@@ -72,7 +72,8 @@ final class CategoryService implements CategoryServiceInterface
             $this->assertParentCanBeAssigned($category, $data->parentId, $storeId);
         }
 
-        $updated = $this->categoryRepository->updateCategory($categoryId, $storeId, $data);
+        $updated = $this->categoryRepository->updateCategory($categoryId, $storeId, $data)
+            ?? throw new CategoryNotFoundException($categoryId);
 
         $this->afterMutation($storeId, CategoryUpdated::fromModel($updated));
 
@@ -81,19 +82,22 @@ final class CategoryService implements CategoryServiceInterface
 
     public function delete(string $categoryId, string $storeId): void
     {
-        $this->findCategoryInStore($categoryId, $storeId);
+        DB::transaction(function () use ($categoryId, $storeId): void {
+            $category = $this->categoryRepository->lockByStoreAndId($categoryId, $storeId)
+                ?? throw new CategoryNotFoundException($categoryId);
 
-        if ($this->categoryRepository->hasSubcategories($categoryId, $storeId)) {
-            throw new HasSubcategoriesException($categoryId);
-        }
+            if ($this->categoryRepository->hasSubcategories($categoryId, $storeId)) {
+                throw new HasSubcategoriesException($categoryId);
+            }
 
-        if ($this->productRepository->hasByCategory($categoryId)) {
-            throw new HasProductsException($categoryId);
-        }
+            if ($this->productRepository->hasByCategory($categoryId)) {
+                throw new HasProductsException($categoryId);
+            }
 
-        $category = $this->categoryRepository->deleteCategory($categoryId, $storeId);
+            $this->categoryRepository->deleteCategory($categoryId, $storeId);
 
-        $this->afterMutation($storeId, CategoryDeleted::fromModel($category));
+            $this->afterMutation($storeId, CategoryDeleted::fromModel($category));
+        });
     }
 
     private function findCategoryInStore(string $categoryId, string $storeId): Category
@@ -176,7 +180,7 @@ final class CategoryService implements CategoryServiceInterface
     {
         DB::afterCommit(function () use ($storeId, $event): void {
             $this->categoryCache->invalidateStore($storeId);
-            $this->eventPublisher->publish($event);
+            rescue(fn () => $this->eventPublisher->publish($event), report: true);
         });
     }
 }

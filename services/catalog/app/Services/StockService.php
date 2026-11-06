@@ -100,7 +100,7 @@ final class StockService implements StockServiceInterface
 
         DB::afterCommit(function () use ($updated): void {
             $this->productCache->invalidateCard($updated->product_id);
-            $this->eventPublisher->publish(StockChanged::fromModel($updated));
+            rescue(fn () => $this->eventPublisher->publish(StockChanged::fromModel($updated)), report: true);
         });
 
         return $updated;

@@ -38,9 +38,14 @@ final class CategoryCache
 
     public function readVersion(string $key): string
     {
-        Cache::add($key, $this->newToken(), $this->versionTtl);
+        $version = Cache::get($key);
 
-        return (string) Cache::get($key);
+        if ($version === null) {
+            Cache::add($key, $this->newToken(), $this->versionTtl);
+            $version = Cache::get($key);
+        }
+
+        return (string) $version;
     }
 
     private function bump(string $key): void

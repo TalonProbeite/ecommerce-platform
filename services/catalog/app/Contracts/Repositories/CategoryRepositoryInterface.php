@@ -39,9 +39,14 @@ interface CategoryRepositoryInterface
 
     public function createCategory(CreateCategoryData $data, string $storeId): Category;
 
-    public function updateCategory(string $categoryId, string $storeId, UpdateCategoryData $data): Category;
+    public function updateCategory(string $categoryId, string $storeId, UpdateCategoryData $data): ?Category;
 
-    public function deleteCategory(string $categoryId, string $storeId): Category;
+    public function deleteCategory(string $categoryId, string $storeId): ?Category;
+
+    /**
+     * Lock a category row for update. Must be called inside a DB transaction.
+     */
+    public function lockByStoreAndId(string $categoryId, string $storeId): ?Category;
 
     public function hasSubcategories(string $categoryId, string $storeId): bool;
 }

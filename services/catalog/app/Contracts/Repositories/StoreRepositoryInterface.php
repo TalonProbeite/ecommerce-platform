@@ -26,7 +26,12 @@ interface StoreRepositoryInterface
 
     public function createStore(CreateStoreData $data): Store;
 
-    public function updateStore(string $id, UpdateStoreData $data): Store;
+    public function updateStore(string $id, UpdateStoreData $data): ?Store;
 
-    public function deleteStore(string $storeID): Store;
+    public function deleteStore(string $storeID): ?Store;
+
+    /**
+     * Lock a store row for update. Must be called inside a DB transaction.
+     */
+    public function lockById(string $storeId): ?Store;
 }

@@ -35,6 +35,7 @@ use App\Services\ProductService;
 use App\Services\StockService;
 use App\Services\StoreService;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
@@ -75,6 +76,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Model::preventLazyLoading(! $this->app->isProduction());
+
         RateLimiter::for('catalog-public', static function (Request $request): Limit {
             return Limit::perMinute(
                 (int) config('catalog.rate_limits.public_read', 120)

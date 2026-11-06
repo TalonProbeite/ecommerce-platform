@@ -49,18 +49,41 @@ class StoreRepository implements StoreRepositoryInterface
         return $store;
     }
 
-    public function updateStore(string $id, UpdateStoreData $data): Store
+    public function updateStore(string $id, UpdateStoreData $data): ?Store
     {
-        $store = Store::findOrFail($id);
+        $store = Store::find($id);
+
+        if ($store === null) {
+            return null;
+        }
+
         $store->fill($data->toArray());
         $store->saveOrFail();
+
         return $store;
     }
 
-    public function deleteStore(string $storeID): Store
+    public function deleteStore(string $storeID): ?Store
     {
-        $store = Store::findOrFail($storeID);
+        $store = Store::find($storeID);
+
+        if ($store === null) {
+            return null;
+        }
+
         $store->deleteOrFail();
+
         return $store;
+    }
+
+    /**
+     * Lock a store row for update. Must be called inside a DB transaction.
+     */
+    public function lockById(string $storeId): ?Store
+    {
+        return Store::query()
+            ->whereKey($storeId)
+            ->lockForUpdate()
+            ->first();
     }
 }

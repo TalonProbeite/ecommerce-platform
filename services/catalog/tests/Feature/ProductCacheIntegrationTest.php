@@ -181,20 +181,23 @@ class ProductCacheIntegrationTest extends PostgresTestCase
         self::assertSame(0, $this->countQueries(fn () => $productService->get($productB->id, $this->store->id)));
     }
 
-    public function test_image_upload_flushes_only_the_product_card(): void
+    public function test_image_upload_flushes_product_card_and_lists(): void
     {
         $productA = $this->createProduct('Drill A');
         $productB = $this->createProduct('Drill B');
         $productService = $this->productService();
         $imageService = $this->imageService();
+        $filters = new ProductFilters(storeId: $this->store->id, isAvailable: null);
 
         $productService->get($productA->id, $this->store->id);
         $productService->get($productB->id, $this->store->id);
+        $productService->list($filters);
 
         $imageService->upload($this->store->id, $productA->id, new SplFileInfo($this->pngFile()));
 
         self::assertGreaterThan(0, $this->countQueries(fn () => $productService->get($productA->id, $this->store->id)));
         self::assertSame(0, $this->countQueries(fn () => $productService->get($productB->id, $this->store->id)));
+        self::assertGreaterThan(0, $this->countQueries(fn () => $productService->list($filters)));
     }
 
     public function test_invalidation_runs_only_after_the_transaction_commits(): void

@@ -40,7 +40,7 @@ class ProductListRequest extends FormRequest
         ];
     }
 
-    public function toDTO(): ProductFilters
+    public function toDTO(bool $publicOnly = true): ProductFilters
     {
         $validated = $this->validated();
 
@@ -48,11 +48,12 @@ class ProductListRequest extends FormRequest
             ? (bool) filter_var($validated['available_only'], FILTER_VALIDATE_BOOLEAN)
             : false;
 
-        $isActive = true;
         if (array_key_exists('is_active', $validated)) {
             $isActive = $validated['is_active'] !== null
                 ? (bool) filter_var($validated['is_active'], FILTER_VALIDATE_BOOLEAN)
                 : null;
+        } else {
+            $isActive = $publicOnly ? true : null;
         }
 
         $sortBy = ProductSortField::CREATED_AT;
@@ -77,6 +78,7 @@ class ProductListRequest extends FormRequest
             sortDirection: $sortDirection,
             limit: isset($validated['per_page']) ? (int) $validated['per_page'] : 20,
             page: isset($validated['page']) ? (int) $validated['page'] : 1,
+            publicOnly: $publicOnly,
         );
     }
 }

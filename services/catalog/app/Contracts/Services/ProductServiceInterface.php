@@ -23,6 +23,11 @@ interface ProductServiceInterface
     public function list(ProductFilters $filters): LengthAwarePaginator;
 
     /**
+     * Load category, attributes, images and stock for public view.
+     */
+    public function getPublic(string $productId): Product;
+
+    /**
      * Load category, attributes, images and stock. Scoped to the store when supplied.
      */
     public function get(

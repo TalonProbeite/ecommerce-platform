@@ -311,7 +311,7 @@ class ProductImageServiceTest extends TestCase
         );
     }
 
-    public function test_set_main_flushes_only_the_affected_product_card(): void
+    public function test_set_main_flushes_affected_product_card_and_lists(): void
     {
         $image = $this->image('image-1', 'object-1');
         $updated = $this->image('image-1', 'object-1', true);
@@ -322,6 +322,7 @@ class ProductImageServiceTest extends TestCase
 
         $cache->rememberCard('product-123', fn (): string => 'old-card');
         $cache->rememberCard('product-999', fn (): string => 'other-card');
+        $cache->rememberList(['store_id' => 'store-123'], 1, 20, fn (): string => 'old-list');
 
         $productRepository->shouldReceive('lockById')
             ->once()
@@ -344,6 +345,7 @@ class ProductImageServiceTest extends TestCase
 
         self::assertSame('new-card', $cache->rememberCard('product-123', fn (): string => 'new-card'));
         self::assertSame('other-card', $cache->rememberCard('product-999', fn (): string => 'refreshed-other-card'));
+        self::assertSame('new-list', $cache->rememberList(['store_id' => 'store-123'], 1, 20, fn (): string => 'new-list'));
     }
 
     public function test_set_main_is_idempotent_for_the_current_main_image(): void

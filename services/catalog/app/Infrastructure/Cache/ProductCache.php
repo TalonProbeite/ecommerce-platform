@@ -48,12 +48,12 @@ final class ProductCache
     /**
      * @param Closure(): mixed $callback
      */
-    public function rememberCard(string $productId, Closure $callback): mixed
+    public function rememberCard(string $scope, string $productId, Closure $callback): mixed
     {
         $token = $this->readVersion($this->cardVersionKey($productId));
 
         return Cache::flexible(
-            sprintf('products:card:%s:%s', $productId, $token),
+            sprintf('products:card:%s:%s:%s', $scope, $productId, $token),
             [$this->cardTtl, $this->cardTtl * 2],
             $callback,
         );
@@ -80,9 +80,14 @@ final class ProductCache
 
     public function readVersion(string $key): string
     {
-        Cache::add($key, $this->newToken(), $this->versionTtl);
+        $version = Cache::get($key);
 
-        return (string) Cache::get($key);
+        if ($version === null) {
+            Cache::add($key, $this->newToken(), $this->versionTtl);
+            $version = Cache::get($key);
+        }
+
+        return (string) $version;
     }
 
     private function bump(string $key): void

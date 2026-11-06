@@ -89,6 +89,7 @@ final class ProductImageService implements ProductImageServiceInterface
 
             DB::afterCommit(function () use ($productId): void {
                 $this->productCache->invalidateCard($productId);
+                $this->productCache->invalidateLists();
             });
 
             return $image;
@@ -113,6 +114,7 @@ final class ProductImageService implements ProductImageServiceInterface
 
             DB::afterCommit(function () use ($productId): void {
                 $this->productCache->invalidateCard($productId);
+                $this->productCache->invalidateLists();
             });
 
             return $updated;
@@ -141,7 +143,8 @@ final class ProductImageService implements ProductImageServiceInterface
             // Remove the object only after a successful commit, so a rollback keeps the file.
             DB::afterCommit(function () use ($productId, $objectKey): void {
                 $this->productCache->invalidateCard($productId);
-                Storage::disk($this->disk)->delete($objectKey);
+                $this->productCache->invalidateLists();
+                rescue(fn () => Storage::disk($this->disk)->delete($objectKey), report: true);
             });
         });
     }

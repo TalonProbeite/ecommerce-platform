@@ -78,12 +78,29 @@ final class ProductService implements ProductServiceInterface
         );
     }
 
+    public function getPublic(string $productId): Product
+    {
+        /** @var Product $product */
+        $product = $this->productCache->rememberCard(
+            'public',
+            $productId,
+            fn (): Product => $this->productRepository->findDetailedById(
+                $productId,
+                null,
+                true,
+            ) ?? throw new ProductNotFoundException($productId),
+        );
+
+        return $product;
+    }
+
     public function get(
         string $productId,
         ?string $storeId = null,
     ): Product {
         /** @var Product $product */
         $product = $this->productCache->rememberCard(
+            'admin',
             $productId,
             fn (): Product => $this->findDetailedProductOrFail($productId, $storeId),
         );
@@ -122,9 +139,9 @@ final class ProductService implements ProductServiceInterface
 
             DB::afterCommit(function () use ($created): void {
                 $this->productCache->invalidateLists();
-                $this->eventPublisher->publish(
+                rescue(fn () => $this->eventPublisher->publish(
                     ProductCreated::fromModel($created),
-                );
+                ), report: true);
             });
 
             return $created;
@@ -171,9 +188,9 @@ final class ProductService implements ProductServiceInterface
             DB::afterCommit(function () use ($product, $productId): void {
                 $this->productCache->invalidateCard($productId);
                 $this->productCache->invalidateLists();
-                $this->eventPublisher->publish(
+                rescue(fn () => $this->eventPublisher->publish(
                     ProductUpdated::fromModel($product),
-                );
+                ), report: true);
             });
 
             return $product;
@@ -201,9 +218,9 @@ final class ProductService implements ProductServiceInterface
             DB::afterCommit(function () use ($product, $productId): void {
                 $this->productCache->invalidateCard($productId);
                 $this->productCache->invalidateLists();
-                $this->eventPublisher->publish(
+                rescue(fn () => $this->eventPublisher->publish(
                     ProductDeleted::fromModel($product),
-                );
+                ), report: true);
             });
         });
     }
@@ -216,6 +233,12 @@ final class ProductService implements ProductServiceInterface
             $storeId,
             $productId,
         ): Product {
+            $trashed = $this->productRepository->findTrashedByIdAndStore($productId, $storeId);
+
+            if ($trashed === null) {
+                throw new ProductNotFoundException($productId);
+            }
+
             $this->productRepository->restoreProduct(
                 $productId,
                 $storeId,
@@ -226,9 +249,9 @@ final class ProductService implements ProductServiceInterface
             DB::afterCommit(function () use ($product, $productId): void {
                 $this->productCache->invalidateCard($productId);
                 $this->productCache->invalidateLists();
-                $this->eventPublisher->publish(
+                rescue(fn () => $this->eventPublisher->publish(
                     ProductUpdated::fromModel($product),
-                );
+                ), report: true);
             });
 
             return $product;

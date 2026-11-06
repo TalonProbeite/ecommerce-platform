@@ -69,25 +69,47 @@ class CategoryRepository implements CategoryRepositoryInterface
         return $category;
     }
 
-    public function updateCategory(string $categoryId, string $storeId, UpdateCategoryData $data): Category
+    public function updateCategory(string $categoryId, string $storeId, UpdateCategoryData $data): ?Category
     {
         $category = Category::where('id', $categoryId)
             ->where('store_id', $storeId)
-            ->firstOrFail();
+            ->first();
+
+        if ($category === null) {
+            return null;
+        }
+
         $category->fill($data->toArray());
         $category->saveOrFail();
+
         return $category;
     }
 
-    public function deleteCategory(string $categoryId, string $storeId): Category
+    public function deleteCategory(string $categoryId, string $storeId): ?Category
     {
         $category = Category::where('id', $categoryId)
             ->where('store_id', $storeId)
-            ->firstOrFail();
+            ->first();
+
+        if ($category === null) {
+            return null;
+        }
 
         $category->deleteOrFail();
 
         return $category;
+    }
+
+    /**
+     * Lock a category row for update. Must be called inside a DB transaction.
+     */
+    public function lockByStoreAndId(string $categoryId, string $storeId): ?Category
+    {
+        return Category::query()
+            ->whereKey($categoryId)
+            ->where('store_id', $storeId)
+            ->lockForUpdate()
+            ->first();
     }
 
     public function hasSubcategories(string $categoryId, string $storeId): bool
