@@ -1,100 +1,67 @@
 <?php
 
+declare(strict_types=1);
+
+use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\ProductImageController;
+use App\Http\Controllers\Api\V1\StockController;
+use App\Http\Controllers\Api\V1\StoreController;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| Catalog API (v1)
-|--------------------------------------------------------------------------
-|
-| The groups below are intentionally empty. Controllers, route actions,
-| Form Requests, API Resources, and service calls will be added in a
-| later change.
-|
-| The JWT authentication middleware is registered as "store.management".
-| It stores the decoded payload in $request->attributes under "jwt_data".
-| The role and store_id values are read from that payload.
-|
-| Route parameter names are fixed:
-|   {storeId}, {categoryId}, {productId}, {imageId}
-| Never use {store}, {id}, or {store_id} as route parameter names.
-|
-| Rule: every route that contains {storeId} and uses a non-GET method
-| must also use the catalog.store middleware.
-|
-*/
-
 Route::prefix('v1')->group(function () {
-    // Group A: public read, no JWT, throttle only (routes added with controllers).
+    // Group A: public read, no JWT.
     Route::middleware(['throttle:catalog-public'])->group(function () {
-        // Intentionally empty.
+        Route::get('/stores', [StoreController::class, 'index'])->name('stores.index');
+        Route::get('/stores/{storeId}', [StoreController::class, 'show'])->name('stores.show');
+
+        Route::get('/stores/{storeId}/categories', [CategoryController::class, 'index'])->name('categories.index');
+        Route::get('/stores/{storeId}/categories/{categoryId}', [CategoryController::class, 'show'])->name('categories.show');
+        Route::get('/stores/{storeId}/categories/{categoryId}/children', [CategoryController::class, 'children'])->name('categories.children');
+
+        Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+        Route::get('/products/{productId}', [ProductController::class, 'show'])->name('products.show');
+
+        Route::get('/products/{productId}/images', [ProductImageController::class, 'index'])->name('products.images.index');
+        Route::get('/products/{productId}/images/{imageId}', [ProductImageController::class, 'show'])->name('products.images.show');
     });
 
     // Group B: admin area, JWT and role required.
     Route::prefix('admin')
         ->middleware(['store.management', 'catalog.role:admin,store_manager', 'throttle:catalog-public'])
         ->group(function () {
-            // Intentionally empty.
+
+            // Admin only, no storeId.
+            Route::post('/stores', [StoreController::class, 'store'])
+                ->middleware('catalog.role:admin')
+                ->name('admin.stores.store');
+
+            // Routes with storeId.
+            Route::prefix('stores/{storeId}')
+                ->middleware('catalog.store')
+                ->group(function () {
+                    Route::patch('/', [StoreController::class, 'update'])->name('admin.stores.update');
+                    Route::delete('/', [StoreController::class, 'destroy'])
+                        ->middleware('catalog.role:admin')
+                        ->name('admin.stores.destroy');
+
+                    Route::post('/categories', [CategoryController::class, 'store'])->name('admin.categories.store');
+                    Route::patch('/categories/{categoryId}', [CategoryController::class, 'update'])->name('admin.categories.update');
+                    Route::delete('/categories/{categoryId}', [CategoryController::class, 'destroy'])->name('admin.categories.destroy');
+
+                    Route::get('/products', [ProductController::class, 'adminIndex'])->name('admin.products.index');
+                    Route::get('/products/{productId}', [ProductController::class, 'adminShow'])->name('admin.products.show');
+                    Route::post('/products', [ProductController::class, 'store'])->name('admin.products.store');
+                    Route::patch('/products/{productId}', [ProductController::class, 'update'])->name('admin.products.update');
+                    Route::delete('/products/{productId}', [ProductController::class, 'destroy'])->name('admin.products.destroy');
+                    Route::post('/products/{productId}/restore', [ProductController::class, 'restore'])->name('admin.products.restore');
+
+                    Route::post('/products/{productId}/images', [ProductImageController::class, 'store'])->name('admin.products.images.store');
+                    Route::patch('/products/{productId}/images/{imageId}/main', [ProductImageController::class, 'setMain'])->name('admin.products.images.set_main');
+                    Route::delete('/products/{productId}/images/{imageId}', [ProductImageController::class, 'destroy'])->name('admin.products.images.destroy');
+
+                    Route::get('/products/{productId}/stock', [StockController::class, 'show'])->name('admin.stock.show');
+                    Route::patch('/products/{productId}/stock', [StockController::class, 'update'])->name('admin.stock.update');
+                });
         });
 });
-
-/*
-|--------------------------------------------------------------------------
-| Planned route schema
-|--------------------------------------------------------------------------
-|
-| Group A - public read (no JWT, throttle:catalog-public)
-|
-|   GET /stores
-|   GET /stores/{storeId}
-|   GET /stores/{storeId}/categories
-|   GET /stores/{storeId}/categories/{categoryId}
-|   GET /stores/{storeId}/categories/{categoryId}/children
-|   GET /products
-|   GET /products/{productId}
-|   GET /products/{productId}/images
-|   GET /products/{productId}/images/{imageId}
-|
-| Group B - admin area (store.management + catalog.role:admin,store_manager
-| + throttle:catalog-public)
-|
-|   Admin only, no storeId:
-|
-|   POST /stores
-|       Route name: admin.stores.store
-|       Extra middleware: catalog.role:admin
-|
-|   Nested under /stores/{storeId} with catalog.store middleware:
-|
-|   PATCH /stores/{storeId}
-|   DELETE /stores/{storeId}
-|       Extra middleware: catalog.role:admin
-|
-|   Categories:
-|
-|   POST /stores/{storeId}/categories
-|   PATCH /stores/{storeId}/categories/{categoryId}
-|   DELETE /stores/{storeId}/categories/{categoryId}
-|
-|   Products:
-|
-|   GET /stores/{storeId}/products
-|   GET /stores/{storeId}/products/{productId}
-|   POST /stores/{storeId}/products
-|   PATCH /stores/{storeId}/products/{productId}
-|   DELETE /stores/{storeId}/products/{productId}
-|   POST /stores/{storeId}/products/{productId}/restore
-|
-|   Product images:
-|
-|   POST /stores/{storeId}/products/{productId}/images
-|   PATCH /stores/{storeId}/products/{productId}/images/{imageId}/main
-|       Action: setMain
-|   DELETE /stores/{storeId}/products/{productId}/images/{imageId}
-|
-|   Stock:
-|
-|   GET /stores/{storeId}/products/{productId}/stock
-|   PATCH /stores/{storeId}/products/{productId}/stock
-|
-*/
