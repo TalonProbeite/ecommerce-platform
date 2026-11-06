@@ -96,7 +96,7 @@ class CategoryCacheIntegrationTest extends PostgresTestCase
         $product = $this->createProduct($category);
 
         $productCache = app(ProductCache::class);
-        $productCache->rememberCard($product->id, fn (): string => 'card');
+        $productCache->rememberCard('admin', $product->id, fn (): string => 'card');
         $this->cache->rememberTree($this->storeA->id, fn (): string => 'tree');
 
         $category->update(['name' => 'Renamed']);
@@ -107,7 +107,7 @@ class CategoryCacheIntegrationTest extends PostgresTestCase
         );
         self::assertSame(
             'card-refreshed',
-            $productCache->rememberCard($product->id, fn (): string => 'card-refreshed'),
+            $productCache->rememberCard('admin', $product->id, fn (): string => 'card-refreshed'),
         );
     }
 

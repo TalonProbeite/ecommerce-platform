@@ -185,8 +185,8 @@ class StockServiceTest extends TestCase
         $cache = $this->cache();
         $this->productCache = $cache;
 
-        $cache->rememberCard('product-123', fn (): string => 'old-card');
-        $cache->rememberCard('product-999', fn (): string => 'other-card');
+        $cache->rememberCard('admin', 'product-123', fn (): string => 'old-card');
+        $cache->rememberCard('admin', 'product-999', fn (): string => 'other-card');
         $cache->rememberList(['store_id' => 'store-123'], 1, 20, fn (): string => 'old-list');
 
         $repository->shouldReceive('lockByProductId')
@@ -201,8 +201,8 @@ class StockServiceTest extends TestCase
 
         $this->service($repository, $publisher)->setQuantity('store-123', 'product-123', 7);
 
-        self::assertSame('new-card', $cache->rememberCard('product-123', fn (): string => 'new-card'));
-        self::assertSame('other-card', $cache->rememberCard('product-999', fn (): string => 'refreshed-other-card'));
+        self::assertSame('new-card', $cache->rememberCard('admin', 'product-123', fn (): string => 'new-card'));
+        self::assertSame('other-card', $cache->rememberCard('admin', 'product-999', fn (): string => 'refreshed-other-card'));
         self::assertSame('old-list', $cache->rememberList(['store_id' => 'store-123'], 1, 20, fn (): string => 'new-list'));
     }
 

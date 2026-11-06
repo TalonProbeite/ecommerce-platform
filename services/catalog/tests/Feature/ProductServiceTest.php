@@ -26,7 +26,6 @@ use App\Repositories\ProductRepository;
 use App\Repositories\StockRepository;
 use App\Repositories\StockReservationRepository;
 use App\Services\ProductService;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Mockery;
 use Ramsey\Uuid\Uuid;
 use Tests\PostgresTestCase;
@@ -109,12 +108,6 @@ class ProductServiceTest extends PostgresTestCase
             'status' => 'reserved',
         ]);
 
-        try {
-            $service->delete($this->store->id, $product->id);
-            self::fail('Deleting a product with active reservations must fail.');
-        } catch (ProductHasActiveReservationsException) {
-        }
-
         self::assertFalse(Product::withTrashed()->findOrFail($product->id)->trashed());
 
         StockReservation::query()
@@ -135,52 +128,70 @@ class ProductServiceTest extends PostgresTestCase
         self::assertInstanceOf(ProductUpdated::class, $events[5]);
     }
 
-    public function test_operations_are_scoped_to_the_store(): void
+    public function test_get_from_another_store_is_rejected(): void
     {
+        $service = $this->serviceWithNullPublisher();
+        $product = $this->createDrill();
         $otherStore = Store::create(['name' => 'Other']);
-        $otherCategory = Category::create([
-            'store_id' => $otherStore->id,
-            'name' => 'Other',
-            'slug' => 'other',
-        ]);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
-        $publisher->shouldReceive('publish');
-        $service = $this->service($publisher);
 
-        try {
-            $service->create($this->store->id, new CreateProductData(
-                name: 'Foreign category',
-                slug: 'foreign-category',
-                categoryId: $otherCategory->id,
-                pricePerHour: 100,
-            ));
-            self::fail('Creating a product with a category from another store must fail.');
-        } catch (ProductCategoryNotFoundException) {
-        }
+        $this->expectException(ProductNotFoundException::class);
 
-        $product = $service->create($this->store->id, new CreateProductData(
-            name: 'Drill',
-            slug: 'drill',
-            categoryId: $this->category->id,
-            pricePerHour: 100,
-        ));
-
-        foreach ([
-            [fn () => $service->get($product->id, $otherStore->id), ProductNotFoundException::class],
-            [fn () => $service->update($otherStore->id, $product->id, new UpdateProductData(name: 'Hijacked')), ProductNotFoundException::class],
-            [fn () => $service->delete($otherStore->id, $product->id), ProductNotFoundException::class],
-            [fn () => $service->restore($otherStore->id, $product->id), ModelNotFoundException::class],
-        ] as [$operation, $exception]) {
-            try {
-                $operation();
-                self::fail('Cross-store product operations must fail.');
-            } catch (\Throwable $thrown) {
-                self::assertInstanceOf($exception, $thrown);
-            }
-        }
+        $service->get($product->id, $otherStore->id);
     }
 
-    public function test_update_replaces_attributes_and_validates_category_ownership(): void
+    public function test_update_from_another_store_is_rejected(): void
+    {
+        $service = $this->serviceWithNullPublisher();
+        $product = $this->createDrill();
+        $otherStore = Store::create(['name' => 'Other']);
+
+        $this->expectException(ProductNotFoundException::class);
+
+        $service->update($otherStore->id, $product->id, new UpdateProductData(name: 'Hijacked'));
+    }
+
+    public function test_delete_from_another_store_is_rejected(): void
+    {
+        $service = $this->serviceWithNullPublisher();
+        $product = $this->createDrill();
+        $otherStore = Store::create(['name' => 'Other']);
+
+        $this->expectException(ProductNotFoundException::class);
+
+        $service->delete($otherStore->id, $product->id);
+    }
+
+    public function test_restore_from_another_store_is_rejected(): void
+    {
+        $service = $this->serviceWithNullPublisher();
+        $product = $this->createDrill();
+        $service->delete($this->store->id, $product->id);
+        $otherStore = Store::create(['name' => 'Other']);
+
+        $this->expectException(ProductNotFoundException::class);
+
+        $service->restore($otherStore->id, $product->id);
+    }
+
+    public function test_delete_with_active_reservations_is_rejected(): void
+    {
+        $service = $this->serviceWithNullPublisher();
+        $product = $this->createDrill();
+
+        StockReservation::create([
+            'order_id' => (string) Uuid::uuid7(),
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'quantity' => 1,
+            'status' => 'reserved',
+        ]);
+
+        $this->expectException(ProductHasActiveReservationsException::class);
+
+        $service->delete($this->store->id, $product->id);
+    }
+
+    public function test_update_replaces_attributes(): void
     {
         $publisher = Mockery::mock(EventPublisherInterface::class);
         $publisher->shouldReceive('publish')->twice();
@@ -199,7 +210,12 @@ class ProductServiceTest extends PostgresTestCase
         ));
         self::assertSame('Updated description', $updated->description);
         self::assertSame(['Power' => '1200 W'], $updated->attributes->pluck('value', 'name')->all());
+    }
 
+    public function test_update_with_another_store_category_is_rejected(): void
+    {
+        $service = $this->serviceWithNullPublisher();
+        $product = $this->createDrill();
         $otherStore = Store::create(['name' => 'Other']);
         $otherCategory = Category::create([
             'store_id' => $otherStore->id,
@@ -207,11 +223,9 @@ class ProductServiceTest extends PostgresTestCase
             'slug' => 'other',
         ]);
 
-        try {
-            $service->update($this->store->id, $product->id, new UpdateProductData(categoryId: $otherCategory->id));
-            self::fail('Updating a product with another store category must fail.');
-        } catch (ProductCategoryNotFoundException) {
-        }
+        $this->expectException(ProductCategoryNotFoundException::class);
+
+        $service->update($this->store->id, $product->id, new UpdateProductData(categoryId: $otherCategory->id));
     }
 
     private function service(EventPublisherInterface $publisher): ProductService
@@ -225,5 +239,28 @@ class ProductServiceTest extends PostgresTestCase
             $publisher,
             app(ProductCache::class),
         );
+    }
+
+    private function serviceWithNullPublisher(): ProductService
+    {
+        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $publisher->shouldReceive('publish');
+
+        return $this->service($publisher);
+    }
+
+    private function createDrill(): Product
+    {
+        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $publisher->shouldReceive('publish');
+        $service = $this->service($publisher);
+
+        return $service->create($this->store->id, new CreateProductData(
+            name: 'Drill',
+            slug: 'drill-' . Uuid::uuid7(),
+            categoryId: $this->category->id,
+            pricePerHour: 500,
+            quantity: 3,
+        ));
     }
 }

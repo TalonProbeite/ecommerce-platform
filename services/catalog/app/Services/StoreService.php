@@ -47,12 +47,15 @@ final class StoreService implements StoreServiceInterface
     public function update(string $storeId, UpdateStoreData $data): Store
     {
         $store = $this->get($storeId);
-        $wasActive = $store->active;
+        $wasActive = (bool) $store->active;
 
         $updated = $this->storeRepository->updateStore($storeId, $data)
             ?? throw new StoreNotFoundException($storeId);
 
-        if ($wasActive && ! $updated->active) {
+        $isActiveNow = (bool) $updated->active;
+
+        // Activation state changed: product lists and cards must be rebuilt.
+        if ($wasActive !== $isActiveNow) {
             $productIds = $this->productRepository->findIdsByStore($storeId);
 
             DB::afterCommit(function () use ($productIds): void {

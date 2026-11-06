@@ -18,12 +18,23 @@ use App\Messaging\Events\CategoryUpdated;
 use App\Models\Category;
 use App\Services\CategoryService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Mockery;
 use Tests\TestCase;
 
 class CategoryServiceTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        DB::shouldReceive('transaction')
+            ->andReturnUsing(fn (callable $callback) => $callback());
+        DB::shouldReceive('afterCommit')
+            ->andReturnUsing(fn (callable $callback) => $callback());
+    }
+
     protected function tearDown(): void
     {
         Mockery::close();
@@ -319,7 +330,7 @@ class CategoryServiceTest extends TestCase
         ]);
         $category->id = 'cat-123';
 
-        $repository->shouldReceive('findByStoreAndID')
+        $repository->shouldReceive('lockByStoreAndId')
             ->once()
             ->with('cat-123', 'store-123')
             ->andReturn($category);
@@ -358,7 +369,7 @@ class CategoryServiceTest extends TestCase
         $category = new Category(['name' => 'Tools', 'slug' => 'tools', 'store_id' => 'store-123']);
         $category->id = 'cat-123';
 
-        $repository->shouldReceive('findByStoreAndID')
+        $repository->shouldReceive('lockByStoreAndId')
             ->once()
             ->with('cat-123', 'store-123')
             ->andReturn($category);
@@ -385,7 +396,7 @@ class CategoryServiceTest extends TestCase
         $category = new Category(['name' => 'Tools', 'slug' => 'tools', 'store_id' => 'store-123']);
         $category->id = 'cat-123';
 
-        $repository->shouldReceive('findByStoreAndID')
+        $repository->shouldReceive('lockByStoreAndId')
             ->once()
             ->with('cat-123', 'store-123')
             ->andReturn($category);

@@ -182,8 +182,8 @@ class ProductServiceTest extends TestCase
         $product = $this->product();
         $data = new UpdateProductData(name: 'Updated Drill');
 
-        $cache->rememberCard('product-123', fn (): string => 'old-card');
-        $cache->rememberCard('product-999', fn (): string => 'other-card');
+        $cache->rememberCard('admin', 'product-123', fn (): string => 'old-card');
+        $cache->rememberCard('admin', 'product-999', fn (): string => 'other-card');
         $cache->rememberList(['store_id' => 'store-123'], 1, 20, fn (): string => 'old-list');
 
         $productRepository->shouldReceive('findById')
@@ -212,8 +212,8 @@ class ProductServiceTest extends TestCase
 
         $service->update('store-123', 'product-123', $data);
 
-        self::assertSame('new-card', $cache->rememberCard('product-123', fn (): string => 'new-card'));
-        self::assertSame('other-card', $cache->rememberCard('product-999', fn (): string => 'refreshed-other-card'));
+        self::assertSame('new-card', $cache->rememberCard('admin', 'product-123', fn (): string => 'new-card'));
+        self::assertSame('other-card', $cache->rememberCard('admin', 'product-999', fn (): string => 'refreshed-other-card'));
         self::assertSame('new-list', $cache->rememberList(['store_id' => 'store-123'], 1, 20, fn (): string => 'new-list'));
     }
 
@@ -607,6 +607,10 @@ class ProductServiceTest extends TestCase
 
         $product = $this->product();
 
+        $productRepository->shouldReceive('findTrashedByIdAndStore')
+            ->once()
+            ->with('product-123', 'store-123')
+            ->andReturn($product);
         $productRepository->shouldReceive('restoreProduct')
             ->once()
             ->with('product-123', 'store-123')
@@ -630,6 +634,30 @@ class ProductServiceTest extends TestCase
         );
 
         self::assertSame($product, $service->restore('store-123', 'product-123'));
+    }
+
+    public function test_restore_throws_when_product_is_not_trashed(): void
+    {
+        $productRepository = Mockery::mock(ProductRepositoryInterface::class);
+        $productRepository->shouldReceive('findTrashedByIdAndStore')
+            ->once()
+            ->with('product-123', 'store-123')
+            ->andReturn(null);
+        $productRepository->shouldNotReceive('restoreProduct');
+
+        $service = new ProductService(
+            $productRepository,
+            Mockery::mock(ProductAttributeRepositoryInterface::class),
+            Mockery::mock(CategoryRepositoryInterface::class),
+            Mockery::mock(StockRepositoryInterface::class),
+            Mockery::mock(StockReservationRepositoryInterface::class),
+            Mockery::mock(EventPublisherInterface::class),
+            new ProductCache(300, 600, 86400, Mockery::mock(ProductRepositoryInterface::class)),
+        );
+
+        $this->expectException(ProductNotFoundException::class);
+
+        $service->restore('store-123', 'product-123');
     }
 
     private function service(

@@ -243,10 +243,10 @@ class ProductCacheIntegrationTest extends PostgresTestCase
         $categoryProductIds = [$productA1->id, $productA2->id, $trashedProduct->id];
 
         foreach ($categoryProductIds as $productId) {
-            $cache->rememberCard($productId, fn (): string => "cached-{$productId}");
+            $cache->rememberCard('admin', $productId, fn (): string => "cached-{$productId}");
         }
 
-        $cache->rememberCard($productB->id, fn (): string => "cached-{$productB->id}");
+        $cache->rememberCard('admin', $productB->id, fn (): string => "cached-{$productB->id}");
         $cache->rememberList(['store_id' => $this->store->id], 1, 20, fn (): string => 'cached-list');
 
         $this->category->update(['name' => 'Renamed']);
@@ -254,13 +254,13 @@ class ProductCacheIntegrationTest extends PostgresTestCase
         foreach ($categoryProductIds as $productId) {
             self::assertSame(
                 "refreshed-{$productId}",
-                $cache->rememberCard($productId, fn (): string => "refreshed-{$productId}"),
+                $cache->rememberCard('admin', $productId, fn (): string => "refreshed-{$productId}"),
             );
         }
 
         self::assertSame(
             "cached-{$productB->id}",
-            $cache->rememberCard($productB->id, fn (): string => "refreshed-{$productB->id}"),
+            $cache->rememberCard('admin', $productB->id, fn (): string => "refreshed-{$productB->id}"),
         );
         self::assertSame(
             'refreshed-list',
@@ -317,7 +317,7 @@ class ProductCacheIntegrationTest extends PostgresTestCase
     {
         $product = $this->createProduct('Drill');
 
-        $this->cache->rememberCard($product->id, fn (): string => 'initial');
+        $this->cache->rememberCard('admin', $product->id, fn (): string => 'initial');
 
         $oldKey = 'products:card:' . $product->id . ':' . (string) Cache::get('products:ver:card:' . $product->id);
 
@@ -325,7 +325,7 @@ class ProductCacheIntegrationTest extends PostgresTestCase
         Cache::put($oldKey, 'stale', 600);
 
         $calls = 0;
-        $fresh = $this->cache->rememberCard($product->id, function () use (&$calls): string {
+        $fresh = $this->cache->rememberCard('admin', $product->id, function () use (&$calls): string {
             $calls++;
 
             return 'fresh';

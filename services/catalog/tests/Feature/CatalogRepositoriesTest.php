@@ -31,7 +31,6 @@ use App\Repositories\ProductImageRepository;
 use App\Repositories\StockRepository;
 use App\Repositories\StockReservationRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Eloquent\Collection;
 use Ramsey\Uuid\Uuid;
 use Tests\PostgresTestCase;
@@ -169,15 +168,12 @@ class CatalogRepositoriesTest extends PostgresTestCase
         self::assertSame(450, $updated->price_per_hour);
         self::assertSame(450, $repository->findById($product->id)->price_per_hour);
 
-        try {
-            $repository->updateProduct(
-                $product->id,
-                $otherStore,
-                new UpdateProductData(pricePerHour: 999),
-            );
-            self::fail('Updating a product from another store must fail.');
-        } catch (ModelNotFoundException) {
-        }
+        self::assertNull($repository->updateProduct(
+            $product->id,
+            $otherStore,
+            new UpdateProductData(pricePerHour: 999),
+        ));
+        self::assertSame(450, $repository->findById($product->id)->price_per_hour);
 
         $repository->deleteProduct($product->id, $this->store->id);
         self::assertNull($repository->findById($product->id));
@@ -208,6 +204,7 @@ class CatalogRepositoriesTest extends PostgresTestCase
             minPrice: 200,
             maxPrice: 300,
             maxDeposit: 500,
+            isActive: true,
             isAvailable: null,
             sortBy: ProductSortField::PRICE,
             sortDirection: SortDirection::DESC,

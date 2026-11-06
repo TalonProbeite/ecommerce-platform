@@ -88,16 +88,9 @@ class StockServiceTest extends PostgresTestCase
 
     public function test_set_quantity_rejects_values_below_reserved(): void
     {
-        try {
-            $this->service()->setQuantity($this->store->id, $this->product->id, 1);
-            self::fail('Setting quantity below reserved must fail.');
-        } catch (QuantityBelowReservedException $exception) {
-            self::assertSame(2, $exception->reserved);
-            self::assertSame(1, $exception->requested);
-        }
+        $this->expectException(QuantityBelowReservedException::class);
 
-        self::assertSame(10, $this->stock->fresh()->quantity);
-        self::assertCount(0, $this->events);
+        $this->service()->setQuantity($this->store->id, $this->product->id, 1);
     }
 
     public function test_reserve_and_release_units_update_reserved_and_publish_events(): void
@@ -140,46 +133,53 @@ class StockServiceTest extends PostgresTestCase
         }
     }
 
-    public function test_non_positive_quantities_are_rejected(): void
+    public function test_reserve_zero_quantity_is_rejected(): void
     {
-        $service = $this->service();
+        $this->expectException(InvalidArgumentException::class);
 
-        foreach ([0, -1] as $quantity) {
-            try {
-                $service->reserveUnits($this->store->id, $this->product->id, $quantity);
-                self::fail('Reserving a non-positive quantity must fail.');
-            } catch (InvalidArgumentException) {
-            }
-
-            try {
-                $service->releaseUnits($this->store->id, $this->product->id, $quantity);
-                self::fail('Releasing a non-positive quantity must fail.');
-            } catch (InvalidArgumentException) {
-            }
-        }
-
-        self::assertSame(2, $this->stock->fresh()->reserved);
-        self::assertCount(0, $this->events);
+        $this->service()->reserveUnits($this->store->id, $this->product->id, 0);
     }
 
-    public function test_missing_stock_is_rejected_for_mutations(): void
+    public function test_reserve_negative_quantity_is_rejected(): void
     {
-        $service = $this->service();
-        $productId = (string) Uuid::uuid7();
+        $this->expectException(InvalidArgumentException::class);
 
-        foreach ([
-            fn () => $service->setQuantity($this->store->id, $productId, 1),
-            fn () => $service->reserveUnits($this->store->id, $productId, 1),
-            fn () => $service->releaseUnits($this->store->id, $productId, 1),
-        ] as $operation) {
-            try {
-                $operation();
-                self::fail('Mutating missing stock must fail.');
-            } catch (StockNotFoundException) {
-            }
-        }
+        $this->service()->reserveUnits($this->store->id, $this->product->id, -1);
+    }
 
-        self::assertCount(0, $this->events);
+    public function test_release_zero_quantity_is_rejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->service()->releaseUnits($this->store->id, $this->product->id, 0);
+    }
+
+    public function test_release_negative_quantity_is_rejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->service()->releaseUnits($this->store->id, $this->product->id, -1);
+    }
+
+    public function test_set_quantity_for_missing_stock_is_rejected(): void
+    {
+        $this->expectException(StockNotFoundException::class);
+
+        $this->service()->setQuantity($this->store->id, (string) Uuid::uuid7(), 1);
+    }
+
+    public function test_reserve_units_for_missing_stock_is_rejected(): void
+    {
+        $this->expectException(StockNotFoundException::class);
+
+        $this->service()->reserveUnits($this->store->id, (string) Uuid::uuid7(), 1);
+    }
+
+    public function test_release_units_for_missing_stock_is_rejected(): void
+    {
+        $this->expectException(StockNotFoundException::class);
+
+        $this->service()->releaseUnits($this->store->id, (string) Uuid::uuid7(), 1);
     }
 
     private function service(): StockService

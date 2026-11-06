@@ -33,12 +33,12 @@ class ProductCacheTest extends TestCase
     {
         $cache = $this->cache();
 
-        self::assertSame('initial', $cache->rememberCard('product-1', fn (): string => 'initial'));
+        self::assertSame('initial', $cache->rememberCard('admin', 'product-1', fn (): string => 'initial'));
 
         Cache::forget('products:ver:card:product-1');
 
         $calls = 0;
-        $value = $cache->rememberCard('product-1', function () use (&$calls): string {
+        $value = $cache->rememberCard('admin', 'product-1', function () use (&$calls): string {
             $calls++;
 
             return 'fresh';
@@ -85,8 +85,8 @@ class ProductCacheTest extends TestCase
             return ['items' => [], 'total' => 0];
         };
 
-        self::assertSame(['id' => 'product-123'], $cache->rememberCard('product-123', $cardCallback));
-        self::assertSame(['id' => 'product-123'], $cache->rememberCard('product-123', $cardCallback));
+        self::assertSame(['id' => 'product-123'], $cache->rememberCard('admin', 'product-123', $cardCallback));
+        self::assertSame(['id' => 'product-123'], $cache->rememberCard('admin', 'product-123', $cardCallback));
         self::assertSame(['items' => [], 'total' => 0], $cache->rememberList(['store_id' => 'store-1'], 1, 20, $listCallback));
         self::assertSame(['items' => [], 'total' => 0], $cache->rememberList(['store_id' => 'store-1'], 1, 20, $listCallback));
 
@@ -100,12 +100,12 @@ class ProductCacheTest extends TestCase
         $firstCalls = 0;
         $secondCalls = 0;
 
-        $cache->rememberCard('product-1', function () use (&$firstCalls): string {
+        $cache->rememberCard('admin', 'product-1', function () use (&$firstCalls): string {
             $firstCalls++;
 
             return 'first';
         });
-        $cache->rememberCard('product-2', function () use (&$secondCalls): string {
+        $cache->rememberCard('admin', 'product-2', function () use (&$secondCalls): string {
             $secondCalls++;
 
             return 'second';
@@ -113,12 +113,12 @@ class ProductCacheTest extends TestCase
 
         $cache->invalidateCard('product-1');
 
-        self::assertSame('first-refreshed', $cache->rememberCard('product-1', function () use (&$firstCalls): string {
+        self::assertSame('first-refreshed', $cache->rememberCard('admin', 'product-1', function () use (&$firstCalls): string {
             $firstCalls++;
 
             return 'first-refreshed';
         }));
-        self::assertSame('second', $cache->rememberCard('product-2', function () use (&$secondCalls): string {
+        self::assertSame('second', $cache->rememberCard('admin', 'product-2', function () use (&$secondCalls): string {
             $secondCalls++;
 
             return 'second-refreshed';
@@ -139,7 +139,7 @@ class ProductCacheTest extends TestCase
 
             return 'list';
         });
-        $cache->rememberCard('product-1', function () use (&$cardCalls): string {
+        $cache->rememberCard('admin', 'product-1', function () use (&$cardCalls): string {
             $cardCalls++;
 
             return 'card';
@@ -152,7 +152,7 @@ class ProductCacheTest extends TestCase
 
             return 'list-refreshed';
         }));
-        self::assertSame('card', $cache->rememberCard('product-1', function () use (&$cardCalls): string {
+        self::assertSame('card', $cache->rememberCard('admin', 'product-1', function () use (&$cardCalls): string {
             $cardCalls++;
 
             return 'card-refreshed';
@@ -172,16 +172,16 @@ class ProductCacheTest extends TestCase
 
         $cache = $this->cache($repository);
 
-        $cache->rememberCard('product-1', fn (): string => 'cached-product-1');
-        $cache->rememberCard('product-2', fn (): string => 'cached-product-2');
-        $cache->rememberCard('product-3', fn (): string => 'cached-product-3');
+        $cache->rememberCard('admin', 'product-1', fn (): string => 'cached-product-1');
+        $cache->rememberCard('admin', 'product-2', fn (): string => 'cached-product-2');
+        $cache->rememberCard('admin', 'product-3', fn (): string => 'cached-product-3');
         $cache->rememberList([], 1, 20, fn (): string => 'cached-list');
 
         $cache->invalidateCategory('category-1');
 
-        self::assertSame('refreshed-product-1', $cache->rememberCard('product-1', fn (): string => 'refreshed-product-1'));
-        self::assertSame('refreshed-product-2', $cache->rememberCard('product-2', fn (): string => 'refreshed-product-2'));
-        self::assertSame('cached-product-3', $cache->rememberCard('product-3', fn (): string => 'refreshed-product-3'));
+        self::assertSame('refreshed-product-1', $cache->rememberCard('admin', 'product-1', fn (): string => 'refreshed-product-1'));
+        self::assertSame('refreshed-product-2', $cache->rememberCard('admin', 'product-2', fn (): string => 'refreshed-product-2'));
+        self::assertSame('cached-product-3', $cache->rememberCard('admin', 'product-3', fn (): string => 'refreshed-product-3'));
         self::assertSame('refreshed-list', $cache->rememberList([], 1, 20, fn (): string => 'refreshed-list'));
     }
 
@@ -207,7 +207,7 @@ class ProductCacheTest extends TestCase
 
         $cache = $this->cache(listTtl: 1, cardTtl: 10);
         $cache->rememberList([], 1, 20, fn (): string => 'list');
-        $cache->rememberCard('product-123', fn (): string => 'card');
+        $cache->rememberCard('admin', 'product-123', fn (): string => 'card');
 
         Carbon::setTestNow('2026-01-01 00:00:04');
 
@@ -215,14 +215,14 @@ class ProductCacheTest extends TestCase
 
         Carbon::setTestNow('2026-01-01 00:00:31');
 
-        self::assertSame('fresh card', $cache->rememberCard('product-123', fn (): string => 'fresh card'));
+        self::assertSame('fresh card', $cache->rememberCard('admin', 'product-123', fn (): string => 'fresh card'));
     }
 
     public function test_late_writer_to_the_old_card_key_cannot_overwrite_the_fresh_card(): void
     {
         $cache = $this->cache();
 
-        $cache->rememberCard('product-1', fn (): string => 'initial');
+        $cache->rememberCard('admin', 'product-1', fn (): string => 'initial');
 
         $oldKey = 'products:card:product-1:' . (string) Cache::get('products:ver:card:product-1');
 
@@ -230,7 +230,7 @@ class ProductCacheTest extends TestCase
         Cache::put($oldKey, 'stale', 600);
 
         $calls = 0;
-        $fresh = $cache->rememberCard('product-1', function () use (&$calls): string {
+        $fresh = $cache->rememberCard('admin', 'product-1', function () use (&$calls): string {
             $calls++;
 
             return 'fresh';

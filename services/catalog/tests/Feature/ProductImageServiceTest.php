@@ -125,29 +125,38 @@ class ProductImageServiceTest extends PostgresTestCase
         }
     }
 
-    public function test_mutations_are_scoped_to_the_store(): void
+    public function test_upload_from_another_store_is_rejected(): void
     {
-        $image = $this->upload();
         $otherStore = Store::create(['name' => 'Other']);
         $file = $this->pngFile();
 
+        $this->expectException(ProductNotFoundException::class);
+
         try {
-            foreach ([
-                fn () => $this->service()->upload($otherStore->id, $this->product->id, new SplFileInfo($file)),
-                fn () => $this->service()->setMain($otherStore->id, $this->product->id, $image->id),
-                fn () => $this->service()->delete($otherStore->id, $this->product->id, $image->id),
-            ] as $operation) {
-                try {
-                    $operation();
-                    self::fail('Mutating images from another store must fail.');
-                } catch (ProductNotFoundException) {
-                }
-            }
+            $this->service()->upload($otherStore->id, $this->product->id, new SplFileInfo($file));
         } finally {
             unlink($file);
         }
+    }
 
-        self::assertTrue($image->fresh()->is_main);
+    public function test_set_main_from_another_store_is_rejected(): void
+    {
+        $image = $this->upload();
+        $otherStore = Store::create(['name' => 'Other']);
+
+        $this->expectException(ProductNotFoundException::class);
+
+        $this->service()->setMain($otherStore->id, $this->product->id, $image->id);
+    }
+
+    public function test_delete_from_another_store_is_rejected(): void
+    {
+        $image = $this->upload();
+        $otherStore = Store::create(['name' => 'Other']);
+
+        $this->expectException(ProductNotFoundException::class);
+
+        $this->service()->delete($otherStore->id, $this->product->id, $image->id);
     }
 
     public function test_missing_image_is_rejected(): void
