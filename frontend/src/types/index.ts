@@ -17,7 +17,7 @@ export interface User {
   isBanned?: boolean
 }
 
-export type CategoryId = 'cameras' | 'audio-video' | 'tools' | 'outdoor' | 'mobility'
+export type CategoryId = string
 
 export interface Category {
   id: CategoryId
@@ -31,8 +31,10 @@ export interface Equipment {
   id: string
   name: string
   category: CategoryId
+  categoryLabel?: string
   image: string
   pricePerDay: number
+  priceUnit?: 'day' | 'hour'
   deposit: number
   rating: number
   reviewCount: number
@@ -82,6 +84,8 @@ export interface Order {
   fulfillment: Fulfillment
   createdAt: string
   checkoutDetails?: CheckoutDetails
+  // Raw status returned by the draft Order Service, when available.
+  apiStatus?: string
 }
 
 export interface LoginPayload {

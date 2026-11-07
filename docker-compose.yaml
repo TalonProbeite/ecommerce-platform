@@ -24,6 +24,8 @@ services:
         condition: service_healthy
       notification-nginx:
         condition: service_healthy
+      catalog-nginx:
+        condition: service_healthy
     networks:
       - shop_global
     healthcheck:

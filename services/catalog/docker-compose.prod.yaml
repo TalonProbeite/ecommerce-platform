@@ -66,7 +66,6 @@ services:
 
   # Laravel runs on the host by default. The container runtime is not configured yet.
   catalog-app:
-    profiles: [catalog-container]
     image: shop-catalog-app:latest
     build:
       context: .
@@ -103,7 +102,6 @@ services:
       start_period: 30s
 
   catalog-nginx:
-    profiles: [catalog-container]
     image: nginx:alpine
     container_name: catalog-nginx-prod
     restart: always
