@@ -24,7 +24,7 @@ export function toEquipment(product: Product, store?: Store, categoryName?: stri
     id: product.id,
     name: product.name,
     category: product.category_id,
-    categoryLabel: categoryName,
+    categoryLabel: categoryName ?? product.category?.name ?? product.category_name ?? undefined,
     image: product.main_image_url || FALLBACK_IMAGE,
     pricePerDay: product.price_per_hour,
     priceUnit: 'hour',
@@ -55,5 +55,31 @@ export function flattenCategories(categories: ApiCategory[]): ApiCategory[] {
     }
   }
   visit(categories)
+  return result
+}
+
+export interface FlatCategory {
+  category: ApiCategory
+  depth: number
+}
+
+export function flattenCategoryTree(categories: ApiCategory[], depth = 0, result: FlatCategory[] = []): FlatCategory[] {
+  for (const category of categories) {
+    result.push({ category, depth })
+    if (category.children?.length) flattenCategoryTree(category.children, depth + 1, result)
+  }
+  return result
+}
+
+export function descendantCategoryIds(categories: ApiCategory[], categoryId: string): Set<string> {
+  const result = new Set<string>()
+  const visit = (items: ApiCategory[], collecting: boolean) => {
+    for (const item of items) {
+      const isDescendant = collecting || item.id === categoryId
+      if (collecting) result.add(item.id)
+      if (item.children?.length) visit(item.children, isDescendant)
+    }
+  }
+  visit(categories, false)
   return result
 }

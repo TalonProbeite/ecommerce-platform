@@ -1,4 +1,4 @@
-import { catalogRequest } from '@/api/catalog-client'
+import { catalogAdmin, catalogGet } from '@/lib/catalog/api'
 import type {
   Category,
   CreateCategoryPayload,
@@ -18,285 +18,237 @@ import type {
 
 const enc = encodeURIComponent
 
-function query(params: object): Record<string, string> {
-  const result: Record<string, string> = {}
+// Empty strings are omitted by default. listAllStores deliberately sends
+// active= (empty), which Laravel normalizes to null and treats as "no filter".
+function query(params: object): Record<string, string | number | boolean> {
+  const result: Record<string, string | number | boolean> = {}
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === '') continue
-    result[key] = String(value)
+    result[key] = value as string | number | boolean
   }
   return result
 }
 
+function json(method: string, data?: unknown): RequestInit {
+  return data === undefined
+    ? { method }
+    : { method, body: JSON.stringify(data) }
+}
+
 // ---------------------------------------------------------------------------
-// Public routes (no token)
+// Public routes
 // ---------------------------------------------------------------------------
 
 export async function listStores(params: StoreListParams = {}, signal?: AbortSignal): Promise<PaginatedResponse<Store>> {
-  const { data } = await catalogRequest<PaginatedResponse<Store>>({
-    url: '/stores',
-    method: 'get',
-    params: query(params),
-    signal,
-  })
-  return data
+  return catalogGet<PaginatedResponse<Store>>('/stores', query(params), signal)
 }
 
 export async function getStore(storeId: string, signal?: AbortSignal): Promise<Store> {
-  const { data } = await catalogRequest<{ data: Store }>({
-    url: `/stores/${enc(storeId)}`,
-    method: 'get',
-    signal,
-  })
-  return data.data
+  const response = await catalogGet<{ data: Store }>(`/stores/${enc(storeId)}`, undefined, signal)
+  return response.data
 }
 
 export async function listStoreCategories(storeId: string, signal?: AbortSignal): Promise<Category[]> {
-  const { data } = await catalogRequest<{ data: Category[] }>({
-    url: `/stores/${enc(storeId)}/categories`,
-    method: 'get',
-    signal,
-  })
-  return data.data
+  const response = await catalogGet<{ data: Category[] }>(`/stores/${enc(storeId)}/categories`, undefined, signal)
+  return response.data
 }
 
 export async function getStoreCategory(storeId: string, categoryId: string, signal?: AbortSignal): Promise<Category> {
-  const { data } = await catalogRequest<{ data: Category }>({
-    url: `/stores/${enc(storeId)}/categories/${enc(categoryId)}`,
-    method: 'get',
+  const response = await catalogGet<{ data: Category }>(
+    `/stores/${enc(storeId)}/categories/${enc(categoryId)}`,
+    undefined,
     signal,
-  })
-  return data.data
+  )
+  return response.data
 }
 
 export async function listStoreCategoryChildren(storeId: string, categoryId: string, signal?: AbortSignal): Promise<Category[]> {
-  const { data } = await catalogRequest<{ data: Category[] }>({
-    url: `/stores/${enc(storeId)}/categories/${enc(categoryId)}/children`,
-    method: 'get',
+  const response = await catalogGet<{ data: Category[] }>(
+    `/stores/${enc(storeId)}/categories/${enc(categoryId)}/children`,
+    undefined,
     signal,
-  })
-  return data.data
+  )
+  return response.data
 }
 
 export async function listProducts(params: ProductListParams = {}, signal?: AbortSignal): Promise<PaginatedResponse<Product>> {
-  const { data } = await catalogRequest<PaginatedResponse<Product>>({
-    url: '/products',
-    method: 'get',
-    params: query(params),
-    signal,
-  })
-  return data
+  return catalogGet<PaginatedResponse<Product>>('/products', query(params), signal)
 }
 
 export async function getProduct(productId: string, signal?: AbortSignal): Promise<Product> {
-  const { data } = await catalogRequest<{ data: Product }>({
-    url: `/products/${enc(productId)}`,
-    method: 'get',
-    signal,
-  })
-  return data.data
+  const response = await catalogGet<{ data: Product }>(`/products/${enc(productId)}`, undefined, signal)
+  return response.data
 }
 
 export async function listProductImages(productId: string, signal?: AbortSignal): Promise<ProductImage[]> {
-  const { data } = await catalogRequest<{ data: ProductImage[] }>({
-    url: `/products/${enc(productId)}/images`,
-    method: 'get',
-    signal,
-  })
-  return data.data
+  const response = await catalogGet<{ data: ProductImage[] }>(`/products/${enc(productId)}/images`, undefined, signal)
+  return response.data
 }
 
 export async function getProductImage(productId: string, imageId: string, signal?: AbortSignal): Promise<ProductImage> {
-  const { data } = await catalogRequest<{ data: ProductImage }>({
-    url: `/products/${enc(productId)}/images/${enc(imageId)}`,
-    method: 'get',
+  const response = await catalogGet<{ data: ProductImage }>(
+    `/products/${enc(productId)}/images/${enc(imageId)}`,
+    undefined,
     signal,
-  })
-  return data.data
+  )
+  return response.data
 }
 
 // ---------------------------------------------------------------------------
-// Admin routes. They require an Authorization: Bearer token issued by Auth.
-// The current cookie-based frontend session does not expose that token, so
-// callers must provide it explicitly.
+// Admin routes. Authorization is injected by the gateway from the HttpOnly
+// access cookie; the frontend never sees or stores the token.
 // ---------------------------------------------------------------------------
 
 const ADMIN = '/admin'
 
-export async function adminCreateStore(token: string, payload: CreateStorePayload): Promise<Store> {
-  const { data } = await catalogRequest<{ data: Store }>({
-    url: `${ADMIN}/stores`,
-    method: 'post',
-    data: payload,
-  }, token)
-  return data.data
+/** Lists every store, including inactive ones (active= empty => no filter). */
+export async function listAllStores(signal?: AbortSignal): Promise<PaginatedResponse<Store>> {
+  return catalogGet<PaginatedResponse<Store>>('/stores', { active: '', page: 1, per_page: 100 }, signal)
 }
 
-export async function adminUpdateStore(token: string, storeId: string, payload: UpdateStorePayload): Promise<Store> {
-  const { data } = await catalogRequest<{ data: Store }>({
-    url: `${ADMIN}/stores/${enc(storeId)}`,
-    method: 'patch',
-    data: payload,
-  }, token)
-  return data.data
+export async function adminCreateStore(payload: CreateStorePayload): Promise<Store> {
+  const response = await catalogAdmin<{ data: Store }>(`${ADMIN}/stores`, json('post', payload))
+  return response.data
 }
 
-export async function adminDeleteStore(token: string, storeId: string): Promise<void> {
-  await catalogRequest({
-    url: `${ADMIN}/stores/${enc(storeId)}`,
-    method: 'delete',
-  }, token)
+export async function adminUpdateStore(storeId: string, payload: UpdateStorePayload): Promise<Store> {
+  const response = await catalogAdmin<{ data: Store }>(`${ADMIN}/stores/${enc(storeId)}`, json('patch', payload))
+  return response.data
 }
 
-export async function adminCreateCategory(token: string, storeId: string, payload: CreateCategoryPayload): Promise<Category> {
-  const { data } = await catalogRequest<{ data: Category }>({
-    url: `${ADMIN}/stores/${enc(storeId)}/categories`,
-    method: 'post',
-    data: payload,
-  }, token)
-  return data.data
+export async function adminDeleteStore(storeId: string): Promise<void> {
+  await catalogAdmin<null>(`${ADMIN}/stores/${enc(storeId)}`, { method: 'delete' })
+}
+
+export async function adminCreateCategory(storeId: string, payload: CreateCategoryPayload): Promise<Category> {
+  const response = await catalogAdmin<{ data: Category }>(
+    `${ADMIN}/stores/${enc(storeId)}/categories`,
+    json('post', payload),
+  )
+  return response.data
 }
 
 export async function adminUpdateCategory(
-  token: string,
   storeId: string,
   categoryId: string,
   payload: UpdateCategoryPayload,
 ): Promise<Category> {
-  const { data } = await catalogRequest<{ data: Category }>({
-    url: `${ADMIN}/stores/${enc(storeId)}/categories/${enc(categoryId)}`,
-    method: 'patch',
-    data: payload,
-  }, token)
-  return data.data
+  const response = await catalogAdmin<{ data: Category }>(
+    `${ADMIN}/stores/${enc(storeId)}/categories/${enc(categoryId)}`,
+    json('patch', payload),
+  )
+  return response.data
 }
 
-export async function adminDeleteCategory(token: string, storeId: string, categoryId: string): Promise<void> {
-  await catalogRequest({
-    url: `${ADMIN}/stores/${enc(storeId)}/categories/${enc(categoryId)}`,
-    method: 'delete',
-  }, token)
+export async function adminDeleteCategory(storeId: string, categoryId: string): Promise<void> {
+  await catalogAdmin<null>(`${ADMIN}/stores/${enc(storeId)}/categories/${enc(categoryId)}`, { method: 'delete' })
 }
 
 export async function adminListProducts(
-  token: string,
   storeId: string,
   params: Omit<ProductListParams, 'store_id'> = {},
   signal?: AbortSignal,
 ): Promise<PaginatedResponse<Product>> {
-  const { data } = await catalogRequest<PaginatedResponse<Product>>({
-    url: `${ADMIN}/stores/${enc(storeId)}/products`,
-    method: 'get',
-    params: query(params),
-    signal,
-  }, token)
-  return data
+  return catalogAdmin<PaginatedResponse<Product>>(
+    `${ADMIN}/stores/${enc(storeId)}/products`,
+    { method: 'get', signal },
+    query(params),
+  )
 }
 
-export async function adminGetProduct(token: string, storeId: string, productId: string): Promise<Product> {
-  const { data } = await catalogRequest<{ data: Product }>({
-    url: `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}`,
-    method: 'get',
-  }, token)
-  return data.data
+export async function adminGetProduct(storeId: string, productId: string, signal?: AbortSignal): Promise<Product> {
+  const response = await catalogAdmin<{ data: Product }>(
+    `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}`,
+    { method: 'get', signal },
+  )
+  return response.data
 }
 
-export async function adminCreateProduct(token: string, storeId: string, payload: CreateProductPayload): Promise<Product> {
-  const { data } = await catalogRequest<{ data: Product }>({
-    url: `${ADMIN}/stores/${enc(storeId)}/products`,
-    method: 'post',
-    data: payload,
-  }, token)
-  return data.data
+export async function adminCreateProduct(storeId: string, payload: CreateProductPayload): Promise<Product> {
+  const response = await catalogAdmin<{ data: Product }>(
+    `${ADMIN}/stores/${enc(storeId)}/products`,
+    json('post', payload),
+  )
+  return response.data
 }
 
 export async function adminUpdateProduct(
-  token: string,
   storeId: string,
   productId: string,
   payload: UpdateProductPayload,
 ): Promise<Product> {
-  const { data } = await catalogRequest<{ data: Product }>({
-    url: `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}`,
-    method: 'patch',
-    data: payload,
-  }, token)
-  return data.data
+  const response = await catalogAdmin<{ data: Product }>(
+    `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}`,
+    json('patch', payload),
+  )
+  return response.data
 }
 
-export async function adminDeleteProduct(token: string, storeId: string, productId: string): Promise<void> {
-  await catalogRequest({
-    url: `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}`,
-    method: 'delete',
-  }, token)
+export async function adminDeleteProduct(storeId: string, productId: string): Promise<void> {
+  await catalogAdmin<null>(`${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}`, { method: 'delete' })
 }
 
-export async function adminRestoreProduct(token: string, storeId: string, productId: string): Promise<Product> {
-  const { data } = await catalogRequest<{ data: Product }>({
-    url: `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}/restore`,
-    method: 'post',
-  }, token)
-  return data.data
+export async function adminRestoreProduct(storeId: string, productId: string): Promise<Product> {
+  const response = await catalogAdmin<{ data: Product }>(
+    `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}/restore`,
+    { method: 'post' },
+  )
+  return response.data
 }
 
 export async function adminUploadProductImage(
-  token: string,
   storeId: string,
   productId: string,
   image: File,
 ): Promise<ProductImage> {
   const formData = new FormData()
   formData.append('image', image)
-  const { data } = await catalogRequest<{ data: ProductImage }>({
-    url: `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}/images`,
-    method: 'post',
-    formData,
-  }, token)
-  return data.data
+  const response = await catalogAdmin<{ data: ProductImage }>(
+    `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}/images`,
+    { method: 'post', body: formData },
+  )
+  return response.data
 }
 
 export async function adminSetMainProductImage(
-  token: string,
   storeId: string,
   productId: string,
   imageId: string,
 ): Promise<ProductImage> {
-  const { data } = await catalogRequest<{ data: ProductImage }>({
-    url: `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}/images/${enc(imageId)}/main`,
-    method: 'patch',
-  }, token)
-  return data.data
+  const response = await catalogAdmin<{ data: ProductImage }>(
+    `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}/images/${enc(imageId)}/main`,
+    { method: 'patch' },
+  )
+  return response.data
 }
 
 export async function adminDeleteProductImage(
-  token: string,
   storeId: string,
   productId: string,
   imageId: string,
 ): Promise<void> {
-  await catalogRequest({
-    url: `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}/images/${enc(imageId)}`,
-    method: 'delete',
-  }, token)
+  await catalogAdmin<null>(
+    `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}/images/${enc(imageId)}`,
+    { method: 'delete' },
+  )
 }
 
-export async function adminGetStock(token: string, storeId: string, productId: string): Promise<Stock> {
-  const { data } = await catalogRequest<{ data: Stock }>({
-    url: `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}/stock`,
-    method: 'get',
-  }, token)
-  return data.data
+export async function adminGetStock(storeId: string, productId: string, signal?: AbortSignal): Promise<Stock> {
+  const response = await catalogAdmin<{ data: Stock }>(
+    `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}/stock`,
+    { method: 'get', signal },
+  )
+  return response.data
 }
 
 export async function adminUpdateStock(
-  token: string,
   storeId: string,
   productId: string,
   quantity: number,
 ): Promise<Stock> {
-  const { data } = await catalogRequest<{ data: Stock }>({
-    url: `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}/stock`,
-    method: 'patch',
-    data: { quantity },
-  }, token)
-  return data.data
+  const response = await catalogAdmin<{ data: Stock }>(
+    `${ADMIN}/stores/${enc(storeId)}/products/${enc(productId)}/stock`,
+    json('patch', { quantity }),
+  )
+  return response.data
 }

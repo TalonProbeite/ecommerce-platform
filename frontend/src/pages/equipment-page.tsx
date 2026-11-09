@@ -1,6 +1,6 @@
 import { AlertCircle, ArrowLeft, BadgeCheck, Check, MapPin, PackageSearch, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ROUTES } from '@/app/routes'
 import { EmptyState } from '@/components/common/empty-state'
@@ -14,12 +14,14 @@ import { getCategoryLabel, getEquipmentById } from '@/data/equipment'
 import { addDaysISO, calculateTotals, formatCurrency, rentalDays, todayISO } from '@/lib/pricing'
 import { storeFor, toEquipment } from '@/lib/catalog-mapping'
 import { useCartStore } from '@/store/cart-store'
+import { useAuthStore } from '@/store/auth-store'
 import { isMockApi } from '@/api/client'
 import { LIVE_CATALOG, useCatalogProduct, useCatalogStores } from '@/hooks/use-catalog-data'
 import type { Equipment } from '@/types'
 
-function EquipmentDetail({ item, image, canBook }: { item: Equipment; image: string; canBook: boolean }) {
+function EquipmentDetail({ item, image, canBook, isGuest }: { item: Equipment; image: string; canBook: boolean; isGuest: boolean }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const addItem = useCartStore((state) => state.addItem)
 
   const today = todayISO()
@@ -41,6 +43,10 @@ function EquipmentDetail({ item, image, canBook }: { item: Equipment; image: str
     addItem({ equipmentId: item.id, startDate, endDate })
     toast.success(`${item.name} added to your cart.`)
     navigate(ROUTES.checkout)
+  }
+
+  function handleSignIn() {
+    navigate(ROUTES.login, { state: { from: `${location.pathname}${location.search}` } })
   }
 
   return (
@@ -144,8 +150,13 @@ function EquipmentDetail({ item, image, canBook }: { item: Equipment; image: str
               </dl>
             )}
 
-            <Button size="lg" className="mt-5 h-12 w-full rounded-full text-base" disabled={!canBook || !datesValid} onClick={handleBook}>
-              Reserve now
+            <Button
+              size="lg"
+              className="mt-5 h-12 w-full rounded-full text-base"
+              disabled={!isGuest && (!canBook || !datesValid)}
+              onClick={isGuest ? handleSignIn : handleBook}
+            >
+              {isGuest ? 'Sign in to reserve' : 'Reserve now'}
             </Button>
             <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
               <ShieldCheck className="size-4" aria-hidden="true" />
@@ -160,6 +171,7 @@ function EquipmentDetail({ item, image, canBook }: { item: Equipment; image: str
 
 function MockEquipmentPage() {
   const { id = '' } = useParams()
+  const user = useAuthStore((state) => state.user)
   const item = getEquipmentById(id)
 
   if (!item) {
@@ -175,11 +187,12 @@ function MockEquipmentPage() {
     )
   }
 
-  return <EquipmentDetail item={item} image={item.image} canBook={isMockApi} />
+  return <EquipmentDetail item={item} image={item.image} canBook={isMockApi && Boolean(user)} isGuest={!user} />
 }
 
 function LiveEquipmentPage() {
   const { id = '' } = useParams()
+  const user = useAuthStore((state) => state.user)
   const product = useCatalogProduct(id)
   const stores = useCatalogStores()
 
@@ -209,7 +222,7 @@ function LiveEquipmentPage() {
   const item = toEquipment(product.state.data, storeFor(product.state.data, storeList))
   const image = product.state.data.main_image_url || item.image
 
-  return <EquipmentDetail item={item} image={image} canBook={false} />
+  return <EquipmentDetail item={item} image={image} canBook={false} isGuest={!user} />
 }
 
 export function EquipmentPage() {

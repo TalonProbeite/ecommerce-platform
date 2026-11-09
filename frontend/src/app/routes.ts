@@ -1,7 +1,9 @@
+import { CATALOG_PATH, equipmentPath } from '@/lib/catalog/routes'
+
 export const ROUTES = {
   home: '/',
-  catalog: '/catalog',
-  equipment: (id: string) => `/equipment/${id}`,
+  catalog: CATALOG_PATH,
+  equipment: equipmentPath,
   checkout: '/checkout',
   checkoutCart: '/checkout/cart',
   checkoutDelivery: '/checkout/delivery',
