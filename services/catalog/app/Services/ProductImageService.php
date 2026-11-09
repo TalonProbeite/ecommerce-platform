@@ -85,7 +85,7 @@ final class ProductImageService implements ProductImageServiceInterface
             ]);
 
             // Write the object after the row: if the write fails, the transaction rolls back the row.
-            $this->storeObject($objectKey, $file);
+            $this->storeObject($objectKey, $file, $mimeType);
 
             DB::afterCommit(function () use ($productId): void {
                 $this->productCache->invalidateCard($productId);
@@ -225,7 +225,7 @@ final class ProductImageService implements ProductImageServiceInterface
      * @throws InvalidImageFileException
      * @throws ProductImageStorageException
      */
-    private function storeObject(string $objectKey, SplFileInfo $file): void
+    private function storeObject(string $objectKey, SplFileInfo $file, string $mimeType): void
     {
         $this->bucketGuard->ensure($this->disk);
 
@@ -235,7 +235,9 @@ final class ProductImageService implements ProductImageServiceInterface
             throw new InvalidImageFileException('Unable to open file for reading.');
         }
 
-        $stored = Storage::disk($this->disk)->put($objectKey, $stream);
+        $stored = Storage::disk($this->disk)->put($objectKey, $stream,  [
+        'ContentType' => $mimeType,
+    ]);
 
         fclose($stream);
 
