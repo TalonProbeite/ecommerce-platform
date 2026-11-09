@@ -31,7 +31,7 @@ class ProductListRequest extends FormRequest
             'min_price' => 'nullable|integer|min:0',
             'max_price' => 'nullable|integer|min:0',
             'max_deposit' => 'nullable|integer|min:0',
-            'available_only' => 'nullable|boolean',
+            'available_only' => 'nullable|in:true,false,1,0',
             'is_active' => 'nullable|boolean',
             'sort' => ['nullable', Rule::enum(ProductSortField::class)],
             'sort_direction' => ['nullable', Rule::enum(SortDirection::class)],
