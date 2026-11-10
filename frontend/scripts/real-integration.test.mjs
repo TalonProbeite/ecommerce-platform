@@ -288,7 +288,7 @@ test('post-login destinations respect roles and reject external or public auth t
     assert.equal(loginDestination(undefined, '/profile'), '/profile')
     for (const from of ['/admin', '//evil.invalid', '/notifications']) assert.equal(loginDestination(undefined, from), '/')
     for (const from of ['https://evil.invalid', '//evil.invalid', '/login', '/register', '/admin', '/notifications', '/missing']) {
-      assert.equal(loginDestination('customer', from), '/catalog')
+      assert.equal(loginDestination('customer', from), '/equipment')
     }
     assert.equal(loginDestination('customer', '/checkout/delivery?step=1'), '/checkout/delivery?step=1')
     assert.equal(loginDestination('analyst', '/admin'), '/notifications')

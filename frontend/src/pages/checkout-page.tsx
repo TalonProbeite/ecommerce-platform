@@ -9,11 +9,13 @@ import { PageHeader } from '@/components/common/page-header'
 import { Button } from '@/components/ui/button'
 import { getEquipmentById } from '@/data/equipment'
 import { hasErrors, type FieldErrors } from '@/lib/validation'
-import { placeMockOrder, reviewCart, validateCheckoutDetails } from '@/services/checkout'
+import { reviewCart, validateCheckoutDetails } from '@/services/checkout'
+import { createOrder } from '@/services/orders'
 import { useAuthStore } from '@/store/auth-store'
 import { useCartStore } from '@/store/cart-store'
 import { useOrdersStore } from '@/store/orders-store'
 import { isMockApi } from '@/api/client'
+import { IS_ORDER_API_ENABLED } from '@/api/endpoints'
 import type { CheckoutDetails } from '@/types'
 
 export function CheckoutPage() {
@@ -38,7 +40,7 @@ export function CheckoutPage() {
   const isSuccess = step === `${ROUTES.checkout}/success`
   const review = reviewCart(items)
 
-  if (!isMockApi) return <div className="mx-auto max-w-3xl px-4 py-16"><EmptyState icon={ShoppingBag} title="Rental booking unavailable" description="Live rental booking is not connected yet. No order has been placed." action={<LinkButton to={ROUTES.catalog}>Browse equipment</LinkButton>} /></div>
+  if (!isMockApi && !IS_ORDER_API_ENABLED) return <div className="mx-auto max-w-3xl px-4 py-16"><EmptyState icon={ShoppingBag} title="Rental booking unavailable" description="Live rental booking is not connected yet. No order has been placed." action={<LinkButton to={ROUTES.catalog}>Browse equipment</LinkButton>} /></div>
 
   async function handlePlaceOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -53,7 +55,7 @@ export function CheckoutPage() {
     submitting.current = true
     setPlacing(true)
     try {
-      const order = await placeMockOrder(details)
+      const order = await createOrder(details)
       navigate(ROUTES.checkoutSuccess(order.id), { replace: true })
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Could not place your order. Please try again.')

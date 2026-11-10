@@ -69,7 +69,7 @@ export function ProfilePage() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
           <p className="text-sm font-medium text-muted-foreground">Account details</p>
           <div className="flex flex-wrap items-center gap-2">
-            {user.role === 'admin' || user.role === 'analyst' ? <Badge className="rounded-full bg-secondary px-3 capitalize text-secondary-foreground">{user.role}</Badge> : null}
+            {user.role === 'admin' || user.role === 'analyst' || user.role === 'store_manager' ? <Badge className="rounded-full bg-secondary px-3 capitalize text-secondary-foreground">{user.role.replace('_', ' ')}</Badge> : null}
             {isVerified ? (
               <Badge className="flex items-center gap-1 rounded-full bg-success/15 px-3 font-medium text-success">
                 <CheckCircle2 className="size-3.5" aria-hidden="true" /> Email verified

@@ -20,7 +20,7 @@ export function EquipmentCard({ item }: { item: Equipment }) {
           className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <span className="absolute left-3 top-3 rounded-full bg-background/90 px-3 py-1 text-xs font-semibold backdrop-blur">
-          {getCategoryLabel(item.category)}
+          {item.categoryLabel ?? getCategoryLabel(item.category)}
         </span>
       </div>
       <div className="flex flex-1 flex-col gap-2 p-5">
@@ -37,7 +37,7 @@ export function EquipmentCard({ item }: { item: Equipment }) {
           <Rating value={item.rating} count={item.reviewCount} />
           <p className="text-right">
             <span className="text-lg font-extrabold">{formatCurrency(item.pricePerDay)}</span>
-            <span className="text-sm text-muted-foreground"> / day</span>
+            <span className="text-sm text-muted-foreground"> / {item.priceUnit ?? 'day'}</span>
           </p>
         </div>
       </div>

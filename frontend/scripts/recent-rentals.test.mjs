@@ -41,7 +41,7 @@ test('profile rental history shares orders, isolates users and renders its state
     assert.match(render({ status: 'loading' }), /Loading rentals/)
     const empty = render({ status: 'success', orders: [] })
     assert.match(empty, /No rentals yet/)
-    assert.match(empty, /href="\/catalog"/)
+    assert.match(empty, /href="\/equipment"/)
     const error = render({ status: 'error' })
     assert.match(error, /role="alert"/)
     assert.match(error, /Try again/)

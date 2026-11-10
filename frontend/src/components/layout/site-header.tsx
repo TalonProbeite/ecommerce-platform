@@ -127,7 +127,7 @@ export function SiteHeader() {
                   <DropdownMenuLabel className="flex min-w-0 flex-col gap-1 px-3 py-2">
                     <span className="font-semibold text-foreground">{fullName(user)}</span>
                     <span className="truncate text-xs font-normal text-muted-foreground">{user.email}</span>
-                    {user.role === 'admin' || user.role === 'analyst' ? <span className="text-xs capitalize">{user.role}</span> : null}
+                    {user.role === 'admin' || user.role === 'analyst' || user.role === 'store_manager' ? <span className="text-xs capitalize">{user.role.replace('_', ' ')}</span> : null}
                   </DropdownMenuLabel>
                   <DropdownMenuItem className="rounded-lg px-3 py-2" onClick={() => navigate(ROUTES.profile)}>
                     <UserRound /> My profile

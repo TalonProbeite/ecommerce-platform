@@ -1,7 +1,8 @@
-export type Role = 'customer' | 'analyst' | 'admin'
+export type Role = 'customer' | 'analyst' | 'admin' | 'store_manager'
 
 export interface UpdateRolePayload { role: Role }
 export interface UpdateBanPayload { is_banned: boolean }
+export interface UpdateStorePayload { store_id?: string | null }
 
 export interface User {
   id?: string
@@ -10,12 +11,13 @@ export interface User {
   lastName?: string
   phone?: string
   role?: Role
+  storeId?: string | null
   emailVerified?: boolean
   isOAuth?: boolean
   isBanned?: boolean
 }
 
-export type CategoryId = 'cameras' | 'audio-video' | 'tools' | 'outdoor' | 'mobility'
+export type CategoryId = string
 
 export interface Category {
   id: CategoryId
@@ -29,8 +31,10 @@ export interface Equipment {
   id: string
   name: string
   category: CategoryId
+  categoryLabel?: string
   image: string
   pricePerDay: number
+  priceUnit?: 'day' | 'hour'
   deposit: number
   rating: number
   reviewCount: number
@@ -80,6 +84,8 @@ export interface Order {
   fulfillment: Fulfillment
   createdAt: string
   checkoutDetails?: CheckoutDetails
+  // Raw status returned by the draft Order Service, when available.
+  apiStatus?: string
 }
 
 export interface LoginPayload {

@@ -2,15 +2,18 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { isMockApi } from '@/api/client'
 import { ADMIN_MOCK_TARGETS } from '@/api/mock-adapter'
+import { CatalogAdmin } from '@/components/admin/catalog-admin'
 import { UserActionForm } from '@/components/admin/user-action-form'
 import { PageHeader } from '@/components/common/page-header'
 import { StatCard } from '@/components/common/stat-card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EQUIPMENT, getCategoryLabel } from '@/data/equipment'
 import { formatCurrency } from '@/lib/pricing'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/auth-store'
 import type { Equipment, ListingStatus } from '@/types'
 
 const STATUS_STYLES: Record<ListingStatus, string> = {
@@ -19,39 +22,22 @@ const STATUS_STYLES: Record<ListingStatus, string> = {
   draft: 'bg-muted text-muted-foreground',
 }
 
-export function AdminPage() {
+function MockCatalogOverview() {
   const [listings, setListings] = useState<Equipment[]>(EQUIPMENT)
 
   const activeCount = listings.filter((item) => item.status === 'active').length
   const totalRentals = listings.reduce((sum, item) => sum + item.totalRentals, 0)
 
   function toggleStatus(item: Equipment) {
-    if (!isMockApi) return
     const next: ListingStatus = item.status === 'active' ? 'paused' : 'active'
     setListings((current) => current.map((entry) => (entry.id === item.id ? { ...entry, status: next } : entry)))
     toast.success(`${item.name} is now ${next}.`)
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      <PageHeader title="Admin panel" description="Manage user access and try the available administration actions." />
-
-      <div className="mt-6 rounded-2xl bg-secondary p-5 text-sm">
-        <p className="font-semibold">{isMockApi ? 'Mock user administration' : 'User administration'}</p>
-        <p className="mt-1 text-muted-foreground">{isMockApi
-          ? 'Changes affect local demo accounts. Changing your own role or banning your own account will leave the admin area.'
-          : 'User access changes are confirmed by the server.'}</p>
-        {isMockApi ? <ul className="mt-3 space-y-1 break-words">{ADMIN_MOCK_TARGETS.map((target) =>
-          <li key={target.id}><span className="font-mono font-semibold">{target.id}</span> — {target.email}</li>,
-        )}</ul> : null}
-      </div>
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <UserActionForm action="role" />
-        <UserActionForm action="ban" />
-      </div>
-
+    <>
       <h2 className="mt-10 text-2xl font-bold">Catalog overview</h2>
-      {!isMockApi ? <p className="mt-2 text-sm text-muted-foreground">Demo listings. Listing management and rental statistics are unavailable for live accounts.</p> : null}
+      <p className="mt-2 text-sm text-muted-foreground">Demo listings from the mock data set.</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <StatCard label="Total listings" value={String(listings.length)} />
@@ -89,7 +75,7 @@ export function AdminPage() {
                 </TableCell>
                 <TableCell className="pr-5 text-right">
                   {item.status === 'draft' ? null : (
-                    <Button variant="outline" size="sm" className="rounded-full" disabled={!isMockApi} onClick={() => toggleStatus(item)}>
+                    <Button variant="outline" size="sm" className="rounded-full" onClick={() => toggleStatus(item)}>
                       {item.status === 'active' ? 'Pause' : 'Activate'}
                     </Button>
                   )}
@@ -99,6 +85,76 @@ export function AdminPage() {
           </TableBody>
         </Table>
       </div>
+    </>
+  )
+}
+
+function UsersPanel() {
+  return (
+    <>
+      <div className="mt-6 rounded-2xl bg-secondary p-5 text-sm">
+        <p className="font-semibold">{isMockApi ? 'Mock user administration' : 'User administration'}</p>
+        <p className="mt-1 text-muted-foreground">{isMockApi
+          ? 'Changes affect local demo accounts. Changing your own role or banning your own account will leave the admin area.'
+          : 'User access changes are confirmed by the server.'}</p>
+        {isMockApi ? <ul className="mt-3 space-y-1 break-words">{ADMIN_MOCK_TARGETS.map((target) =>
+          <li key={target.id}><span className="font-mono font-semibold">{target.id}</span> — {target.email}</li>,
+        )}</ul> : null}
+      </div>
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <UserActionForm action="role" />
+        <UserActionForm action="ban" />
+      </div>
+      {isMockApi ? <MockCatalogOverview /> : (
+        <p className="mt-6 rounded-2xl border border-dashed bg-card p-4 text-sm text-muted-foreground">
+          Manage stores, categories, products, images and stock from the Catalog tab.
+        </p>
+      )}
+    </>
+  )
+}
+
+export function AdminPage() {
+  const user = useAuthStore((state) => state.user)
+  const role = user?.role
+  const isManager = role === 'store_manager'
+  const canManageUsers = !isManager
+  const canManageCatalog = !isMockApi && (role === 'admin' || role === 'store_manager')
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+      <PageHeader
+        title={isManager ? 'Store administration' : 'Admin panel'}
+        description={isManager
+          ? 'Manage your store catalog, categories, products and stock.'
+          : 'Manage user access and the store catalog.'}
+      />
+
+      {canManageCatalog ? (
+        <Tabs defaultValue={canManageUsers ? 'users' : 'catalog'} className="mt-6">
+          <TabsList className="w-full max-w-sm">
+            {canManageUsers ? <TabsTrigger value="users">Users</TabsTrigger> : null}
+            <TabsTrigger value="catalog">Catalog</TabsTrigger>
+          </TabsList>
+          {canManageUsers ? (
+            <TabsContent value="users" className="mt-4">
+              <UsersPanel />
+            </TabsContent>
+          ) : null}
+          <TabsContent value="catalog" className="mt-4">
+            <CatalogAdmin
+              role={isManager ? 'store_manager' : 'admin'}
+              managerStoreId={user?.storeId}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : isManager ? (
+        <div className="mt-6 rounded-2xl border border-dashed bg-card p-6 text-sm text-muted-foreground">
+          Store catalog management becomes available when the catalog API is connected.
+        </div>
+      ) : (
+        <UsersPanel />
+      )}
     </div>
   )
 }

@@ -27,7 +27,7 @@ export function AppLayout({ children }: { children?: ReactNode }) {
       </a>
       <SiteHeader />
       <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 scroll-mt-20">
-        {!isMockApi && (pathname === ROUTES.catalog || pathname.startsWith('/equipment/') || pathname.startsWith(ROUTES.checkout)) ? <p role="status" className="mx-auto mt-4 max-w-7xl rounded-xl bg-secondary px-4 py-3 text-sm">Demo equipment. Live availability and rental booking are not available yet.</p> : null}
+        {!isMockApi && (pathname === ROUTES.catalog || pathname.startsWith('/equipment/') || pathname.startsWith(ROUTES.checkout)) ? <p role="status" className="mx-auto mt-4 max-w-7xl rounded-xl bg-secondary px-4 py-3 text-sm">Catalog data is live. Online rental booking is not connected yet.</p> : null}
         {children ?? <Outlet />}
       </main>
       <SiteFooter />

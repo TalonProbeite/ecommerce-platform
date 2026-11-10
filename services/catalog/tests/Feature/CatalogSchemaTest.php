@@ -47,7 +47,8 @@ class CatalogSchemaTest extends PostgresTestCase
         ]);
         DB::table('product_images')->insert([
             'id' => (string) Uuid::uuid7(), 'product_id' => $this->productId,
-            'path' => 'equipment/drill.jpg', 'is_main' => true,
+            'object_key' => 'equipment/drill.jpg', 'mime_type' => 'image/jpeg',
+            'size' => 1024, 'is_main' => true,
         ]);
     }
 
@@ -75,46 +76,28 @@ class CatalogSchemaTest extends PostgresTestCase
         ], $tables);
     }
 
-    public function test_rental_fields_have_correct_defaults_and_support_fractional_ratings(): void
+    public function test_rental_fields_have_correct_defaults_and_relationships(): void
     {
         $product = Product::findOrFail($this->productId);
         $this->assertSame(12345, $product->price_per_hour);
         $this->assertSame(0, $product->deposit_amount);
-        $this->assertSame('0.00', $product->rating);
-        $this->assertSame(0, $product->reviews_count);
         $this->assertFalse(Schema::hasColumn('products', 'price'));
+        $this->assertFalse(Schema::hasColumn('products', 'rating'));
+        $this->assertFalse(Schema::hasColumn('products', 'reviews_count'));
         $this->assertNull(Store::findOrFail($this->storeId)->description);
         $this->assertNull(Store::findOrFail($this->storeId)->location);
         $this->assertNull(Category::findOrFail($this->categoryId)->parent_id);
         $this->assertSame(8, $product->stock->available);
         $this->assertSame('800 W', $product->attributes()->firstOrFail()->value);
-        $this->assertSame('equipment/drill.jpg', $product->images()->firstOrFail()->path);
+        $this->assertSame('equipment/drill.jpg', $product->images()->firstOrFail()->object_key);
+        $this->assertSame('image/jpeg', $product->images()->firstOrFail()->mime_type);
+        $this->assertSame(1024, $product->images()->firstOrFail()->size);
+        $this->assertTrue($product->images()->firstOrFail()->is_main);
 
-        $product->update(['rating' => '4.25', 'deposit_amount' => 10000, 'reviews_count' => 7]);
-        $this->assertSame('4.25', $product->fresh()->rating);
+        $product->update(['deposit_amount' => 10000]);
         $this->assertSame(10000, $product->fresh()->deposit_amount);
         Store::findOrFail($this->storeId)->update(['description' => 'Tool rental', 'location' => 'Warsaw']);
         $this->assertSame('Warsaw', Store::findOrFail($this->storeId)->location);
-    }
-
-    public static function invalidProductNumbers(): array
-    {
-        return [
-            'negative hourly price' => ['price_per_hour', -1],
-            'negative deposit' => ['deposit_amount', -1],
-            'negative rating' => ['rating', '-0.01'],
-            'rating above five' => ['rating', '5.01'],
-            'negative reviews count' => ['reviews_count', -1],
-        ];
-    }
-
-    #[DataProvider('invalidProductNumbers')]
-    public function test_product_number_constraints(string $column, int|string $value): void
-    {
-        $this->assertRejected(
-            fn () => DB::table('products')->where('id', $this->productId)->update([$column => $value]),
-            '23514',
-        );
     }
 
     public static function invalidReservationValues(): array
@@ -153,13 +136,16 @@ class CatalogSchemaTest extends PostgresTestCase
         $this->assertTrue($product->exists);
     }
 
-    public function test_only_one_main_image_per_product(): void
+    public function test_only_one_main_image_and_unique_object_key_per_product(): void
     {
         $this->assertRejected(fn () => ProductImage::create([
-            'product_id' => $this->productId, 'path' => 'other.jpg', 'is_main' => true,
+            'product_id' => $this->productId, 'object_key' => 'other.jpg', 'is_main' => true,
         ]), '23505');
-        ProductImage::create(['product_id' => $this->productId, 'path' => 'side.jpg']);
-        ProductImage::create(['product_id' => $this->productId, 'path' => 'back.jpg']);
+        $this->assertRejected(fn () => ProductImage::create([
+            'product_id' => $this->productId, 'object_key' => 'equipment/drill.jpg',
+        ]), '23505');
+        ProductImage::create(['product_id' => $this->productId, 'object_key' => 'side.jpg']);
+        ProductImage::create(['product_id' => $this->productId, 'object_key' => 'back.jpg']);
         $this->assertSame(3, ProductImage::count());
     }
 
@@ -311,15 +297,18 @@ class CatalogSchemaTest extends PostgresTestCase
     {
         $columns = DB::table('information_schema.columns')
             ->where('table_schema', $this->testSchema)
-            ->whereIn('table_name', ['products', 'stock_reservations'])
+            ->whereIn('table_name', ['products', 'product_images', 'stock_reservations'])
             ->get()->keyBy(fn ($column) => $column->table_name . '.' . $column->column_name);
 
         $this->assertSame('integer', $columns['products.price_per_hour']->data_type);
         $this->assertSame('integer', $columns['products.deposit_amount']->data_type);
-        $this->assertSame('integer', $columns['products.reviews_count']->data_type);
-        $this->assertSame('numeric', $columns['products.rating']->data_type);
-        $this->assertSame(3, $columns['products.rating']->numeric_precision);
-        $this->assertSame(2, $columns['products.rating']->numeric_scale);
+        $this->assertSame('boolean', $columns['products.is_active']->data_type);
+        $this->assertSame('text', $columns['products.description']->data_type);
+        $this->assertSame('uuid', $columns['product_images.id']->data_type);
+        $this->assertSame('character varying', $columns['product_images.object_key']->data_type);
+        $this->assertSame('character varying', $columns['product_images.mime_type']->data_type);
+        $this->assertSame('bigint', $columns['product_images.size']->data_type);
+        $this->assertSame('boolean', $columns['product_images.is_main']->data_type);
         foreach (['id', 'order_id', 'product_id', 'store_id'] as $column) {
             $this->assertSame('uuid', $columns['stock_reservations.' . $column]->data_type);
             $this->assertSame('NO', $columns['stock_reservations.' . $column]->is_nullable);
@@ -336,6 +325,10 @@ class CatalogSchemaTest extends PostgresTestCase
         $this->assertNotEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['product_id']));
         $this->assertNotEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['store_id', 'status']));
         $this->assertEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['rental_start_at', 'rental_end_at']));
+
+        $imageIndexes = Schema::getIndexes('product_images');
+        $this->assertNotEmpty(array_filter($imageIndexes, fn ($index) => $index['columns'] === ['object_key'] && $index['unique']));
+        $this->assertNotEmpty(array_filter($imageIndexes, fn ($index) => $index['columns'] === ['product_id', 'is_main']));
     }
 
     public function test_all_migrations_can_roll_back_and_recreate_the_schema(): void
