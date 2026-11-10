@@ -17,7 +17,7 @@ class CategoryNotFoundException extends Exception
     public function __construct(
         public readonly ?string $categoryId = null,
     ) {
-        $message = "Category nit found!";
+        $message = "Category not found!";
 
         parent::__construct($message);
     }

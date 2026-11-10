@@ -20,12 +20,12 @@ final class ProductImageController extends Controller
 
     public function index(string $productId): JsonResponse
     {
-        return ProductImageResource::collection($this->images->list($productId))->response();
+        return ProductImageResource::collection($this->images->listPublic($productId))->response();
     }
 
     public function show(string $productId, string $imageId): JsonResponse
     {
-        return (new ProductImageResource($this->images->get($productId, $imageId)))->response();
+        return (new ProductImageResource($this->images->getPublic($productId, $imageId)))->response();
     }
 
     public function store(UploadProductImageRequest $request, string $storeId, string $productId): JsonResponse

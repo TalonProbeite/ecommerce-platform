@@ -7,6 +7,7 @@ namespace App\Http\Requests;
 use App\DTO\CreateCategoryData;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CreateCategoryRequest extends FormRequest
 {
@@ -24,7 +25,12 @@ class CreateCategoryRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255',
-            'slug' => 'required|alpha_dash|max:255',
+            'slug' => [
+                'required',
+                'alpha_dash',
+                'max:255',
+                Rule::unique('categories', 'slug')->where('store_id', $this->route('storeId')),
+            ],
             'parent_id' => 'nullable|uuid',
         ];
     }

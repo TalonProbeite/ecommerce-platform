@@ -9,6 +9,13 @@ use App\Http\Controllers\Api\V1\StockController;
 use App\Http\Controllers\Api\V1\StoreController;
 use Illuminate\Support\Facades\Route;
 
+$uuid = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+
+Route::pattern('storeId', $uuid);
+Route::pattern('categoryId', $uuid);
+Route::pattern('productId', $uuid);
+Route::pattern('imageId', $uuid);
+
 Route::prefix('v1')->group(function () {
     // Group A: public read, no JWT.
     Route::middleware(['throttle:catalog-public'])->group(function () {

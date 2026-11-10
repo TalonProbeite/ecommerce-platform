@@ -7,6 +7,7 @@ namespace App\Http\Requests;
 use App\DTO\UpdateCategoryData;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateCategoryRequest extends FormRequest
 {
@@ -24,7 +25,14 @@ class UpdateCategoryRequest extends FormRequest
     {
         return [
             'name' => 'sometimes|string|max:255',
-            'slug' => 'sometimes|alpha_dash|max:255',
+            'slug' => [
+                'sometimes',
+                'alpha_dash',
+                'max:255',
+                Rule::unique('categories', 'slug')
+                    ->where('store_id', $this->route('storeId'))
+                    ->ignore($this->route('categoryId')),
+            ],
             'parent_id' => 'sometimes|nullable|uuid',
         ];
     }

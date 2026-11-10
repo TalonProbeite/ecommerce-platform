@@ -18,6 +18,11 @@ interface ProductRepositoryInterface
     public function findById(string $id, ?string $storeId = null): ?Product;
 
     /**
+     * Find a product visible on the public storefront by its ID.
+     */
+    public function findPublicById(string $productId): ?Product;
+
+    /**
      * Lock a product row for the rest of the current transaction.
      * Must be called inside a DB transaction.
      */

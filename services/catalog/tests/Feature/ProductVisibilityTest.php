@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Contracts\Services\ProductImageServiceInterface;
 use App\Contracts\Services\ProductServiceInterface;
 use App\DTO\ProductFilters;
 use App\Exceptions\ProductNotFoundException;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\Store;
 use Illuminate\Support\Facades\Cache;
 use Ramsey\Uuid\Uuid;
@@ -17,6 +19,7 @@ use Tests\PostgresTestCase;
 class ProductVisibilityTest extends PostgresTestCase
 {
     private ProductServiceInterface $service;
+    private ProductImageServiceInterface $images;
 
     protected function setUp(): void
     {
@@ -25,6 +28,7 @@ class ProductVisibilityTest extends PostgresTestCase
         Cache::flush();
 
         $this->service = app(ProductServiceInterface::class);
+        $this->images = app(ProductImageServiceInterface::class);
     }
 
     public function test_inactive_product_is_not_visible_on_public_card(): void
@@ -81,7 +85,7 @@ class ProductVisibilityTest extends PostgresTestCase
         self::assertSame(1, $result->total());
         self::assertSame(
             [$visible->id],
-            array_map(fn(Product $product): string => $product->id, $result->items()),
+            array_map(fn (Product $product): string => $product->id, $result->items()),
         );
     }
 
@@ -98,6 +102,47 @@ class ProductVisibilityTest extends PostgresTestCase
         ));
 
         self::assertSame(2, $result->total());
+    }
+
+    public function test_images_of_inactive_product_are_not_public(): void
+    {
+        $store = $this->createStore(active: true);
+        $product = $this->createProduct($store, active: false);
+        $this->createImage($product);
+
+        $this->expectException(ProductNotFoundException::class);
+
+        $this->images->listPublic($product->id);
+    }
+
+    public function test_images_of_product_in_inactive_store_are_not_public(): void
+    {
+        $store = $this->createStore(active: false);
+        $product = $this->createProduct($store, active: true);
+        $this->createImage($product);
+
+        $this->expectException(ProductNotFoundException::class);
+
+        $this->images->getPublic($product->id, (string) Uuid::uuid7());
+    }
+
+    public function test_images_of_active_product_in_active_store_are_public(): void
+    {
+        $store = $this->createStore(active: true);
+        $product = $this->createProduct($store, active: true);
+        $image = $this->createImage($product);
+
+        self::assertSame([$image->id], $this->images->listPublic($product->id)->modelKeys());
+        self::assertSame($image->id, $this->images->getPublic($product->id, $image->id)->id);
+    }
+
+    private function createImage(Product $product): ProductImage
+    {
+        return ProductImage::create([
+            'product_id' => $product->id,
+            'object_key' => 'images/' . Uuid::uuid7() . '.jpg',
+            'is_main' => true,
+        ]);
     }
 
     private function createStore(bool $active): Store

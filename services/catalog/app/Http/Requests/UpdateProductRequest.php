@@ -8,6 +8,7 @@ use App\DTO\ProductAttributeData;
 use App\DTO\UpdateProductData;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateProductRequest extends FormRequest
 {
@@ -25,7 +26,14 @@ class UpdateProductRequest extends FormRequest
     {
         return [
             'name' => 'sometimes|string|max:255',
-            'slug' => 'sometimes|alpha_dash|max:255',
+            'slug' => [
+                'sometimes',
+                'alpha_dash',
+                'max:255',
+                Rule::unique('products', 'slug')
+                    ->where('store_id', $this->route('storeId'))
+                    ->ignore($this->route('productId')),
+            ],
             'category_id' => 'sometimes|uuid',
             'price_per_hour' => 'sometimes|integer|min:0',
             'deposit_amount' => 'sometimes|integer|min:0',

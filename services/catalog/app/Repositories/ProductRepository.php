@@ -25,6 +25,18 @@ class ProductRepository implements ProductRepositoryInterface
     }
 
     /**
+     * Find a product visible on the public storefront by its ID.
+     */
+    public function findPublicById(string $productId): ?Product
+    {
+        $query = Product::query()->whereKey($productId);
+
+        $this->applyPublicScope($query);
+
+        return $query->first();
+    }
+
+    /**
      * Lock a product row for the rest of the current transaction.
      * Must be called inside a DB transaction.
      */

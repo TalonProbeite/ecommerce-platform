@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Contracts\Services\CategoryServiceInterface;
+use App\Exceptions\CategoryNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCategoryRequest;
 use App\Http\Requests\UpdateCategoryRequest;
@@ -27,6 +28,10 @@ final class CategoryController extends Controller
     public function show(string $storeId, string $categoryId): JsonResponse
     {
         $category = $this->categories->getWithAncestors($categoryId, $storeId);
+
+        if ($category === null) {
+            throw new CategoryNotFoundException($categoryId);
+        }
 
         return (new CategoryResource($category))->response();
     }

@@ -33,12 +33,29 @@ interface ProductImageServiceInterface
     public function list(string $productId): Collection;
 
     /**
+     * Return all images of a product visible on the public storefront.
+     *
+     * @return Collection<int, ProductImage>
+     *
+     * @throws ProductNotFoundException
+     */
+    public function listPublic(string $productId): Collection;
+
+    /**
      * Return one image of a product.
      *
      * @throws ProductNotFoundException
      * @throws ProductImageNotFoundException
      */
     public function get(string $productId, string $imageId): ProductImage;
+
+    /**
+     * Return one image of a product visible on the public storefront.
+     *
+     * @throws ProductNotFoundException
+     * @throws ProductImageNotFoundException
+     */
+    public function getPublic(string $productId, string $imageId): ProductImage;
 
     /**
      * Store a new image for a product. The first image of a product becomes its main image.

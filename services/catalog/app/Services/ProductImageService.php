@@ -46,9 +46,23 @@ final class ProductImageService implements ProductImageServiceInterface
         return $this->imageRepository->listForProduct($productId);
     }
 
+    public function listPublic(string $productId): Collection
+    {
+        $this->findPublicProductOrFail($productId);
+
+        return $this->imageRepository->listForProduct($productId);
+    }
+
     public function get(string $productId, string $imageId): ProductImage
     {
         $this->findProductOrFail($productId);
+
+        return $this->findImageOrFail($productId, $imageId);
+    }
+
+    public function getPublic(string $productId, string $imageId): ProductImage
+    {
+        $this->findPublicProductOrFail($productId);
 
         return $this->findImageOrFail($productId, $imageId);
     }
@@ -173,6 +187,16 @@ final class ProductImageService implements ProductImageServiceInterface
     }
 
     /**
+     * @throws ProductNotFoundException
+     */
+    private function findPublicProductOrFail(string $productId): void
+    {
+        if ($this->productRepository->findPublicById($productId) === null) {
+            throw new ProductNotFoundException($productId);
+        }
+    }
+
+    /**
      * @throws ProductImageNotFoundException
      */
     private function findImageOrFail(string $productId, string $imageId): ProductImage
@@ -235,9 +259,9 @@ final class ProductImageService implements ProductImageServiceInterface
             throw new InvalidImageFileException('Unable to open file for reading.');
         }
 
-        $stored = Storage::disk($this->disk)->put($objectKey, $stream,  [
-        'ContentType' => $mimeType,
-    ]);
+        $stored = Storage::disk($this->disk)->put($objectKey, $stream, [
+            'ContentType' => $mimeType,
+        ]);
 
         fclose($stream);
 

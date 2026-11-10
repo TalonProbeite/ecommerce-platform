@@ -21,6 +21,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
 use Ramsey\Uuid\Uuid;
@@ -280,6 +281,31 @@ class ProductImageServiceTest extends TestCase
         $this->expectException(ProductImageStorageException::class);
 
         $this->service($imageRepository, $productRepository, $guard)->upload('store-123', 'product-123', new \SplFileInfo($file));
+    }
+
+    public function test_storage_exception_response_does_not_expose_object_key(): void
+    {
+        $exception = new ProductImageStorageException('stores/secret/object.png');
+
+        $response = $exception->render();
+
+        self::assertSame(503, $response->getStatusCode());
+        self::assertSame([
+            'error' => 'Image storage is temporarily unavailable.',
+            'code' => 'product_image_storage_unavailable',
+        ], $response->getData(true));
+    }
+
+    public function test_storage_exception_reports_object_key_to_log(): void
+    {
+        Log::spy();
+
+        $exception = new ProductImageStorageException('stores/secret/object.png');
+
+        self::assertFalse($exception->report());
+        Log::shouldHaveReceived('error')
+            ->once()
+            ->with('Product image storage failed', ['object_key' => 'stores/secret/object.png']);
     }
 
     public function test_set_main_clears_previous_main_image(): void

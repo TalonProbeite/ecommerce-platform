@@ -1,8 +1,10 @@
 <?php
 
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Middleware\EnsureAdminOrStoreManager;
 use App\Http\Middleware\EnsureRole;
@@ -31,4 +33,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        $exceptions->render(function (QueryException $exception): ?JsonResponse {
+            if (($exception->errorInfo[0] ?? null) !== '23505') {
+                return null;
+            }
+
+            return response()->json([
+                'error' => 'Slug already exists.',
+                'code' => 'slug_conflict',
+            ], 409);
+        });
     })->create();

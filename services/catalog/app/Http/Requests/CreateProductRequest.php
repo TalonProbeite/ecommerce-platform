@@ -8,6 +8,7 @@ use App\DTO\CreateProductData;
 use App\DTO\ProductAttributeData;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CreateProductRequest extends FormRequest
 {
@@ -25,7 +26,12 @@ class CreateProductRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255',
-            'slug' => 'required|alpha_dash|max:255',
+            'slug' => [
+                'required',
+                'alpha_dash',
+                'max:255',
+                Rule::unique('products', 'slug')->where('store_id', $this->route('storeId')),
+            ],
             'category_id' => 'required|uuid',
             'price_per_hour' => 'required|integer|min:0',
             'deposit_amount' => 'nullable|integer|min:0',

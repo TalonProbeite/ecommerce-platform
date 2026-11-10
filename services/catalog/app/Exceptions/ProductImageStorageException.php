@@ -6,11 +6,14 @@ namespace App\Exceptions;
 
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class ProductImageStorageException extends Exception
 {
     public function report(): bool
     {
+        Log::error('Product image storage failed', ['object_key' => $this->objectKey]);
+
         return false;
     }
 
@@ -25,10 +28,8 @@ class ProductImageStorageException extends Exception
     public function render(): JsonResponse
     {
         return response()->json([
-            'error' => $this->getMessage(),
-            'details' => [
-                'product' => $this->objectKey,
-            ],
+            'error' => 'Image storage is temporarily unavailable.',
+            'code' => 'product_image_storage_unavailable',
         ], 503);
     }
 }
