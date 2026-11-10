@@ -36,6 +36,10 @@ final readonly class UpdateProductData
         bool $descriptionProvided = false,
         bool $depositAmountProvided = false,
         bool $isActiveProvided = false,
+        /**
+         * @var array<int, ProductAttributeData>|null
+         */
+        public ?array $attributes = null,
     ) {
         $this->nameProvided = $nameProvided || $name !== null;
         $this->slugProvided = $slugProvided || $slug !== null;
@@ -44,5 +48,43 @@ final readonly class UpdateProductData
         $this->descriptionProvided = $descriptionProvided || $description !== null;
         $this->depositAmountProvided = $depositAmountProvided || $depositAmount !== null;
         $this->isActiveProvided = $isActiveProvided || $isActive !== null;
+    }
+
+
+    /**
+     * @return array<string, string|int|bool|null>
+     */
+    public function toArray(): array
+    {
+        $data = [];
+
+        if ($this->nameProvided) {
+            $data['name'] = $this->name;
+        }
+        if ($this->slugProvided) {
+            $data['slug'] = $this->slug;
+        }
+
+        if ($this->categoryIdProvided) {
+            $data["category_id"] = $this->categoryId;
+        }
+
+        if ($this->pricePerHourProvided) {
+            $data['price_per_hour'] = $this->pricePerHour;
+        }
+
+        if ($this->descriptionProvided) {
+            $data['description'] = $this->description;
+        }
+
+        if ($this->depositAmountProvided) {
+            $data['deposit_amount'] = $this->depositAmount;
+        }
+
+        if ($this->isActiveProvided) {
+            $data['is_active'] = $this->isActive;
+        }
+
+        return $data;
     }
 }

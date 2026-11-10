@@ -9,6 +9,9 @@ namespace App\DTO;
  */
 final readonly class CreateProductData
 {
+    /**
+     * @param array<int, ProductAttributeData> $attributes
+     */
     public function __construct(
         public string $name,
         public string $slug,
@@ -17,6 +20,24 @@ final readonly class CreateProductData
         public ?string $description = null,
         public int $depositAmount = 0,
         public bool $isActive = true,
+        public int $quantity = 0,
+        public array $attributes = [],
     ) {
+    }
+
+    /**
+     * @return array<string, int|bool|string>
+     */
+    public function toArray(): array
+    {
+        return [
+            'name' => $this->name,
+            'slug' => $this->slug,
+            'category_id' => $this->categoryId,
+            'price_per_hour' => $this->pricePerHour,
+            'description' => $this->description,
+            'deposit_amount' => $this->depositAmount,
+            'is_active' => $this->isActive,
+        ];
     }
 }

@@ -16,4 +16,17 @@ final readonly class CreateStoreData
         public bool $active = true,
     ) {
     }
+
+    /**
+     * @return array{name: string, description: string|null, location: string|null, active: bool}
+     */
+    public function toArray(): array
+    {
+        return [
+            'name' => $this->name,
+            'description' => $this->description,
+            'location' => $this->location,
+            'active' => $this->active,
+        ];
+    }
 }

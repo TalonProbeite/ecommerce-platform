@@ -6,45 +6,54 @@ namespace App\Repositories;
 
 use App\Contracts\Repositories\StockRepositoryInterface;
 use App\Models\Stock;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
-class StockRepository implements StockRepositoryInterface
+final class StockRepository implements StockRepositoryInterface
 {
-    /**
-     * Find stock by product ID and store ID.
-     */
-    public function findByProductAndStore(string $productID, string $storeID): ?Stock
+    public function findByProductId(string $productId, string $storeId): ?Stock
     {
-        return Stock::where('product_id', $productID)
-            ->where('store_id', $storeID)
+        return Stock::query()
+            ->where('product_id', $productId)
+            ->where('store_id', $storeId)
             ->first();
     }
 
-    /**
-     * Find all stock records for a given store.
-     *
-     * @return Collection<int, Stock>
-     */
-    public function findByStore(string $storeID): Collection
+    public function lockByProductId(string $productId, string $storeId): ?Stock
     {
-        return Stock::where('store_id', $storeID)
-            ->get();
+        return Stock::query()
+            ->where('product_id', $productId)
+            ->where('store_id', $storeId)
+            ->lockForUpdate()
+            ->first();
     }
 
-    /**
-     * Save a stock record.
-     */
-    public function save(Stock $stock): Stock
+    public function createStock(string $productId, string $storeId, int $quantity): Stock
     {
-        $stock->saveOrFail();
-        return $stock;
+        return Stock::create([
+            'product_id' => $productId,
+            'store_id' => $storeId,
+            'quantity' => $quantity,
+            'reserved' => 0,
+        ]);
     }
 
-    /**
-     * Delete a stock record.
-     */
-    public function delete(Stock $stock): void
+    public function setQuantityIfNotBelowReserved(string $stockId, int $quantity): int
     {
-        $stock->deleteOrFail();
+        return Stock::query()
+            ->whereKey($stockId)
+            ->where('reserved', '<=', $quantity)
+            ->update([
+                'quantity' => $quantity,
+                'updated_at' => now(),
+            ]);
+    }
+
+    public function adjustReserved(string $stockId, int $delta): int
+    {
+        return DB::update(
+            'UPDATE stocks SET reserved = reserved + ?, updated_at = ? '
+                . 'WHERE id = ? AND reserved + ? BETWEEN 0 AND quantity',
+            [$delta, now(), $stockId, $delta],
+        );
     }
 }
