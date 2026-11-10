@@ -1,0 +1,61 @@
+name: Go static analysis
+
+# Runs golangci-lint for Go services. Tests are not executed here,
+# and each service's .golangci.yaml already sets `run.tests: false`.
+# To add another Go service: add its directory to the matrix below
+# and to the push/pull_request path filters.
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "services/auth/**"
+      - "services/notification/**"
+      - "services/pkg/shared/**"
+      - ".github/workflows/go-static-analysis.yml"
+  pull_request:
+    paths:
+      - "services/auth/**"
+      - "services/notification/**"
+      - "services/pkg/shared/**"
+      - ".github/workflows/go-static-analysis.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: go-static-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  golangci-lint:
+    name: golangci-lint (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - auth
+          - notification
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: services/${{ matrix.service }}/go.mod
+          cache-dependency-path: |
+            services/${{ matrix.service }}/go.sum
+            services/pkg/shared/go.sum
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.13.2
+          working-directory: services/${{ matrix.service }}
+          args: --timeout=5m ./...

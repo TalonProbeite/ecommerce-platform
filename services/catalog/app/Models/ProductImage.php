@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 use Ramsey\Uuid\Uuid;
 
 /**
@@ -19,14 +20,13 @@ class ProductImage extends Model
         return (string) Uuid::uuid7();
     }
 
-    protected $fillable = ['product_id', 'path', 'is_main', 'sort_order'];
+    protected $fillable = ['id', 'product_id', 'object_key', 'mime_type', 'size', 'is_main'];
 
     protected function casts(): array
     {
         return [
-            'path'       => 'string',
-            'is_main'    => 'boolean',
-            'sort_order' => 'integer',
+            'is_main' => 'boolean',
+            'size' => 'integer',
         ];
     }
 
@@ -36,5 +36,10 @@ class ProductImage extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function url(): string
+    {
+        return Storage::disk((string) config('catalog.product_images.disk'))->url($this->object_key);
     }
 }

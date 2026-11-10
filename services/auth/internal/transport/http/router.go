@@ -77,6 +77,7 @@ func NewRouter(_ *config.Config, log *slog.Logger, h Handlers, m Middlewares) *e
 	admin.Use(m.AuthCheck, m.AdminOnly)
 	admin.PATCH("/users/:id/role", handler.WithUserID(h.AdminHandler.UpdateRole))
 	admin.PATCH("/users/:id/ban", handler.WithUserID(h.AdminHandler.BanUser))
+	admin.PATCH("/users/:id/store", handler.WithUserID(h.AdminHandler.UpdateStore))
 
 	public.GET("/healthz", h.HealthHandler.Check)
 	public.GET("/readyz", h.ReadyzHandler.Check)

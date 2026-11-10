@@ -4,6 +4,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
@@ -40,7 +41,19 @@ func (as *AuthService) CreateSession(
 		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
 	}
 
-	accessToken, err := as.tokenMng.GenerateToken(userID, role)
+	var storeID *string
+
+	if role == roles.RoleStoreManager {
+		storeID, err = as.userRepo.GetStoreIDByUserID(ctx, userID)
+		if err != nil && !errors.Is(err, domain.ErrStoreIDNotSet) {
+			return domain.TokenPair{}, fmt.Errorf("error getting store id for token: %w", err)
+		}
+		if errors.Is(err, domain.ErrStoreIDNotSet) {
+			storeID = nil
+		}
+	}
+
+	accessToken, err := as.tokenMng.GenerateToken(userID, role, storeID)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf("error creating access token: %w", err)
 	}

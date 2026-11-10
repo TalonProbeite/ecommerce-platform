@@ -19,8 +19,14 @@ interface CategoryServiceInterface
     /** @return Collection<int, Category> */
     public function list(string $storeId): Collection;
 
-    /** Return null when absent within the requested scope. */
-    public function get(string $categoryId, string $storeId): ?Category;
+    /**
+     * Return the category with its ancestor chain eager loaded.
+     * Return null when absent within the requested scope.
+     */
+    public function getWithAncestors(string $categoryId, string $storeId): ?Category;
+
+    /** @return Collection<int, Category> */
+    public function getChildren(string $categoryId, string $storeId): Collection;
 
     public function create(string $storeId, CreateCategoryData $data): Category;
 

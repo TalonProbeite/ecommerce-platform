@@ -49,25 +49,29 @@ casts; модель сохраняет смещение часового поя�
 БД повторным `migrate`: для новой структуры следует использовать пустую БД
 или пересоздать локальную схему, если прежние данные не нужны.
 
-## Проверка на отдельной PostgreSQL
+## Проверка тестов
 
-Используйте заранее созданную пустую тестовую БД. Из `services/catalog/`:
+Юнит-тесты не требуют PostgreSQL и запускаются на хосте:
 
 ```sh
-CATALOG_TEST_DATABASE=catalog_refactor_test \
-DB_CONNECTION=pgsql DB_DATABASE=catalog_refactor_test \
-DB_HOST=127.0.0.1 DB_PORT=5432 DB_USERNAME=catalog_test DB_PASSWORD=test_password \
-DB_URL='' APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
-vendor/bin/phpunit
+make test-unit
 ```
 
-`CATALOG_TEST_DATABASE` — явное включение PostgreSQL-тестов; имя должно совпадать
-с `DB_DATABASE`. Каждая проверка создаёт собственную пустую схему
-`catalog_test_<uuid>`, запускает все семь миграций и добавляет тестовые записи.
-После проверки удаляется только эта временная схема. Проверки охватывают
-ограничения, типы, индексы, relationships, полный откат и повторное создание
-схемы. При обычном запуске PHPUnit без явного включения PostgreSQL эти тесты
-пропускаются.
+Feature/integration-тесты выполняются в Docker на локальном Compose-стеке.
+`make test` сам поднимает `catalog-db`, создаёт отдельную БД `catalog_test`,
+пересобирает образ приложения из текущих исходников и запускает весь набор:
+
+```sh
+make test          # Unit + Feature
+make test-feature  # только Feature/integration
+```
+
+Имя тестовой БД можно переопределить: `TEST_DATABASE=my_test_db make test`.
+Оно должно содержать `test` или `testing`, иначе тесты будут пропущены.
+Каждая проверка создаёт собственную пустую схему `catalog_test_<uuid>`,
+запускает все семь миграций и добавляет тестовые записи. После проверки
+удаляется только эта временная схема. Проверки охватывают ограничения, типы,
+индексы, relationships, полный откат и повторное создание схемы.
 
 ## Форматирование
 

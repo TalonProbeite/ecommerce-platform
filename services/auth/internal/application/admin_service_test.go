@@ -17,6 +17,7 @@ type adminUserRepoMock struct {
 	GetByIDFunc         func(context.Context, string) (*domain.User, error)
 	UpdateRoleFunc      func(context.Context, string, roles.Role) error
 	UpdateBanStatusFunc func(context.Context, string, bool) error
+	UpdateStoreIDFunc   func(context.Context, string, *string) error
 }
 
 func (m *adminUserRepoMock) GetByID(ctx context.Context, userID string) (*domain.User, error) {
@@ -38,6 +39,13 @@ func (m *adminUserRepoMock) UpdateBanStatus(ctx context.Context, userID string, 
 		return errors.New("UpdateBanStatusFunc is not set")
 	}
 	return m.UpdateBanStatusFunc(ctx, userID, isActive)
+}
+
+func (m *adminUserRepoMock) UpdateStoreID(ctx context.Context, userID string, storeID *string) error {
+	if m.UpdateStoreIDFunc == nil {
+		return errors.New("UpdateStoreIDFunc is not set")
+	}
+	return m.UpdateStoreIDFunc(ctx, userID, storeID)
 }
 
 type adminPublisherMock struct {
@@ -81,6 +89,13 @@ func TestAdminService_UpdateRole(t *testing.T) {
 		{
 			name:          "success",
 			newRole:       roles.RoleAdmin,
+			wantRepoCalls: 1,
+			wantRevoke:    1,
+			wantPubCalls:  1,
+		},
+		{
+			name:          "success store manager",
+			newRole:       roles.RoleStoreManager,
 			wantRepoCalls: 1,
 			wantRevoke:    1,
 			wantPubCalls:  1,
@@ -301,5 +316,38 @@ func TestAdminService_BanUser(t *testing.T) {
 				t.Errorf("event = %+v", event)
 			}
 		})
+	}
+}
+
+func TestAdminService_UpdateStore(t *testing.T) {
+	const (
+		userID  = "11111111-1111-1111-1111-111111111111"
+		adminID = "22222222-2222-2222-2222-222222222222"
+		storeID = "33333333-3333-3333-3333-333333333333"
+	)
+
+	sID := storeID
+	var gotUserID string
+	var gotStoreID *string
+
+	userRepo := &adminUserRepoMock{
+		UpdateStoreIDFunc: func(_ context.Context, id string, sid *string) error {
+			gotUserID = id
+			gotStoreID = sid
+			return nil
+		},
+	}
+
+	service := newAdminServiceTestService(userRepo, &MockSessionRepo{}, &adminPublisherMock{})
+	err := service.UpdateStore(context.Background(), userID, adminID, &sID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if gotUserID != userID {
+		t.Errorf("gotUserID = %q, want %q", gotUserID, userID)
+	}
+	if gotStoreID == nil || *gotStoreID != storeID {
+		t.Errorf("gotStoreID = %v, want %q", gotStoreID, storeID)
 	}
 }

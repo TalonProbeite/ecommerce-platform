@@ -17,6 +17,7 @@ type AuthUserRepository interface {
 	GetByOAuth(ctx context.Context, provider, providerUserID string) (*User, error)
 	CreateWithOauth(ctx context.Context, u *User) (uuid.UUID, error)
 	GetEmailByUserID(ctx context.Context, userID string) (string, error)
+	GetStoreIDByUserID(ctx context.Context, userID string) (*string, error)
 }
 
 type ProfileUserRepository interface {
@@ -30,6 +31,7 @@ type AdminUserRepository interface {
 	GetByID(ctx context.Context, userID string) (*User, error)
 	UpdateRole(ctx context.Context, userID string, role roles.Role) error
 	UpdateBanStatus(ctx context.Context, userID string, isActive bool) error
+	UpdateStoreID(ctx context.Context, userID string, storeID *string) error
 }
 
 type SessionRepository interface {
@@ -79,7 +81,8 @@ type EventPublisher interface {
 type TokenManager interface {
 	GenerateToken(
 		userID string,
-		role ...roles.Role,
+		role roles.Role,
+		storeID *string,
 	) (string, error)
 
 	VerifyToken(

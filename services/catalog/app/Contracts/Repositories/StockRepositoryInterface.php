@@ -5,29 +5,34 @@ declare(strict_types=1);
 namespace App\Contracts\Repositories;
 
 use App\Models\Stock;
-use Illuminate\Database\Eloquent\Collection;
 
 interface StockRepositoryInterface
 {
     /**
-     * Find stock by product ID and store ID.
+     * Find stock by product, scoped to the store.
      */
-    public function findByProductAndStore(string $productID, string $storeID): ?Stock;
+    public function findByProductId(string $productId, string $storeId): ?Stock;
 
     /**
-     * Find all stock records for a given store.
+     * Lock the stock row for the rest of the current transaction.
+     * Must be called inside a DB transaction.
+     */
+    public function lockByProductId(string $productId, string $storeId): ?Stock;
+
+    public function createStock(string $productId, string $storeId, int $quantity): Stock;
+
+    /**
+     * Conditional update: sets quantity only if reserved <= $quantity.
      *
-     * @return Collection<int, Stock>
+     * @return int Number of affected rows (0 or 1).
      */
-    public function findByStore(string $storeID): Collection;
+    public function setQuantityIfNotBelowReserved(string $stockId, int $quantity): int;
 
     /**
-     * Save a stock record.
+     * Conditional update: adds $delta to reserved only if the result
+     * stays within [0, quantity].
+     *
+     * @return int Number of affected rows (0 or 1).
      */
-    public function save(Stock $stock): Stock;
-
-    /**
-     * Delete a stock record.
-     */
-    public function delete(Stock $stock): void;
+    public function adjustReserved(string $stockId, int $delta): int;
 }

@@ -6,6 +6,7 @@ namespace App\Messaging\Events;
 
 use App\Domain\Contracts\EventInterface;
 use App\Messaging\RoutingKeys;
+use App\Models\Product;
 
 final readonly class ProductDeleted implements EventInterface
 {
@@ -29,5 +30,13 @@ final readonly class ProductDeleted implements EventInterface
             'product_id' => $this->productId,
             'store_id' => $this->storeId,
         ];
+    }
+
+    public static function fromModel(Product $product): self
+    {
+        return new self(
+            productId: $product->id,
+            storeId: $product->store_id,
+        );
     }
 }

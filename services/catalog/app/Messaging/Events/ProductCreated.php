@@ -6,6 +6,7 @@ namespace App\Messaging\Events;
 
 use App\Domain\Contracts\EventInterface;
 use App\Messaging\RoutingKeys;
+use App\Models\Product;
 
 final readonly class ProductCreated implements EventInterface
 {
@@ -33,5 +34,15 @@ final readonly class ProductCreated implements EventInterface
             'name' => $this->name,
             'price_per_hour' => $this->pricePerHour,
         ];
+    }
+
+    public static function fromModel(Product $product): self
+    {
+        return new self(
+            productId: $product->id,
+            storeId: $product->store_id,
+            name: $product->name,
+            pricePerHour: $product->price_per_hour,
+        );
     }
 }

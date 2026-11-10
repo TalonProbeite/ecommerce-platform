@@ -13,7 +13,8 @@ interface ProductImageRepositoryInterface
      *     product_id: string,
      *     object_key: string,
      *     mime_type: string|null,
-     *     size: int|null
+     *     size: int|null,
+     *     is_main: bool
      * } $data
      */
     public function create(array $data): ProductImage;
@@ -39,6 +40,8 @@ interface ProductImageRepositoryInterface
     ): ProductImage;
 
     public function delete(ProductImage $image): void;
+
+    public function clearMainForProduct(string $productId): void;
 
     public function firstForProduct(
         string $productId,
