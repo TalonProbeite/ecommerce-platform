@@ -46,8 +46,19 @@ jobs:
           extensions: mbstring, intl, bcmath, sockets, pdo_pgsql, zip, xml
           coverage: none
           tools: composer:v2
-          cache: composer
           ini-values: memory_limit=-1
+
+      - name: Resolve Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('services/catalog/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
