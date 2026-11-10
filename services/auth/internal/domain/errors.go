@@ -9,6 +9,7 @@ var (
 	ErrOAuthRegistrationBusy    = errors.New("oauth registration in progress")
 	ErrOAuthIdentityInvalid     = errors.New("invalid oauth identity")
 	ErrUserNotFound             = errors.New("user not found error")
+	ErrStoreIDNotSet            = errors.New("store id is not set")
 	ErrInvalidCredentials       = errors.New("incorrect password")
 	ErrUserNotActive            = errors.New("the user is not active")
 	ErrEmailAlreadyExists       = errors.New("email already in use")

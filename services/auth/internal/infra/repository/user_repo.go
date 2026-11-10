@@ -314,7 +314,7 @@ func (r *UserRepo) GetStoreIDByUserID(
 	}
 
 	if !storeID.Valid {
-		return nil, nil
+		return nil, domain.ErrStoreIDNotSet
 	}
 
 	return &storeID.String, nil

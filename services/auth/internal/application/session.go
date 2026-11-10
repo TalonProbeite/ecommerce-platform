@@ -4,6 +4,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"shop/auth/internal/domain"
 	"shop/auth/internal/infra/crypto"
@@ -40,9 +41,16 @@ func (as *AuthService) CreateSession(
 		return domain.TokenPair{}, fmt.Errorf("error creating refresh token: %w", err)
 	}
 
-	storeID, err := as.storeIDForToken(ctx, userID, role)
-	if err != nil {
-		return domain.TokenPair{}, err
+	var storeID *string
+
+	if role == roles.RoleStoreManager {
+		storeID, err = as.userRepo.GetStoreIDByUserID(ctx, userID)
+		if err != nil && !errors.Is(err, domain.ErrStoreIDNotSet) {
+			return domain.TokenPair{}, fmt.Errorf("error getting store id for token: %w", err)
+		}
+		if errors.Is(err, domain.ErrStoreIDNotSet) {
+			storeID = nil
+		}
 	}
 
 	accessToken, err := as.tokenMng.GenerateToken(userID, role, storeID)
@@ -70,21 +78,4 @@ func (as *AuthService) CreateSession(
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
-}
-
-func (as *AuthService) storeIDForToken(
-	ctx context.Context,
-	userID string,
-	role roles.Role,
-) (*string, error) {
-	if role != roles.RoleStoreManager {
-		return nil, nil
-	}
-
-	storeID, err := as.userRepo.GetStoreIDByUserID(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("error getting store id for token: %w", err)
-	}
-
-	return storeID, nil
 }
