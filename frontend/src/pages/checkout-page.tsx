@@ -15,7 +15,7 @@ import { useAuthStore } from '@/store/auth-store'
 import { useCartStore } from '@/store/cart-store'
 import { useOrdersStore } from '@/store/orders-store'
 import { isMockApi } from '@/api/client'
-import { IS_ORDER_API_ENABLED } from '@/api/endpoints'
+import { ENABLE_REAL_CHECKOUT, IS_ORDER_API_ENABLED } from '@/api/endpoints'
 import type { CheckoutDetails } from '@/types'
 
 export function CheckoutPage() {
@@ -40,6 +40,7 @@ export function CheckoutPage() {
   const isSuccess = step === `${ROUTES.checkout}/success`
   const review = reviewCart(items)
 
+  if (!isMockApi && !ENABLE_REAL_CHECKOUT) return <div className="mx-auto max-w-3xl px-4 py-16"><EmptyState icon={ShoppingBag} title="Checkout is not available yet" description="Real checkout is not enabled for this environment. No order has been placed." action={<LinkButton to={ROUTES.catalog}>Browse equipment</LinkButton>} /></div>
   if (!isMockApi && !IS_ORDER_API_ENABLED) return <div className="mx-auto max-w-3xl px-4 py-16"><EmptyState icon={ShoppingBag} title="Rental booking unavailable" description="Live rental booking is not connected yet. No order has been placed." action={<LinkButton to={ROUTES.catalog}>Browse equipment</LinkButton>} /></div>
 
   async function handlePlaceOrder(event: FormEvent<HTMLFormElement>) {

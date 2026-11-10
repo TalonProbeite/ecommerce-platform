@@ -174,7 +174,7 @@ function LiveHomePage() {
       <section className="mx-auto mt-20 max-w-7xl px-4 sm:px-6" aria-labelledby="featured-heading">
         <div className="flex items-end justify-between gap-4">
           <h2 id="featured-heading" className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-            Popular this week
+            New arrivals
           </h2>
           <Link to={ROUTES.catalog} className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
             View all <ArrowRight className="size-4" />

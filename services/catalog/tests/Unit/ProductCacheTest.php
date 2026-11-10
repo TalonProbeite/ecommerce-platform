@@ -224,7 +224,9 @@ class ProductCacheTest extends TestCase
 
         $cache->rememberCard('admin', 'product-1', fn (): string => 'initial');
 
-        $oldKey = 'products:card:product-1:' . (string) Cache::get('products:ver:card:product-1');
+        $oldKey = 'products:card:admin:product-1:' . (string) Cache::get('products:ver:card:product-1');
+
+        self::assertSame('initial', Cache::get($oldKey));
 
         $cache->invalidateCard('product-1');
         Cache::put($oldKey, 'stale', 600);

@@ -319,7 +319,9 @@ class ProductCacheIntegrationTest extends PostgresTestCase
 
         $this->cache->rememberCard('admin', $product->id, fn (): string => 'initial');
 
-        $oldKey = 'products:card:' . $product->id . ':' . (string) Cache::get('products:ver:card:' . $product->id);
+        $oldKey = 'products:card:admin:' . $product->id . ':' . (string) Cache::get('products:ver:card:' . $product->id);
+
+        self::assertSame('initial', Cache::get($oldKey));
 
         $this->cache->invalidateCard($product->id);
         Cache::put($oldKey, 'stale', 600);

@@ -4,11 +4,14 @@ interface EndpointEnvironment {
   NEXT_PUBLIC_API_MODE?: string
   NEXT_PUBLIC_CATALOG_BASE_URL?: string
   NEXT_PUBLIC_ORDER_BASE_URL?: string
+  NEXT_PUBLIC_ENABLE_REAL_CHECKOUT?: string
   VITE_API_MODE?: string
+  VITE_API_URL?: string
+  VITE_ENABLE_REAL_CHECKOUT?: string
 }
 
 // The global nginx gateway strips the /catalog prefix and terminates TLS.
-const GLOBAL_CATALOG_BASE = 'https://localhost/catalog'
+const DEFAULT_GLOBAL_ORIGIN = 'https://localhost'
 
 // The local catalog service exposes its nginx directly on this port.
 const LOCAL_CATALOG_BASE = 'https://localhost:8444'
@@ -54,12 +57,24 @@ export interface ApiEndpoints {
   orderApiEnabled: boolean
 }
 
+function resolveGlobalCatalogBase(env: EndpointEnvironment): string {
+  const apiOrigin = normalizeBaseUrl(env.VITE_API_URL)
+
+  if (apiOrigin) return `${apiOrigin}/catalog`
+
+  if (env.VITE_API_MODE?.trim() === 'real') {
+    throw new Error('REAL API mode requires VITE_API_URL so the catalog gateway origin can be resolved.')
+  }
+
+  return `${DEFAULT_GLOBAL_ORIGIN}/catalog`
+}
+
 export function resolveApiEndpoints(env: EndpointEnvironment): ApiEndpoints {
   const mode = resolveApiMode(env)
   const catalogOverride = normalizeBaseUrl(env.NEXT_PUBLIC_CATALOG_BASE_URL)
   const orderOverride = normalizeBaseUrl(env.NEXT_PUBLIC_ORDER_BASE_URL)
 
-  const catalogBase = catalogOverride ?? (mode === 'global' ? GLOBAL_CATALOG_BASE : LOCAL_CATALOG_BASE)
+  const catalogBase = catalogOverride ?? (mode === 'global' ? resolveGlobalCatalogBase(env) : LOCAL_CATALOG_BASE)
   // No order gateway exists in the compose stack yet. Orders stay on mocks
   // until NEXT_PUBLIC_ORDER_BASE_URL explicitly enables the real transport.
   const orderBase = orderOverride
@@ -89,3 +104,8 @@ export const IS_ORDER_API_ENABLED = endpoints.orderApiEnabled
 // mode override is present. Plain `pnpm dev` keeps the existing mock fixtures.
 export const IS_CATALOG_LIVE =
   import.meta.env.VITE_API_MODE === 'real' || Boolean(import.meta.env.NEXT_PUBLIC_API_MODE?.trim())
+
+// Real checkout is opt-in: the Order Service contract is still a draft.
+export const ENABLE_REAL_CHECKOUT =
+  import.meta.env.VITE_ENABLE_REAL_CHECKOUT === 'true' ||
+  import.meta.env.NEXT_PUBLIC_ENABLE_REAL_CHECKOUT === 'true'

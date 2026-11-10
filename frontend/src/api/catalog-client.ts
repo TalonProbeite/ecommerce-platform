@@ -1,3 +1,4 @@
+import { notifySessionExpired, refreshAuthSession } from './client'
 import { CATALOG_API } from './endpoints'
 import { CanceledError, HttpError, isHttpError, type ApiResponse, type RequestConfig } from './http'
 
@@ -33,19 +34,16 @@ async function parseBody(response: Response): Promise<unknown> {
 
 /**
  * Credentialed fetch transport for a service with its own base URL. It shares
- * error types with the main API client but supports bearer tokens plus
- * multipart uploads.
+ * error types with the main API client and supports multipart uploads.
  */
 export async function serviceRequest<T = unknown>(
   baseURL: string,
   config: CatalogRequestConfig,
-  accessToken?: string,
 ): Promise<ApiResponse<T>> {
   if (config.signal?.aborted) throw new CanceledError(undefined, config)
 
   const url = `${baseURL}${config.url ?? ''}${buildQuery(config.params)}`
   const headers: Record<string, string> = { ...config.headers }
-  if (accessToken) headers.Authorization = `Bearer ${accessToken}`
 
   let body: BodyInit | undefined
   if (config.formData) {
@@ -65,6 +63,14 @@ export async function serviceRequest<T = unknown>(
       body,
       signal: config.signal,
     })
+    if (response.status === 401 && !config._retry) {
+      try {
+        await refreshAuthSession()
+        return serviceRequest<T>(baseURL, { ...config, _retry: true })
+      } catch {
+        notifySessionExpired()
+      }
+    }
     const data = (await parseBody(response)) as T
     const result: ApiResponse<T> = { data, status: response.status, headers: response.headers, config }
     if (!response.ok) {
@@ -83,7 +89,6 @@ export async function serviceRequest<T = unknown>(
 
 export function catalogRequest<T = unknown>(
   config: CatalogRequestConfig,
-  accessToken?: string,
 ): Promise<ApiResponse<T>> {
-  return serviceRequest<T>(CATALOG_API, config, accessToken)
+  return serviceRequest<T>(CATALOG_API, config)
 }

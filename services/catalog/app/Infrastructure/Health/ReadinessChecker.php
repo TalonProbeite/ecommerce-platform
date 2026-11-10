@@ -109,6 +109,10 @@ final class ReadinessChecker
             read_write_timeout: self::PROBE_TIMEOUT_SECONDS,
         );
 
-        $connection->close();
+        try {
+            // The constructor completes the handshake, so no extra command is needed.
+        } finally {
+            $connection->close();
+        }
     }
 }

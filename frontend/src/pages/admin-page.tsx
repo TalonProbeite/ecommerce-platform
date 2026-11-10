@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
-import { isMockApi } from '@/api/client'
+import { getErrorMessage, isMockApi } from '@/api/client'
 import { ADMIN_MOCK_TARGETS } from '@/api/mock-adapter'
 import { CatalogAdmin } from '@/components/admin/catalog-admin'
 import { UserActionForm } from '@/components/admin/user-action-form'
+import { FormField } from '@/components/auth/form-field'
 import { PageHeader } from '@/components/common/page-header'
 import { StatCard } from '@/components/common/stat-card'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EQUIPMENT, getCategoryLabel } from '@/data/equipment'
 import { formatCurrency } from '@/lib/pricing'
 import { cn } from '@/lib/utils'
+import { updateUserStore } from '@/services/admin'
 import { useAuthStore } from '@/store/auth-store'
 import type { Equipment, ListingStatus } from '@/types'
 
@@ -89,6 +91,59 @@ function MockCatalogOverview() {
   )
 }
 
+function StoreAssignmentForm() {
+  const [target, setTarget] = useState('')
+  const [storeId, setStoreId] = useState('')
+  const [pending, setPending] = useState(false)
+  const pendingRef = useRef(false)
+  const [touched, setTouched] = useState(false)
+  const [feedback, setFeedback] = useState<{ error: boolean; message: string } | null>(null)
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (pendingRef.current) return
+    setTouched(true)
+    setFeedback(null)
+    const id = target.trim()
+    if (!id) return
+    pendingRef.current = true
+    setPending(true)
+    try {
+      const message = await updateUserStore(id, storeId.trim() || null)
+      setFeedback({ error: false, message: `${id}: ${message}` })
+    } catch (error) {
+      setFeedback({ error: true, message: getErrorMessage(error) })
+    } finally {
+      pendingRef.current = false
+      setPending(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="space-y-5 rounded-3xl border bg-card p-6 sm:p-8" aria-labelledby="admin-store-title" aria-busy={pending}>
+      <div>
+        <h2 id="admin-store-title" className="text-xl font-bold">Assign store to a store manager</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Set the store_id for an existing store manager account. Leave the store ID empty to unassign the manager.
+        </p>
+      </div>
+      <fieldset disabled={pending} className="space-y-5">
+        <FormField id="admin-store-target" label="User ID" value={target} required
+          placeholder="e.g. u-user" autoComplete="off"
+          onChange={(event) => { setTarget(event.target.value); setFeedback(null) }}
+          onBlur={() => setTouched(true)} error={touched && !target.trim() ? 'Enter a user ID.' : undefined} />
+        <FormField id="admin-store-id" label="Store ID" value={storeId}
+          placeholder="e.g. s-tools" autoComplete="off"
+          onChange={(event) => { setStoreId(event.target.value); setFeedback(null) }} />
+        <Button type="submit" className="h-11 rounded-full px-6" disabled={pending}>
+          {pending ? 'Applying...' : storeId.trim() ? 'Assign store' : 'Unassign store'}
+        </Button>
+      </fieldset>
+      {feedback ? <p role={feedback.error ? 'alert' : 'status'} className={`break-words rounded-xl p-4 text-sm ${feedback.error ? 'bg-destructive/10 text-destructive' : 'bg-success/15 text-foreground'}`}>{feedback.message}</p> : null}
+    </form>
+  )
+}
+
 function UsersPanel() {
   return (
     <>
@@ -105,6 +160,7 @@ function UsersPanel() {
         <UserActionForm action="role" />
         <UserActionForm action="ban" />
       </div>
+      {!isMockApi ? <div className="mt-6 max-w-xl"><StoreAssignmentForm /></div> : null}
       {isMockApi ? <MockCatalogOverview /> : (
         <p className="mt-6 rounded-2xl border border-dashed bg-card p-4 text-sm text-muted-foreground">
           Manage stores, categories, products, images and stock from the Catalog tab.

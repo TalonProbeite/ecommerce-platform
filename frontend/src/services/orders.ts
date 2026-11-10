@@ -1,4 +1,5 @@
-import { IS_ORDER_API_ENABLED, ORDER_API } from '@/api/endpoints'
+import { isMockApi } from '@/api/client'
+import { ENABLE_REAL_CHECKOUT, IS_ORDER_API_ENABLED, ORDER_API } from '@/api/endpoints'
 import { serviceRequest } from '@/api/catalog-client'
 import { placeMockOrder, reviewCart, validateCheckoutDetails } from '@/services/checkout'
 import { loadRentalHistory } from '@/services/rental-history'
@@ -55,6 +56,12 @@ function toIsoDate(value: string): string {
   return new Date(`${value}T00:00:00.000Z`).toISOString()
 }
 
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
 // The draft response is not confirmed, so keep the local UI status while
 // retaining the raw API status for diagnostics.
 // DRAFT: status mapping to confirm with Order Service.
@@ -71,7 +78,8 @@ export function generateIdempotencyKey(): string {
 
 // DRAFT: contract not confirmed by Order Service
 export async function createOrder(details: CheckoutDetails, idempotencyKey = generateIdempotencyKey()): Promise<Order> {
-  if (!IS_ORDER_API_ENABLED) return placeMockOrder(details)
+  if (isMockApi) return placeMockOrder(details)
+  if (!ENABLE_REAL_CHECKOUT) throw new Error('Checkout is not available yet.')
 
   const baseURL = requireOrderApi()
   const user = useAuthStore.getState().user
@@ -131,7 +139,7 @@ export async function createOrder(details: CheckoutDetails, idempotencyKey = gen
 
 // DRAFT: contract not confirmed by Order Service
 export async function listOrders(userId: string, params: OrderListParams = {}, signal?: AbortSignal): Promise<Order[]> {
-  if (!IS_ORDER_API_ENABLED) return loadRentalHistory(userId)
+  if (isMockApi || !IS_ORDER_API_ENABLED) return loadRentalHistory(userId)
 
   const baseURL = requireOrderApi()
   const { data } = await serviceRequest<{ data?: Order[] } | Order[]>(baseURL, {
@@ -144,7 +152,8 @@ export async function listOrders(userId: string, params: OrderListParams = {}, s
     },
     signal,
   })
-  const records = Array.isArray(data) ? data : data.data
+  const body = asObject(data)
+  const records = Array.isArray(data) ? data : body?.data
   if (!Array.isArray(records)) {
     throw new Error('The Order Service list response does not match the draft contract.')
   }
@@ -153,7 +162,7 @@ export async function listOrders(userId: string, params: OrderListParams = {}, s
 
 // DRAFT: contract not confirmed by Order Service
 export async function getOrder(orderId: string, signal?: AbortSignal): Promise<Order | undefined> {
-  if (!IS_ORDER_API_ENABLED) {
+  if (isMockApi || !IS_ORDER_API_ENABLED) {
     return useOrdersStore.getState().orders.find((order) => order.id === orderId)
   }
 
@@ -163,13 +172,17 @@ export async function getOrder(orderId: string, signal?: AbortSignal): Promise<O
     method: 'get',
     signal,
   })
-  const record = 'data' in data && data.data ? data.data : (data as Order)
+  const body = asObject(data)
+  if (!body) {
+    throw new Error('The Order Service response does not match the draft contract.')
+  }
+  const record = typeof body.data === 'object' && body.data !== null ? body.data as Order : body as unknown as Order
   return record
 }
 
 // DRAFT: contract not confirmed by Order Service
 export async function cancelOrder(orderId: string, signal?: AbortSignal): Promise<void> {
-  if (!IS_ORDER_API_ENABLED) {
+  if (isMockApi || !IS_ORDER_API_ENABLED) {
     const order = useOrdersStore.getState().orders.find((entry) => entry.id === orderId)
     if (!order) throw new Error('Order not found.')
     if (!['created', 'stock_reserved', 'payment_pending', 'paid', 'confirmed'].includes(order.apiStatus ?? order.status)) {

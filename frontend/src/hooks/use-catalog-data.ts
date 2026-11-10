@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { IS_CATALOG_LIVE } from '@/api/endpoints'
-import { catalogErrorMessage } from '@/lib/catalog/api'
+import { CatalogError, catalogErrorMessage } from '@/lib/catalog/api'
 import { getProduct, getStore, listProducts, listStoreCategories, listStores } from '@/services/catalog'
 import type { Category, Product, ProductListParams, Store } from '@/types/catalog'
 
@@ -8,7 +8,7 @@ export const LIVE_CATALOG = IS_CATALOG_LIVE
 
 export type AsyncState<T> =
   | { status: 'loading' }
-  | { status: 'error'; error: string }
+  | { status: 'error'; error: string; httpStatus?: number }
   | { status: 'success'; data: T }
 
 export function useAsyncResource<T>(loader: (signal: AbortSignal) => Promise<T>, deps: unknown[], enabled = true) {
@@ -26,7 +26,11 @@ export function useAsyncResource<T>(loader: (signal: AbortSignal) => Promise<T>,
       },
       (error: unknown) => {
         if (!controller.signal.aborted) {
-          setState({ status: 'error', error: catalogErrorMessage(error) })
+          setState({
+            status: 'error',
+            error: catalogErrorMessage(error),
+            httpStatus: error instanceof CatalogError ? error.status : undefined,
+          })
         }
       },
     )

@@ -15,6 +15,7 @@ use App\Exceptions\TooManyProductImagesException;
 use App\Exceptions\UnsupportedImageTypeException;
 use App\Infrastructure\Cache\ProductCache;
 use App\Models\ProductImage;
+use Aws\Exception\AwsException;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -251,19 +252,27 @@ final class ProductImageService implements ProductImageServiceInterface
      */
     private function storeObject(string $objectKey, SplFileInfo $file, string $mimeType): void
     {
-        $this->bucketGuard->ensure($this->disk);
+        $stream = null;
 
-        $stream = fopen($file->getPathname(), 'rb');
+        try {
+            $this->bucketGuard->ensure($this->disk);
 
-        if ($stream === false) {
-            throw new InvalidImageFileException('Unable to open file for reading.');
+            $stream = fopen($file->getPathname(), 'rb');
+
+            if ($stream === false) {
+                throw new InvalidImageFileException('Unable to open file for reading.');
+            }
+
+            $stored = Storage::disk($this->disk)->put($objectKey, $stream, [
+                'ContentType' => $mimeType,
+            ]);
+        } catch (AwsException) {
+            throw new ProductImageStorageException($objectKey);
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
         }
-
-        $stored = Storage::disk($this->disk)->put($objectKey, $stream, [
-            'ContentType' => $mimeType,
-        ]);
-
-        fclose($stream);
 
         if ($stored !== true) {
             throw new ProductImageStorageException($objectKey);

@@ -79,7 +79,7 @@ export function CatalogAdmin({
             <label htmlFor="catalog-admin-store" className="text-sm font-medium">Store</label>
             <Select
               items={storeItems}
-              value={selectedStoreId || undefined}
+              value={selectedStoreId || null}
               onValueChange={(value) => { if (value) setSelectedStoreId(value) }}
               disabled={stores.state.status === 'loading'}
             >

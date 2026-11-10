@@ -108,6 +108,7 @@ export function ProductFormDialog({
     setAttributes((product.attributes ?? []).map((attribute) => ({ name: attribute.name, value: attribute.value })))
     setStockQuantity(String(product.stock?.quantity ?? 0))
     setLoadedProductId(product.id)
+    setSlugTouched(true)
   }, [open, detail.state, loadedProductId])
 
   const categoryItems = flattenCategoryTree(categories).map(({ category, depth }) => ({
@@ -339,7 +340,7 @@ export function ProductFormDialog({
                     Create a category before adding products.
                   </p>
                 ) : (
-                  <Select items={categoryItems} value={form.categoryId || undefined} onValueChange={(value) => { if (value) setForm({ ...form, categoryId: value }) }}>
+                  <Select items={categoryItems} value={form.categoryId || null} onValueChange={(value) => { if (value) setForm({ ...form, categoryId: value }) }}>
                     <SelectTrigger id="product-category" className="h-10 w-full">
                       <SelectValue placeholder="Choose a category" />
                     </SelectTrigger>

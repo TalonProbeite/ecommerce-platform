@@ -17,6 +17,8 @@ use App\Infrastructure\Storage\S3BucketGuard;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Services\ProductImageService;
+use Aws\Command;
+use Aws\Exception\AwsException;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -276,6 +278,29 @@ class ProductImageServiceTest extends TestCase
             ->once()
             ->andReturnUsing(fn (array $data): ProductImage => new ProductImage($data));
         $filesystem->shouldReceive('put')->once()->andReturnFalse();
+        Storage::shouldReceive('disk')->once()->with(self::DISK)->andReturn($filesystem);
+
+        $this->expectException(ProductImageStorageException::class);
+
+        $this->service($imageRepository, $productRepository, $guard)->upload('store-123', 'product-123', new \SplFileInfo($file));
+    }
+
+    public function test_upload_converts_aws_exception_to_storage_exception(): void
+    {
+        $file = $this->pngFile();
+        $imageRepository = Mockery::mock(ProductImageRepositoryInterface::class);
+        $productRepository = Mockery::mock(ProductRepositoryInterface::class);
+        $guard = $this->guard();
+        $filesystem = Mockery::mock(Filesystem::class);
+
+        $productRepository->shouldReceive('lockById')->once()->andReturn(new Product());
+        $imageRepository->shouldReceive('listForProduct')->once()->andReturn(new Collection());
+        $imageRepository->shouldReceive('create')
+            ->once()
+            ->andReturnUsing(fn (array $data): ProductImage => new ProductImage($data));
+        $filesystem->shouldReceive('put')
+            ->once()
+            ->andThrow(new AwsException('Upload failed', new Command('PutObject')));
         Storage::shouldReceive('disk')->once()->with(self::DISK)->andReturn($filesystem);
 
         $this->expectException(ProductImageStorageException::class);

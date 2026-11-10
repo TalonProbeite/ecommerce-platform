@@ -206,6 +206,19 @@ function LiveEquipmentPage() {
   }
 
   if (product.state.status === 'error') {
+    if (product.state.httpStatus === 404) {
+      return (
+        <div className="mx-auto max-w-3xl px-4 py-16">
+          <EmptyState
+            icon={PackageSearch}
+            title="Equipment not found"
+            description="This listing may have been removed."
+            action={<LinkButton to={ROUTES.catalog}>Browse equipment</LinkButton>}
+          />
+        </div>
+      )
+    }
+
     return (
       <div className="mx-auto max-w-3xl px-4 py-16">
         <div role="alert" className="rounded-3xl border bg-card p-6">
