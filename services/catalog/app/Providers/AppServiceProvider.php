@@ -18,6 +18,8 @@ use App\Contracts\Services\ProductServiceInterface;
 use App\Contracts\Services\StockServiceInterface;
 use App\Contracts\Services\StoreServiceInterface;
 use App\Infrastructure\Cache\CategoryCache;
+use App\Infrastructure\Health\ReadinessChecker;
+use Aws\S3\S3Client;
 use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\RabbitMqPublisher;
 use App\Models\Category;
@@ -68,7 +70,32 @@ class AppServiceProvider extends ServiceProvider
         $this->app->alias(RabbitMqPublisher::class, EventPublisherInterface::class);
         $this->app->singleton(CategoryCache::class);
         $this->app->singleton(ProductCache::class);
+        $this->app->singleton(S3Client::class, fn (): S3Client => $this->makeS3Client(5.0));
+        $this->app->singleton('s3.readiness', fn (): S3Client => $this->makeS3Client(2.0));
+        $this->app->when(ReadinessChecker::class)
+            ->needs(S3Client::class)
+            ->give(fn ($app): S3Client => $app->make('s3.readiness'));
         $this->app->singleton(S3BucketGuard::class);
+    }
+
+    private function makeS3Client(float $timeout): S3Client
+    {
+        $config = config('filesystems.disks.seaweedfs');
+
+        return new S3Client([
+            'version' => 'latest',
+            'region' => (string) $config['region'],
+            'endpoint' => (string) $config['endpoint'],
+            'use_path_style_endpoint' => (bool) $config['use_path_style_endpoint'],
+            'credentials' => [
+                'key' => (string) $config['key'],
+                'secret' => (string) $config['secret'],
+            ],
+            'http' => [
+                'connect_timeout' => 2.0,
+                'timeout' => $timeout,
+            ],
+        ]);
     }
 
     /**

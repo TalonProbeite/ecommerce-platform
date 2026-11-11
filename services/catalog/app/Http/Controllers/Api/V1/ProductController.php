@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Contracts\Services\ProductServiceInterface;
+use App\DTO\CreateProductData;
 use App\DTO\ProductFilters;
+use App\DTO\UpdateProductData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateProductRequest;
 use App\Http\Requests\ProductListRequest;
@@ -23,7 +25,7 @@ final class ProductController extends Controller
 
     public function index(ProductListRequest $request): JsonResponse
     {
-        $result = $this->products->list($request->toDTO(true));
+        $result = $this->products->list(ProductFilters::fromArray($request->validated(), true));
 
         return ProductResource::collection($result)->response();
     }
@@ -35,7 +37,7 @@ final class ProductController extends Controller
 
     public function adminIndex(ProductListRequest $request, string $storeId): JsonResponse
     {
-        $filters = $request->toDTO(false);
+        $filters = ProductFilters::fromArray($request->validated(), false);
         $result = $this->products->list(new ProductFilters(
             storeId: $storeId,
             categoryId: $filters->categoryId,
@@ -61,12 +63,12 @@ final class ProductController extends Controller
 
     public function store(CreateProductRequest $request, string $storeId): JsonResponse
     {
-        return (new ProductResource($this->products->create($storeId, $request->toDTO())))->response()->setStatusCode(201);
+        return (new ProductResource($this->products->create($storeId, CreateProductData::fromArray($request->validated()))))->response()->setStatusCode(201);
     }
 
     public function update(UpdateProductRequest $request, string $storeId, string $productId): JsonResponse
     {
-        return (new ProductResource($this->products->update($storeId, $productId, $request->toDTO())))->response();
+        return (new ProductResource($this->products->update($storeId, $productId, UpdateProductData::fromArray($request->validated()))))->response();
     }
 
     public function destroy(string $storeId, string $productId): Response

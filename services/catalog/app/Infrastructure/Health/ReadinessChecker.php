@@ -16,6 +16,11 @@ final class ReadinessChecker
 {
     private const PROBE_TIMEOUT_SECONDS = 2.0;
 
+    public function __construct(
+        private readonly S3Client $client,
+    ) {
+    }
+
     /**
      * Run all dependency probes.
      *
@@ -77,24 +82,9 @@ final class ReadinessChecker
 
     private function checkStorage(): void
     {
-        $config = config('filesystems.disks.seaweedfs');
-
-        $client = new S3Client([
-            'version' => 'latest',
-            'region' => (string) $config['region'],
-            'endpoint' => (string) $config['endpoint'],
-            'use_path_style_endpoint' => true,
-            'credentials' => [
-                'key' => (string) $config['key'],
-                'secret' => (string) $config['secret'],
-            ],
-            'http' => [
-                'connect_timeout' => self::PROBE_TIMEOUT_SECONDS,
-                'timeout' => self::PROBE_TIMEOUT_SECONDS,
-            ],
+        $this->client->headBucket([
+            'Bucket' => (string) config('filesystems.disks.seaweedfs.bucket'),
         ]);
-
-        $client->headBucket(['Bucket' => (string) $config['bucket']]);
     }
 
     private function checkRabbitMq(): void

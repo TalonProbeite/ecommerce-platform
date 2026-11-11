@@ -50,6 +50,48 @@ final readonly class UpdateProductData
         $this->isActiveProvided = $isActiveProvided || $isActive !== null;
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            name: isset($data['name']) ? (string) $data['name'] : null,
+            slug: isset($data['slug']) ? (string) $data['slug'] : null,
+            categoryId: isset($data['category_id']) ? (string) $data['category_id'] : null,
+            pricePerHour: isset($data['price_per_hour']) ? (int) $data['price_per_hour'] : null,
+            description: isset($data['description']) ? (string) $data['description'] : null,
+            depositAmount: isset($data['deposit_amount']) ? (int) $data['deposit_amount'] : null,
+            isActive: array_key_exists('is_active', $data) && $data['is_active'] !== null
+                ? (bool) filter_var($data['is_active'], FILTER_VALIDATE_BOOLEAN)
+                : null,
+            nameProvided: array_key_exists('name', $data),
+            slugProvided: array_key_exists('slug', $data),
+            categoryIdProvided: array_key_exists('category_id', $data),
+            pricePerHourProvided: array_key_exists('price_per_hour', $data),
+            descriptionProvided: array_key_exists('description', $data),
+            depositAmountProvided: array_key_exists('deposit_amount', $data),
+            isActiveProvided: array_key_exists('is_active', $data),
+            attributes: array_key_exists('attributes', $data)
+                ? self::mapAttributes(is_array($data['attributes']) ? $data['attributes'] : [])
+                : null,
+        );
+    }
+
+    /**
+     * @param array<int, array{name: string, value: string}> $attributes
+     * @return array<int, ProductAttributeData>
+     */
+    private static function mapAttributes(array $attributes): array
+    {
+        return array_map(
+            static fn (array $attribute): ProductAttributeData => new ProductAttributeData(
+                name: $attribute['name'],
+                value: $attribute['value'],
+            ),
+            $attributes,
+        );
+    }
 
     /**
      * @return array<string, string|int|bool|null>

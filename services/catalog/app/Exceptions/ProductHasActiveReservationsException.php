@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
-use Illuminate\Http\JsonResponse;
 
 class ProductHasActiveReservationsException extends Exception
 {
@@ -20,15 +19,5 @@ class ProductHasActiveReservationsException extends Exception
         $message = "Cannot delete the product id={$this->productId}, because it has active reservations!";
 
         parent::__construct($message);
-    }
-
-    public function render(): JsonResponse
-    {
-        return response()->json([
-            'error' => $this->getMessage(),
-            'details' => [
-                'product' => $this->productId,
-            ],
-        ], 409);
     }
 }

@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use App\DTO\CreateStoreData;
 use Illuminate\Contracts\Validation\ValidationRule;
 
 class CreateStoreRequest extends FormRequest
@@ -26,17 +25,5 @@ class CreateStoreRequest extends FormRequest
             'location' => 'nullable|string|max:255',
             'active' => 'nullable|boolean',
         ];
-    }
-
-    public function toDTO(): CreateStoreData
-    {
-        $validate = $this->validated();
-
-        return new CreateStoreData(
-            name: $validate['name'],
-            description: $validate['description'] ?? null,
-            location: $validate['location'] ?? null,
-            active: $validate['active'] ?? true,
-        );
     }
 }

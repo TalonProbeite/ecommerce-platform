@@ -61,6 +61,17 @@ class CatalogHttpBehaviorTest extends PostgresTestCase
         $response->assertOk();
     }
 
+    public function test_create_category_with_missing_parent_returns_validation_error(): void
+    {
+        $response = $this->postJson("/api/v1/admin/stores/{$this->store->id}/categories", [
+            'name' => 'Child',
+            'slug' => 'child',
+            'parent_id' => Uuid::uuid7(),
+        ]);
+
+        $response->assertStatus(422)->assertJsonValidationErrors('parent_id');
+    }
+
     public function test_duplicate_product_slug_in_same_store_is_rejected(): void
     {
         $this->createProduct('drill');
@@ -107,6 +118,18 @@ class CatalogHttpBehaviorTest extends PostgresTestCase
         );
 
         $response->assertOk();
+    }
+
+    public function test_update_product_with_explicit_null_name_returns_validation_error(): void
+    {
+        $product = $this->createProduct('drill');
+
+        $response = $this->patchJson(
+            "/api/v1/admin/stores/{$this->store->id}/products/{$product->id}",
+            ['name' => null],
+        );
+
+        $response->assertStatus(422)->assertJsonValidationErrors('name');
     }
 
     public function test_missing_category_returns_not_found(): void

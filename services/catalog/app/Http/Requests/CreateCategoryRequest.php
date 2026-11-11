@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use App\DTO\CreateCategoryData;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -33,16 +32,5 @@ class CreateCategoryRequest extends FormRequest
             ],
             'parent_id' => 'nullable|uuid',
         ];
-    }
-
-    public function toDTO(): CreateCategoryData
-    {
-        $validated = $this->validated();
-
-        return new CreateCategoryData(
-            name: (string) $validated['name'],
-            slug: (string) $validated['slug'],
-            parentId: isset($validated['parent_id']) ? (string) $validated['parent_id'] : null,
-        );
     }
 }

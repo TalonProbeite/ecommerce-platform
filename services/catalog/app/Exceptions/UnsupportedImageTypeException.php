@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
-use Illuminate\Http\JsonResponse;
 
 class UnsupportedImageTypeException extends Exception
 {
@@ -20,15 +19,5 @@ class UnsupportedImageTypeException extends Exception
         $message = "File type {$this->mimeType}, is not supported!";
 
         parent::__construct($message);
-    }
-
-    public function render(): JsonResponse
-    {
-        return response()->json([
-            'error' => $this->getMessage(),
-            'details' => [
-                'mime_type' => $this->mimeType,
-            ],
-        ], 422);
     }
 }

@@ -14,6 +14,7 @@ use App\DTO\CreateProductData;
 use App\DTO\ProductAttributeData;
 use App\DTO\ProductFilters;
 use App\DTO\UpdateProductData;
+use App\Exceptions\NonNullableFieldException;
 use App\Exceptions\ProductCategoryNotFoundException;
 use App\Exceptions\ProductHasActiveReservationsException;
 use App\Exceptions\ProductNotFoundException;
@@ -28,7 +29,6 @@ use App\Services\ProductService;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Mockery;
 use Tests\TestCase;
 
@@ -457,7 +457,7 @@ class ProductServiceTest extends TestCase
         $attributeRepository->shouldNotReceive('deleteAllByProductId');
         $publisher->shouldNotReceive('publish');
 
-        $this->expectException(ValidationException::class);
+        $this->expectException(NonNullableFieldException::class);
 
         $service = new ProductService(
             $productRepository,

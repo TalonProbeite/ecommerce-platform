@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
-use Illuminate\Http\JsonResponse;
 
 class StoreNotFoundException extends Exception
 {
@@ -20,15 +19,5 @@ class StoreNotFoundException extends Exception
         $message = "Store not found!";
 
         parent::__construct($message);
-    }
-
-    public function render(): JsonResponse
-    {
-        return response()->json([
-            'error' => $this->getMessage(),
-            'details' => [
-                'store' => $this->storeId,
-            ],
-        ], 404);
     }
 }

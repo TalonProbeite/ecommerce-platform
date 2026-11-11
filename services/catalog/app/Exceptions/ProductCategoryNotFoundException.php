@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
-use Illuminate\Http\JsonResponse;
 
 class ProductCategoryNotFoundException extends Exception
 {
@@ -20,15 +19,5 @@ class ProductCategoryNotFoundException extends Exception
         $message = 'The selected category does not exist or is not active in this store.';
 
         parent::__construct($message);
-    }
-
-    public function render(): JsonResponse
-    {
-        return response()->json([
-            'error' => $this->getMessage(),
-            'details' => [
-                'category' => $this->categoryId,
-            ],
-        ], 422);
     }
 }

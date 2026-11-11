@@ -19,8 +19,11 @@ use App\Models\ProductImage;
 use App\Services\ProductImageService;
 use Aws\Command;
 use Aws\Exception\AwsException;
+use Aws\S3\S3Client;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -312,7 +315,10 @@ class ProductImageServiceTest extends TestCase
     {
         $exception = new ProductImageStorageException('stores/secret/object.png');
 
-        $response = $exception->render();
+        $response = $this->app->make(ExceptionHandler::class)->render(
+            Request::create('/api/v1/test', 'GET'),
+            $exception,
+        );
 
         self::assertSame(503, $response->getStatusCode());
         self::assertSame([
@@ -492,7 +498,7 @@ class ProductImageServiceTest extends TestCase
 
     private function guard(): S3BucketGuard
     {
-        $guard = new S3BucketGuard();
+        $guard = new S3BucketGuard(Mockery::mock(S3Client::class));
         (new ReflectionProperty($guard, 'verifiedDisks'))->setValue($guard, [self::DISK => true]);
 
         return $guard;

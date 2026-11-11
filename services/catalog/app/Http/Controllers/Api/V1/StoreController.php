@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Contracts\Services\StoreServiceInterface;
+use App\DTO\CreateStoreData;
+use App\DTO\StoreFilters;
+use App\DTO\UpdateStoreData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateStoreRequest;
 use App\Http\Requests\StoreListRequest;
@@ -22,7 +25,7 @@ final class StoreController extends Controller
 
     public function index(StoreListRequest $request): JsonResponse
     {
-        $stores = $this->stores->list($request->toDTO());
+        $stores = $this->stores->list(StoreFilters::fromArray($request->validated()));
 
         return StoreResource::collection($stores)->response();
     }
@@ -34,12 +37,12 @@ final class StoreController extends Controller
 
     public function store(CreateStoreRequest $request): JsonResponse
     {
-        return (new StoreResource($this->stores->create($request->toDTO())))->response()->setStatusCode(201);
+        return (new StoreResource($this->stores->create(CreateStoreData::fromArray($request->validated()))))->response()->setStatusCode(201);
     }
 
     public function update(UpdateStoreRequest $request, string $storeId): JsonResponse
     {
-        return (new StoreResource($this->stores->update($storeId, $request->toDTO())))->response();
+        return (new StoreResource($this->stores->update($storeId, UpdateStoreData::fromArray($request->validated()))))->response();
     }
 
     public function destroy(string $storeId): Response

@@ -9,8 +9,12 @@ use App\Contracts\Repositories\CategoryRepositoryInterface;
 use App\Contracts\Repositories\ProductRepositoryInterface;
 use App\DTO\CreateCategoryData;
 use App\DTO\UpdateCategoryData;
+use App\Exceptions\CategoryParentDescendantException;
+use App\Exceptions\CategoryParentSelfException;
 use App\Exceptions\HasProductsException;
 use App\Exceptions\HasSubcategoriesException;
+use App\Exceptions\NonNullableFieldException;
+use App\Exceptions\ParentCategoryNotFoundException;
 use App\Infrastructure\Cache\CategoryCache;
 use App\Messaging\Events\CategoryCreated;
 use App\Messaging\Events\CategoryDeleted;
@@ -19,7 +23,6 @@ use App\Models\Category;
 use App\Services\CategoryService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Mockery;
 use Tests\TestCase;
 
@@ -152,7 +155,7 @@ class CategoryServiceTest extends TestCase
         $repository->shouldNotReceive('createCategory');
         $publisher->shouldNotReceive('publish');
 
-        $this->expectException(ValidationException::class);
+        $this->expectException(ParentCategoryNotFoundException::class);
 
         $service = $this->service($repository, $productRepository, $publisher);
         $service->create('store-123', new CreateCategoryData(
@@ -226,7 +229,7 @@ class CategoryServiceTest extends TestCase
         $repository->shouldNotReceive('updateCategory');
         $publisher->shouldNotReceive('publish');
 
-        $this->expectException(ValidationException::class);
+        $this->expectException(NonNullableFieldException::class);
 
         $service = $this->service($repository, $productRepository, $publisher);
         $service->update('cat-123', 'store-123', new UpdateCategoryData(name: null, nameProvided: true));
@@ -248,7 +251,7 @@ class CategoryServiceTest extends TestCase
         $repository->shouldNotReceive('updateCategory');
         $publisher->shouldNotReceive('publish');
 
-        $this->expectException(ValidationException::class);
+        $this->expectException(CategoryParentSelfException::class);
 
         $service = $this->service($repository, $productRepository, $publisher);
         $service->update('cat-123', 'store-123', new UpdateCategoryData(parentId: 'cat-123'));
@@ -278,7 +281,7 @@ class CategoryServiceTest extends TestCase
         $repository->shouldNotReceive('updateCategory');
         $publisher->shouldNotReceive('publish');
 
-        $this->expectException(ValidationException::class);
+        $this->expectException(CategoryParentDescendantException::class);
 
         $service = $this->service($repository, $productRepository, $publisher);
         $service->update('cat-123', 'store-123', new UpdateCategoryData(parentId: 'cat-456'));

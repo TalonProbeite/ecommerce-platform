@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
-use Illuminate\Http\JsonResponse;
 
 class HasProductsException extends Exception
 {
@@ -20,15 +19,5 @@ class HasProductsException extends Exception
         $message = "Cannot delete the category id={$this->categoryId}, because it has products!";
 
         parent::__construct($message);
-    }
-
-    public function render(): JsonResponse
-    {
-        return response()->json([
-            'error'   => $this->getMessage(),
-            'details' => [
-                'category' => $this->categoryId,
-            ]
-        ], 409);
     }
 }

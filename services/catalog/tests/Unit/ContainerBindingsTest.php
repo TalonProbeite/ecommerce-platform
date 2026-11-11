@@ -10,8 +10,11 @@ use App\Contracts\Services\ProductImageServiceInterface;
 use App\Contracts\Services\ProductServiceInterface;
 use App\Contracts\Services\StockServiceInterface;
 use App\Contracts\Services\StoreServiceInterface;
+use App\Infrastructure\Health\ReadinessChecker;
 use App\Infrastructure\Storage\S3BucketGuard;
 use App\Messaging\RabbitMqPublisher;
+use Aws\S3\S3Client;
+use ReflectionProperty;
 use App\Services\CategoryService;
 use App\Services\ProductImageService;
 use App\Services\ProductService;
@@ -46,6 +49,18 @@ class ContainerBindingsTest extends TestCase
             self::assertTrue($app->bound($interface));
             self::assertInstanceOf($implementation, $app->make($interface));
         }
+
+        self::assertTrue($app->bound(S3Client::class));
+        self::assertSame($app->make(S3Client::class), $app->make(S3Client::class));
+
+        self::assertTrue($app->bound('s3.readiness'));
+        $readinessClient = $app->make('s3.readiness');
+        self::assertInstanceOf(S3Client::class, $readinessClient);
+        self::assertSame($readinessClient, $app->make('s3.readiness'));
+
+        $checker = $app->make(ReadinessChecker::class);
+        $checkerClient = (new ReflectionProperty($checker, 'client'))->getValue($checker);
+        self::assertSame($readinessClient, $checkerClient);
 
         self::assertTrue($app->bound(S3BucketGuard::class));
         self::assertSame($app->make(S3BucketGuard::class), $app->make(S3BucketGuard::class));

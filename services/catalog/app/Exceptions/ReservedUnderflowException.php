@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
-use Illuminate\Http\JsonResponse;
 
 class ReservedUnderflowException extends Exception
 {
@@ -20,17 +19,5 @@ class ReservedUnderflowException extends Exception
         public readonly int $releaseAmount,
     ) {
         parent::__construct("Cannot release more units than reserved!");
-    }
-
-    public function render(): JsonResponse
-    {
-        return response()->json([
-            'error'   => $this->getMessage(),
-            'details' => [
-                'product'   => $this->productId,
-                'reserved' => $this->reserved,
-                'release_amount' => $this->releaseAmount,
-            ],
-        ], 409);
     }
 }

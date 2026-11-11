@@ -17,6 +17,18 @@ final readonly class CreateCategoryData
     }
 
     /**
+     * @param array<string, mixed> $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            name: (string) $data['name'],
+            slug: (string) $data['slug'],
+            parentId: isset($data['parent_id']) ? (string) $data['parent_id'] : null,
+        );
+    }
+
+    /**
      * @return array{name: string, slug: string, parent_id: string|null}
      */
     public function toArray(): array

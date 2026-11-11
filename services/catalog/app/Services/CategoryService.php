@@ -12,8 +12,12 @@ use App\Domain\Contracts\EventInterface;
 use App\DTO\CreateCategoryData;
 use App\DTO\UpdateCategoryData;
 use App\Exceptions\CategoryNotFoundException;
+use App\Exceptions\CategoryParentDescendantException;
+use App\Exceptions\CategoryParentSelfException;
 use App\Exceptions\HasProductsException;
 use App\Exceptions\HasSubcategoriesException;
+use App\Exceptions\NonNullableFieldException;
+use App\Exceptions\ParentCategoryNotFoundException;
 use App\Infrastructure\Cache\CategoryCache;
 use App\Messaging\Events\CategoryCreated;
 use App\Messaging\Events\CategoryDeleted;
@@ -21,7 +25,6 @@ use App\Messaging\Events\CategoryUpdated;
 use App\Models\Category;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 final class CategoryService implements CategoryServiceInterface
 {
@@ -113,9 +116,10 @@ final class CategoryService implements CategoryServiceInterface
         }
 
         if ($this->categoryRepository->findByStoreAndID($parentId, $storeId) === null) {
-            throw ValidationException::withMessages([
-                'parent_id' => 'The selected parent category does not exist in this store.',
-            ]);
+            throw new ParentCategoryNotFoundException(
+                'parent_id',
+                'The selected parent category does not exist in this store.',
+            );
         }
     }
 
@@ -126,23 +130,26 @@ final class CategoryService implements CategoryServiceInterface
         }
 
         if ($parentId === $category->id) {
-            throw ValidationException::withMessages([
-                'parent_id' => 'A category cannot be its own parent.',
-            ]);
+            throw new CategoryParentSelfException(
+                'parent_id',
+                'A category cannot be its own parent.',
+            );
         }
 
         $parent = $this->categoryRepository->findByStoreAndID($parentId, $storeId);
 
         if ($parent === null) {
-            throw ValidationException::withMessages([
-                'parent_id' => 'The selected parent category does not exist in this store.',
-            ]);
+            throw new ParentCategoryNotFoundException(
+                'parent_id',
+                'The selected parent category does not exist in this store.',
+            );
         }
 
         if ($this->isDescendant($parent, $category->id)) {
-            throw ValidationException::withMessages([
-                'parent_id' => 'A category cannot be moved under one of its descendants.',
-            ]);
+            throw new CategoryParentDescendantException(
+                'parent_id',
+                'A category cannot be moved under one of its descendants.',
+            );
         }
     }
 
@@ -164,15 +171,17 @@ final class CategoryService implements CategoryServiceInterface
     private function assertNonNullableFields(UpdateCategoryData $data): void
     {
         if ($data->nameProvided && $data->name === null) {
-            throw ValidationException::withMessages([
-                'name' => 'The name field cannot be null.',
-            ]);
+            throw new NonNullableFieldException(
+                'name',
+                'The name field cannot be null.',
+            );
         }
 
         if ($data->slugProvided && $data->slug === null) {
-            throw ValidationException::withMessages([
-                'slug' => 'The slug field cannot be null.',
-            ]);
+            throw new NonNullableFieldException(
+                'slug',
+                'The slug field cannot be null.',
+            );
         }
     }
 

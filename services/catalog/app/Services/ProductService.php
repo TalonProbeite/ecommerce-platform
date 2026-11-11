@@ -14,6 +14,7 @@ use App\Contracts\Services\ProductServiceInterface;
 use App\DTO\CreateProductData;
 use App\DTO\ProductFilters;
 use App\DTO\UpdateProductData;
+use App\Exceptions\NonNullableFieldException;
 use App\Exceptions\ProductCategoryNotFoundException;
 use App\Exceptions\ProductHasActiveReservationsException;
 use App\Exceptions\ProductNotFoundException;
@@ -25,7 +26,6 @@ use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 final class ProductService implements ProductServiceInterface
 {
@@ -306,9 +306,10 @@ final class ProductService implements ProductServiceInterface
 
         foreach ($nullableFields as $field => $isInvalid) {
             if ($isInvalid) {
-                throw ValidationException::withMessages([
-                    $field => "The {$field} field cannot be null.",
-                ]);
+                throw new NonNullableFieldException(
+                    $field,
+                    "The {$field} field cannot be null.",
+                );
             }
         }
     }

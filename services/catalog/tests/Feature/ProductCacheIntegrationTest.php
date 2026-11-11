@@ -24,6 +24,7 @@ use App\Repositories\StockReservationRepository;
 use App\Services\ProductImageService;
 use App\Services\ProductService;
 use App\Services\StockService;
+use Aws\S3\S3Client;
 use Illuminate\Cache\RedisStore;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -389,7 +390,7 @@ class ProductCacheIntegrationTest extends PostgresTestCase
 
     private function imageService(): ProductImageService
     {
-        $guard = new S3BucketGuard();
+        $guard = new S3BucketGuard(Mockery::mock(S3Client::class));
         (new ReflectionProperty($guard, 'verifiedDisks'))->setValue($guard, [self::DISK => true]);
 
         return new ProductImageService(

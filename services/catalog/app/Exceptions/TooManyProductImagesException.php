@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
-use Illuminate\Http\JsonResponse;
 
 class TooManyProductImagesException extends Exception
 {
@@ -21,16 +20,5 @@ class TooManyProductImagesException extends Exception
         $message = "Too many images!";
 
         parent::__construct($message);
-    }
-
-    public function render(): JsonResponse
-    {
-        return response()->json([
-            'error' => $this->getMessage(),
-            'details' => [
-                'product' => $this->productId,
-                'limit' => $this->limit,
-            ],
-        ], 422);
     }
 }

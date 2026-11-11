@@ -16,6 +16,7 @@ use App\Models\Store;
 use App\Repositories\ProductImageRepository;
 use App\Repositories\ProductRepository;
 use App\Services\ProductImageService;
+use Aws\S3\S3Client;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
 use Ramsey\Uuid\Uuid;
@@ -49,7 +50,7 @@ class ProductImageServiceTest extends PostgresTestCase
             'slug' => 'drill',
             'price_per_hour' => 500,
         ]);
-        $this->bucketGuard = new S3BucketGuard();
+        $this->bucketGuard = new S3BucketGuard(Mockery::mock(S3Client::class));
         (new ReflectionProperty($this->bucketGuard, 'verifiedDisks'))->setValue($this->bucketGuard, [self::DISK => true]);
     }
 

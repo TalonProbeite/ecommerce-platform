@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Contracts\Services\CategoryServiceInterface;
+use App\DTO\CreateCategoryData;
+use App\DTO\UpdateCategoryData;
 use App\Exceptions\CategoryNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateCategoryRequest;
@@ -43,12 +45,12 @@ final class CategoryController extends Controller
 
     public function store(CreateCategoryRequest $request, string $storeId): JsonResponse
     {
-        return (new CategoryResource($this->categories->create($storeId, $request->toDTO())))->response()->setStatusCode(201);
+        return (new CategoryResource($this->categories->create($storeId, CreateCategoryData::fromArray($request->validated()))))->response()->setStatusCode(201);
     }
 
     public function update(UpdateCategoryRequest $request, string $storeId, string $categoryId): JsonResponse
     {
-        return (new CategoryResource($this->categories->update($categoryId, $storeId, $request->toDTO())))->response();
+        return (new CategoryResource($this->categories->update($categoryId, $storeId, UpdateCategoryData::fromArray($request->validated()))))->response();
     }
 
     public function destroy(string $storeId, string $categoryId): Response

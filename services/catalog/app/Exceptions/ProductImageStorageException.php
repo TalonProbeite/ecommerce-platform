@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Exception;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 
 class ProductImageStorageException extends Exception
@@ -23,13 +22,5 @@ class ProductImageStorageException extends Exception
         $message = "Failed to save product image!";
 
         parent::__construct($message);
-    }
-
-    public function render(): JsonResponse
-    {
-        return response()->json([
-            'error' => 'Image storage is temporarily unavailable.',
-            'code' => 'product_image_storage_unavailable',
-        ], 503);
     }
 }

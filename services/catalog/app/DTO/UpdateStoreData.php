@@ -34,6 +34,25 @@ final readonly class UpdateStoreData
     }
 
     /**
+     * @param array<string, mixed> $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            name: isset($data['name']) ? (string) $data['name'] : null,
+            description: isset($data['description']) ? (string) $data['description'] : null,
+            location: isset($data['location']) ? (string) $data['location'] : null,
+            active: array_key_exists('active', $data) && $data['active'] !== null
+                ? (bool) filter_var($data['active'], FILTER_VALIDATE_BOOLEAN)
+                : null,
+            nameProvided: array_key_exists('name', $data),
+            descriptionProvided: array_key_exists('description', $data),
+            locationProvided: array_key_exists('location', $data),
+            activeProvided: array_key_exists('active', $data),
+        );
+    }
+
+    /**
      * @return array{name?: string|null, description?: string|null, location?: string|null, active?: bool|null}
      */
     public function toArray(): array

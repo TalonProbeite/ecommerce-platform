@@ -30,6 +30,21 @@ final readonly class UpdateCategoryData
     }
 
     /**
+     * @param array<string, mixed> $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            name: isset($data['name']) ? (string) $data['name'] : null,
+            slug: isset($data['slug']) ? (string) $data['slug'] : null,
+            parentId: isset($data['parent_id']) ? (string) $data['parent_id'] : null,
+            nameProvided: array_key_exists('name', $data),
+            slugProvided: array_key_exists('slug', $data),
+            parentIdProvided: array_key_exists('parent_id', $data),
+        );
+    }
+
+    /**
      * @return array<string, string|null>
      */
     public function toArray(): array
