@@ -67,6 +67,7 @@ export async function catalogAdmin<T>(
 
   const response = await fetch(buildUrl(path, query), {
     ...init,
+    method: init.method ? String(init.method).toUpperCase() : init.method,
     headers,
     credentials: 'include',
   })
