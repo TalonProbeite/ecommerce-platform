@@ -124,7 +124,6 @@ class CatalogSeeder extends Seeder
             'products.*.category_id' => ['required', 'uuid'], 'products.*.name' => $demoName,
             'products.*.slug' => $slug, 'products.*.description' => ['required', 'string', 'starts_with:DEMO'],
             'products.*.price_per_hour' => $money, 'products.*.deposit_amount' => $money,
-            'products.*.rating' => ['required', 'in:0.00'], 'products.*.reviews_count' => ['required', 'integer', 'in:0'],
             'products.*.is_active' => ['required', 'boolean'],
             'products.*.stock.quantity' => ['required', 'integer', 'min:1', 'max:2147483647'],
             'products.*.stock.reserved' => ['required', 'integer', 'in:0'],

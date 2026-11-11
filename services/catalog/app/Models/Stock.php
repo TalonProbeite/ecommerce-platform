@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Ramsey\Uuid\Uuid;
 
 /**
@@ -28,12 +29,6 @@ class Stock extends Model
             'quantity' => 'integer',
             'reserved' => 'integer',
         ];
-    }
-
-
-    public function getAvailableAttribute(): int
-    {
-        return $this->quantity - $this->reserved;
     }
 
     /**
@@ -59,5 +54,13 @@ class Stock extends Model
     {
         // stocks.product_id is unique; composite FKs enforce the same store for this product.
         return $this->hasMany(StockReservation::class, 'product_id', 'product_id');
+    }
+
+    /**
+     * @return Attribute<int, int>
+     */
+    public function available(): Attribute
+    {
+        return Attribute::get(fn () => $this->quantity - $this->reserved);
     }
 }

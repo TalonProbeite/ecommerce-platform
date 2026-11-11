@@ -1,0 +1,39 @@
+# Build context is services/. Exclude everything, then re-include catalog/ only.
+**
+!catalog
+!catalog/**
+
+# Host-installed dependencies and caches: the image installs its own
+catalog/vendor/**
+catalog/node_modules/**
+catalog/rr
+catalog/.phpunit.cache/**
+catalog/.phpunit.result.cache
+catalog/storage/app/**
+catalog/storage/framework/cache/**
+catalog/storage/framework/sessions/**
+catalog/storage/framework/views/**
+catalog/storage/framework/testing/**
+catalog/storage/logs/**
+catalog/bootstrap/cache/*.php
+
+# Secrets and local env files
+catalog/.env
+catalog/.env.*
+catalog/.git/**
+
+# IDE and AI tooling
+catalog/_ide_helper.php
+catalog/_ide_helper_models.php
+catalog/.phpstorm.meta.php
+catalog/AGENTS.md
+catalog/CLAUDE.md
+catalog/boost.json
+catalog/.ai/**
+catalog/.agents/**
+
+# Not needed inside the image
+catalog/docker/**
+catalog/docker-compose*.yaml
+catalog/Dockerfile.dockerignore
+catalog/**/*.log

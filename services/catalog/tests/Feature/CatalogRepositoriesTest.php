@@ -4,8 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\DTO\CreateCategoryData;
+use App\DTO\CreateProductData;
+use App\DTO\CreateStoreData;
+use App\DTO\ProductAttributeData;
 use App\DTO\ProductFilters;
 use App\DTO\StoreFilters;
+use App\DTO\UpdateCategoryData;
+use App\DTO\UpdateProductAttribute;
+use App\DTO\UpdateProductData;
+use App\DTO\UpdateStoreData;
 use App\Enums\ProductSortField;
 use App\Enums\SortDirection;
 use App\Models\Store;
@@ -17,6 +25,7 @@ use App\Models\Stock;
 use App\Models\StockReservation;
 use App\Repositories\StoreRepository;
 use App\Repositories\CategoryRepository;
+use App\Repositories\ProductAttributeRepository;
 use App\Repositories\ProductRepository;
 use App\Repositories\ProductImageRepository;
 use App\Repositories\StockRepository;
@@ -51,11 +60,9 @@ class CatalogRepositoriesTest extends PostgresTestCase
     public function test_store_save_find_filter_paginate_and_soft_delete(): void
     {
         $repository = new StoreRepository();
-        $store = new Store(['name' => 'Other', 'active' => false]);
-        self::assertSame($store, $repository->save($store));
+        $store = $repository->createStore(new CreateStoreData(name: 'Other', active: false));
         self::assertInstanceOf(Store::class, $repository->findByID($store->id));
-        $store->name = 'Updated';
-        $repository->save($store);
+        $repository->updateStore($store->id, new UpdateStoreData(name: 'Updated'));
         self::assertSame('Updated', $repository->findByID($store->id)->name);
         $active = $repository->findAll(new StoreFilters());
         self::assertInstanceOf(LengthAwarePaginator::class, $active);
@@ -67,84 +74,151 @@ class CatalogRepositoriesTest extends PostgresTestCase
         self::assertCount(1, $page->items());
         self::assertTrue($this->store->products->contains($this->product));
         self::assertTrue($this->store->categories->contains($this->category));
-        $repository->delete($store);
+        $repository->deleteStore($store->id);
         self::assertNull($repository->findByID($store->id));
         self::assertTrue(Store::withTrashed()->findOrFail($store->id)->trashed());
         self::assertNull($repository->findByID((string) Uuid::uuid7()));
     }
 
+    public function test_stock_reservation_has_active_by_store_detection(): void
+    {
+        $repository = new StockReservationRepository();
+        self::assertFalse($repository->hasActiveByStore($this->store->id));
+
+        StockReservation::create([
+            'order_id' => (string) Uuid::uuid7(),
+            'product_id' => $this->product->id,
+            'store_id' => $this->store->id,
+            'quantity' => 1,
+            'status' => 'reserved',
+        ]);
+
+        self::assertTrue($repository->hasActiveByStore($this->store->id));
+    }
+
     public function test_categories_scope_tree_save_update_and_soft_delete(): void
     {
         $repository = new CategoryRepository();
-        $child = new Category(['store_id' => $this->store->id, 'parent_id' => $this->category->id, 'name' => 'Child', 'slug' => 'child']);
-        self::assertSame($child, $repository->save($child));
+        $child = $repository->createCategory(
+            new CreateCategoryData(name: 'Child', slug: 'child', parentId: $this->category->id),
+            $this->store->id,
+        );
+        self::assertInstanceOf(Category::class, $child);
+        self::assertSame('Child', $child->name);
+        self::assertSame($this->store->id, $child->store_id);
+        self::assertSame($this->category->id, $child->parent_id);
+
         $other = Store::create(['name' => 'Other']);
         Category::create(['store_id' => $other->id, 'name' => 'Other', 'slug' => 'tools']);
+
         self::assertInstanceOf(Collection::class, $repository->findByStore($this->store->id));
-        self::assertEqualsCanonicalizing([$this->category->id, $child->id], $repository->findByStore($this->store->id)->modelKeys());
+        // findByStore returns root categories with recursiveChildren loaded
+        self::assertSame([$this->category->id], $repository->findByStore($this->store->id)->modelKeys());
+        self::assertTrue($repository->findByStore($this->store->id)->first()->recursiveChildren->contains($child));
+
         self::assertSame([$this->category->id], $repository->findRoots($this->store->id)->modelKeys());
         self::assertSame([$child->id], $repository->findChildren($this->category->id, $this->store->id)->modelKeys());
         self::assertTrue($repository->findChildren($this->category->id, $other->id)->isEmpty());
+
+        self::assertTrue($repository->hasSubcategories($this->category->id, $this->store->id));
+
+        $foundByStoreAndId = $repository->findByStoreAndID($child->id, $this->store->id);
+        self::assertNotNull($foundByStoreAndId);
+        self::assertSame($child->id, $foundByStoreAndId->id);
+        self::assertNull($repository->findByStoreAndID($child->id, $other->id));
+
         self::assertTrue($child->parent->is($this->category));
-        $child->name = 'Updated';
-        $repository->save($child);
-        self::assertSame('Updated', $repository->findByID($child->id)->name);
-        $repository->delete($child);
-        self::assertNull($repository->findByID($child->id));
+
+        $updated = $repository->updateCategory($child->id, $this->store->id, new UpdateCategoryData(name: 'Updated'));
+        self::assertSame('Updated', $updated->name);
+        self::assertSame('Updated', $repository->findByStoreAndID($child->id, $this->store->id)->name);
+
+        $repository->deleteCategory($child->id, $this->store->id);
+        self::assertNull($repository->findByStoreAndID($child->id, $this->store->id));
         self::assertTrue(Category::withTrashed()->findOrFail($child->id)->trashed());
         self::assertTrue($repository->findChildren($this->category->id, $this->store->id)->isEmpty());
     }
 
-    public function test_products_save_tenant_lookup_slug_and_soft_delete(): void
+    public function test_products_create_scope_update_soft_delete_and_restore(): void
     {
         $repository = new ProductRepository();
-        $product = new Product(['store_id' => $this->store->id, 'category_id' => $this->category->id, 'name' => 'Saw', 'slug' => 'saw', 'price_per_hour' => 300]);
-        self::assertSame($product, $repository->save($product));
+        $product = $repository->createProduct(
+            $this->store->id,
+            new CreateProductData(
+                name: 'Saw',
+                slug: 'saw',
+                categoryId: $this->category->id,
+                pricePerHour: 300,
+            ),
+        );
+
+        self::assertSame($this->store->id, $product->store_id);
         self::assertTrue($repository->findById($product->id)->is($product));
         self::assertTrue($repository->findById($product->id, $this->store->id)->is($product));
+
         $otherStore = (string) Uuid::uuid7();
         self::assertNull($repository->findById($product->id, $otherStore));
         self::assertNull($repository->findDetailedById($product->id, $otherStore));
-        self::assertTrue($repository->existsBySlug('saw', $this->store->id));
-        self::assertFalse($repository->existsBySlug('saw', $otherStore));
-        self::assertFalse($repository->existsBySlug('saw', $this->store->id, $product->id));
-        $product->price_per_hour = 450;
-        $repository->save($product);
+
+        $updated = $repository->updateProduct(
+            $product->id,
+            $this->store->id,
+            new UpdateProductData(pricePerHour: 450),
+        );
+        self::assertSame(450, $updated->price_per_hour);
         self::assertSame(450, $repository->findById($product->id)->price_per_hour);
-        $repository->delete($product);
+
+        self::assertNull($repository->updateProduct(
+            $product->id,
+            $otherStore,
+            new UpdateProductData(pricePerHour: 999),
+        ));
+        self::assertSame(450, $repository->findById($product->id)->price_per_hour);
+
+        $repository->deleteProduct($product->id, $this->store->id);
         self::assertNull($repository->findById($product->id));
         self::assertNull($repository->findDetailedById($product->id));
         self::assertTrue(Product::withTrashed()->findOrFail($product->id)->trashed());
-        self::assertTrue($repository->existsBySlug('saw', $this->store->id));
+
+        $restored = $repository->restoreProduct($product->id, $this->store->id);
+        self::assertFalse($restored->trashed());
+        self::assertTrue($repository->findById($product->id)->is($restored));
     }
 
-    public function test_product_filters_sorting_pagination_and_main_images(): void
+    public function test_product_filters_sorting_and_pagination(): void
     {
         $repository = new ProductRepository();
-        $low = $this->product('low', ['price_per_hour' => 200, 'deposit_amount' => 500, 'rating' => '4.50']);
-        $high = $this->product('high', ['price_per_hour' => 300, 'deposit_amount' => 500, 'rating' => '4.75']);
-        $this->product('inactive', ['is_active' => false, 'price_per_hour' => 200, 'rating' => '4.50']);
-        $this->product('deposit', ['price_per_hour' => 200, 'deposit_amount' => 501, 'rating' => '4.50']);
-        $this->product('rating', ['price_per_hour' => 200, 'rating' => '3.99']);
-        $this->product('expensive', ['price_per_hour' => 301, 'rating' => '4.50']);
+        $low = $this->product('low', ['price_per_hour' => 200, 'deposit_amount' => 500]);
+        $high = $this->product('high', ['price_per_hour' => 300, 'deposit_amount' => 500]);
+        $this->product('inactive', ['is_active' => false, 'price_per_hour' => 200]);
+        $this->product('deposit', ['price_per_hour' => 200, 'deposit_amount' => 501]);
+        $this->product('expensive', ['price_per_hour' => 301]);
         $otherCategory = Category::create(['store_id' => $this->store->id, 'name' => 'Other', 'slug' => 'other']);
-        $this->product('other-category', ['category_id' => $otherCategory->id, 'price_per_hour' => 200, 'rating' => '4.50']);
+        $this->product('other-category', ['category_id' => $otherCategory->id, 'price_per_hour' => 200]);
         $otherStore = Store::create(['name' => 'Other']);
         $category = Category::create(['store_id' => $otherStore->id, 'name' => 'Tools', 'slug' => 'tools']);
-        $this->product('other-store', ['store_id' => $otherStore->id, 'category_id' => $category->id, 'price_per_hour' => 200, 'rating' => '4.50']);
-        ProductImage::create(['product_id' => $high->id, 'path' => 'main.jpg', 'is_main' => true]);
-        ProductImage::create(['product_id' => $high->id, 'path' => 'side.jpg']);
-        $filters = new ProductFilters(storeId: $this->store->id, categoryId: $this->category->id, minPrice: 200, maxPrice: 300, maxDeposit: 500, minRating: 4.0, sortBy: ProductSortField::PRICE, sortDirection: SortDirection::DESC, limit: 1);
+        $this->product('other-store', ['store_id' => $otherStore->id, 'category_id' => $category->id, 'price_per_hour' => 200]);
+        $filters = new ProductFilters(
+            storeId: $this->store->id,
+            categoryId: $this->category->id,
+            minPrice: 200,
+            maxPrice: 300,
+            maxDeposit: 500,
+            isActive: true,
+            isAvailable: null,
+            sortBy: ProductSortField::PRICE,
+            sortDirection: SortDirection::DESC,
+            limit: 1,
+        );
         $page = $repository->findByFilters($filters);
         self::assertInstanceOf(LengthAwarePaginator::class, $page);
         self::assertSame(2, $page->total());
         self::assertSame([$high->id], $page->getCollection()->modelKeys());
-        self::assertSame(['main.jpg'], $page->items()[0]->images->pluck('path')->all());
         $second = $repository->findByFilters(new ProductFilters(...array_replace(get_object_vars($filters), ['page' => 2])));
         self::assertSame([$low->id], $second->getCollection()->modelKeys());
         self::assertSame(2, $second->currentPage());
-        self::assertSame(1, $repository->findByFilters(new ProductFilters(isActive: false))->total());
-        self::assertSame(9, $repository->findByFilters(new ProductFilters(isActive: null))->total());
+        self::assertSame(1, $repository->findByFilters(new ProductFilters(isActive: false, isAvailable: null))->total());
+        self::assertSame(8, $repository->findByFilters(new ProductFilters(isActive: null, isAvailable: null))->total());
     }
 
     public function test_product_store_filter_without_category_and_stable_sort_pagination(): void
@@ -157,23 +231,43 @@ class CatalogRepositoriesTest extends PostgresTestCase
         $expected = [$this->product->id, $samePrice->id];
         sort($expected);
         foreach ([SortDirection::ASC, SortDirection::DESC] as $direction) {
-            $page = $repository->findByFilters(new ProductFilters(storeId: $this->store->id, sortBy: ProductSortField::PRICE, sortDirection: $direction, limit: 1));
+            $page = $repository->findByFilters(new ProductFilters(storeId: $this->store->id, isAvailable: null, sortBy: ProductSortField::PRICE, sortDirection: $direction, limit: 1));
             self::assertSame(2, $page->total());
             self::assertSame([$expected[0]], $page->getCollection()->modelKeys());
-            $second = $repository->findByFilters(new ProductFilters(storeId: $this->store->id, sortBy: ProductSortField::PRICE, sortDirection: $direction, limit: 1, page: 2));
+            $second = $repository->findByFilters(new ProductFilters(storeId: $this->store->id, isAvailable: null, sortBy: ProductSortField::PRICE, sortDirection: $direction, limit: 1, page: 2));
             self::assertSame([$expected[1]], $second->getCollection()->modelKeys());
         }
-        self::assertSame([$foreign->id], $repository->findByFilters(new ProductFilters(storeId: $otherStore->id))->getCollection()->modelKeys());
-        $repository->delete($samePrice);
-        self::assertSame(1, $repository->findByFilters(new ProductFilters(storeId: $this->store->id))->total());
-        self::assertTrue($repository->findByFilters(new ProductFilters(storeId: (string) Uuid::uuid7()))->isEmpty());
+        self::assertSame([$foreign->id], $repository->findByFilters(new ProductFilters(storeId: $otherStore->id, isAvailable: null))->getCollection()->modelKeys());
+        $repository->deleteProduct($samePrice->id, $this->store->id);
+        self::assertSame(1, $repository->findByFilters(new ProductFilters(storeId: $this->store->id, isAvailable: null))->total());
+        self::assertTrue($repository->findByFilters(new ProductFilters(storeId: (string) Uuid::uuid7(), isAvailable: null))->isEmpty());
+    }
+
+    public function test_product_availability_filter_uses_stock_balance(): void
+    {
+        $repository = new ProductRepository();
+        $available = $this->product('available');
+        $reserved = $this->product('reserved');
+        $unstocked = $this->product('unstocked');
+
+        Stock::create(['product_id' => $available->id, 'store_id' => $this->store->id, 'quantity' => 3, 'reserved' => 1]);
+        Stock::create(['product_id' => $reserved->id, 'store_id' => $this->store->id, 'quantity' => 2, 'reserved' => 2]);
+
+        self::assertSame(
+            [$available->id],
+            $repository->findByFilters(new ProductFilters(storeId: $this->store->id, isAvailable: true))->getCollection()->modelKeys(),
+        );
+        self::assertEqualsCanonicalizing(
+            [$this->product->id, $reserved->id, $unstocked->id],
+            $repository->findByFilters(new ProductFilters(storeId: $this->store->id, isAvailable: false))->getCollection()->modelKeys(),
+        );
     }
 
     public function test_detailed_product_eager_loads_exact_related_data(): void
     {
         ProductAttribute::create(['product_id' => $this->product->id, 'name' => 'Power', 'value' => '800 W']);
-        ProductImage::create(['product_id' => $this->product->id, 'path' => 'second.jpg', 'sort_order' => 2]);
-        ProductImage::create(['product_id' => $this->product->id, 'path' => 'first.jpg', 'sort_order' => 1]);
+        ProductImage::create(['product_id' => $this->product->id, 'object_key' => 'first.jpg', 'is_main' => true]);
+        ProductImage::create(['product_id' => $this->product->id, 'object_key' => 'second.jpg']);
         Stock::create(['product_id' => $this->product->id, 'store_id' => $this->store->id, 'quantity' => 10, 'reserved' => 3]);
         $product = (new ProductRepository())->findDetailedById($this->product->id, $this->store->id);
         foreach (['category', 'attributes', 'images', 'stock'] as $relation) {
@@ -181,59 +275,121 @@ class CatalogRepositoriesTest extends PostgresTestCase
         }
         self::assertTrue($product->category->is($this->category));
         self::assertSame(['800 W'], $product->attributes->pluck('value')->all());
-        self::assertSame(['first.jpg', 'second.jpg'], $product->images->pluck('path')->all());
+        self::assertSame(['first.jpg', 'second.jpg'], $product->images->pluck('object_key')->all());
         self::assertSame(7, $product->stock->available);
         self::assertSame(100, $product->price_per_hour);
-        self::assertSame('0.00', $product->rating);
         self::assertTrue($product->is_active);
     }
 
-    public function test_images_save_sort_scope_update_and_hard_delete(): void
+    public function test_images_create_order_scope_update_main_flag_and_hard_delete(): void
     {
         $repository = new ProductImageRepository();
         $other = $this->product('other');
-        $image = new ProductImage(['product_id' => $this->product->id, 'path' => 'back.jpg', 'sort_order' => 5]);
-        self::assertSame($image, $repository->save($image));
-        $first = ProductImage::create(['product_id' => $this->product->id, 'path' => 'front.jpg', 'sort_order' => 1, 'is_main' => true]);
-        self::assertSame([$first->id, $image->id], $repository->findByProduct($this->product->id)->modelKeys());
-        self::assertNull($repository->findById($image->id, $other->id));
-        self::assertTrue($repository->findByProduct($other->id)->isEmpty());
-        self::assertTrue($image->product->is($this->product));
-        $image->path = 'updated.jpg';
-        $repository->save($image);
-        self::assertSame('updated.jpg', $repository->findById($image->id, $this->product->id)->path);
-        self::assertSame(5, $image->fresh()->sort_order);
-        self::assertFalse($image->fresh()->is_main);
-        $repository->delete($image);
-        self::assertNull($repository->findById($image->id, $this->product->id));
-        $this->assertDatabaseMissing('product_images', ['id' => $image->id]);
+        $first = $repository->create([
+            'product_id' => $this->product->id,
+            'object_key' => 'front.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1024,
+            'is_main' => true,
+        ]);
+        $second = $repository->create([
+            'product_id' => $this->product->id,
+            'object_key' => 'back.jpg',
+        ]);
+
+        self::assertSame([$first->id, $second->id], $repository->listForProduct($this->product->id)->modelKeys());
+        self::assertNull($repository->findByIdForProduct($second->id, $other->id));
+        self::assertTrue($repository->listForProduct($other->id)->isEmpty());
+        self::assertTrue($first->product->is($this->product));
+        self::assertSame($first->id, $repository->firstForProduct($this->product->id)->id);
+
+        $updated = $repository->update($second, [
+            'object_key' => 'updated.jpg',
+            'mime_type' => 'image/png',
+            'size' => 2048,
+        ]);
+        self::assertSame('updated.jpg', $updated->object_key);
+        self::assertSame('image/png', $updated->mime_type);
+        self::assertSame(2048, $updated->size);
+        self::assertFalse($updated->is_main);
+
+        $repository->clearMainForProduct($this->product->id);
+        self::assertFalse($first->fresh()->is_main);
+        self::assertFalse($second->fresh()->is_main);
+
+        $repository->delete($updated);
+        self::assertNull($repository->findByIdForProduct($second->id, $this->product->id));
+        $this->assertDatabaseMissing('product_images', ['id' => $second->id]);
     }
 
-    public function test_stock_save_store_isolation_update_boundaries_and_hard_delete(): void
+    public function test_product_attribute_repository_crud_and_bulk_delete(): void
+    {
+        $repository = new ProductAttributeRepository();
+        $other = $this->product('other');
+
+        $repository->createProductAttribute([
+            new ProductAttributeData('Power', '800 W'),
+            new ProductAttributeData('Color', 'Black'),
+        ], $this->product->id);
+        $repository->createProductAttribute([
+            new ProductAttributeData('Power', '500 W'),
+        ], $other->id);
+
+        self::assertCount(2, $repository->findAllByProductId($this->product->id));
+        $power = $repository->findByNameAndProductId($this->product->id, 'Power');
+        self::assertNotNull($power);
+        self::assertSame('800 W', $power->value);
+        self::assertNull($repository->findByNameAndProductId($other->id, 'Color'));
+
+        $updated = $repository->updateProductAttribute($power->id, new UpdateProductAttribute(value: '1200 W'));
+        self::assertSame('1200 W', $updated->value);
+        self::assertSame('1200 W', $repository->findByNameAndProductId($this->product->id, 'Power')->value);
+
+        $repository->deleteProductAttribute($updated->id);
+        self::assertNull($repository->findByNameAndProductId($this->product->id, 'Power'));
+        self::assertCount(1, $repository->findAllByProductId($this->product->id));
+
+        $repository->deleteAllByProductId($this->product->id);
+        self::assertTrue($repository->findAllByProductId($this->product->id)->isEmpty());
+        self::assertCount(1, $repository->findAllByProductId($other->id));
+    }
+
+    public function test_stock_create_isolation_locking_and_conditional_updates(): void
     {
         $repository = new StockRepository();
-        $stock = new Stock(['product_id' => $this->product->id, 'store_id' => $this->store->id, 'quantity' => 10, 'reserved' => 3]);
-        self::assertSame($stock, $repository->save($stock));
+        $stock = $repository->createStock($this->product->id, $this->store->id, 10);
+        self::assertSame(10, $stock->quantity);
+        self::assertSame(0, $stock->reserved);
+        self::assertSame(10, $stock->available);
+
         $otherStore = Store::create(['name' => 'Other']);
         $otherCategory = Category::create(['store_id' => $otherStore->id, 'name' => 'Tools', 'slug' => 'tools']);
         $otherProduct = $this->product('foreign-stock', ['store_id' => $otherStore->id, 'category_id' => $otherCategory->id]);
-        $repository->save(new Stock(['store_id' => $otherStore->id, 'product_id' => $otherProduct->id, 'quantity' => 5]));
-        self::assertInstanceOf(Stock::class, $repository->findByProductAndStore($this->product->id, $this->store->id));
-        self::assertNull($repository->findByProductAndStore($this->product->id, $otherStore->id));
-        self::assertSame([$stock->id], $repository->findByStore($this->store->id)->modelKeys());
-        self::assertTrue($repository->findByStore((string) Uuid::uuid7())->isEmpty());
+        $otherStock = $repository->createStock($otherProduct->id, $otherStore->id, 5);
+
+        self::assertTrue($repository->findByProductId($this->product->id, $this->store->id)->is($stock));
+        self::assertNull($repository->findByProductId($this->product->id, $otherStore->id));
+        self::assertNull($repository->findByProductId((string) Uuid::uuid7(), $this->store->id));
+        self::assertTrue($repository->lockByProductId($this->product->id, $this->store->id)->is($stock));
+        self::assertNull($repository->lockByProductId($this->product->id, $otherStore->id));
+        self::assertTrue($otherStock->product->is($otherProduct));
         self::assertTrue($stock->product->is($this->product));
         self::assertTrue($stock->store->is($this->store));
-        foreach ([[10, 10, 0], [0, 0, 0], [10, 0, 10]] as [$quantity, $reserved, $available]) {
-            $stock->fill(['quantity' => $quantity, 'reserved' => $reserved]);
-            $repository->save($stock);
-            self::assertSame($quantity, $stock->fresh()->quantity);
-            self::assertSame($reserved, $stock->fresh()->reserved);
-            self::assertSame($available, $stock->fresh()->available);
-        }
-        $repository->delete($stock);
-        self::assertNull($repository->findByProductAndStore($this->product->id, $this->store->id));
-        $this->assertDatabaseMissing('stocks', ['id' => $stock->id]);
+
+        self::assertSame(1, $repository->setQuantityIfNotBelowReserved($stock->id, 15));
+        self::assertSame(15, $stock->fresh()->quantity);
+
+        $repository->adjustReserved($stock->id, 3);
+        self::assertSame(3, $stock->fresh()->reserved);
+        self::assertSame(12, $stock->fresh()->available);
+        self::assertSame(0, $repository->adjustReserved($stock->id, 20));
+        self::assertSame(3, $stock->fresh()->reserved);
+        self::assertSame(0, $repository->adjustReserved($stock->id, -5));
+        self::assertSame(3, $stock->fresh()->reserved);
+        self::assertSame(0, $repository->setQuantityIfNotBelowReserved($stock->id, 2));
+        self::assertSame(15, $stock->fresh()->quantity);
+        self::assertSame(1, $repository->setQuantityIfNotBelowReserved($stock->id, 3));
+        self::assertSame(3, $stock->fresh()->quantity);
     }
 
     public function test_reservations_save_order_lookup_store_and_status_filters(): void
@@ -241,11 +397,13 @@ class CatalogRepositoriesTest extends PostgresTestCase
         $repository = new StockReservationRepository();
         $order = (string) Uuid::uuid7();
         $ids = [];
+        $productIds = [];
         foreach (['reserved', 'issued', 'released', 'returned'] as $status) {
             $product = $this->product($status);
             $reservation = new StockReservation(['order_id' => $order, 'product_id' => $product->id, 'store_id' => $this->store->id, 'quantity' => 2, 'status' => $status]);
             self::assertSame($reservation, $repository->save($reservation));
             $ids[$status] = $reservation->id;
+            $productIds[$status] = $product->id;
             self::assertSame(2, $repository->findById($reservation->id)->quantity);
             self::assertSame($status, $reservation->fresh()->status);
             self::assertTrue($reservation->product->is($product));
@@ -260,6 +418,10 @@ class CatalogRepositoriesTest extends PostgresTestCase
         self::assertTrue($repository->findByOrderId((string) Uuid::uuid7())->isEmpty());
         self::assertNull($repository->findById((string) Uuid::uuid7()));
         self::assertEqualsCanonicalizing([$ids['reserved'], $ids['issued']], $repository->findActiveByStore($this->store->id)->modelKeys());
+        self::assertTrue($repository->hasActiveByProduct($productIds['reserved']));
+        self::assertTrue($repository->hasActiveByProduct($productIds['issued']));
+        self::assertFalse($repository->hasActiveByProduct($productIds['returned']));
+        self::assertFalse($repository->hasActiveByProduct((string) Uuid::uuid7()));
         foreach (['reserved', 'issued'] as $status) {
             self::assertSame([$ids[$status]], $repository->findActiveByStore($this->store->id, $status)->modelKeys());
         }

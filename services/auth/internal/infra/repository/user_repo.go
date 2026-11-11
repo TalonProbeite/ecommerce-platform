@@ -30,7 +30,8 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 		SELECT u.id, u.email, COALESCE(u.password_hash, '') AS password_hash, u.role, u.is_active, u.is_email_verified,
  EXISTS(SELECT 1 FROM oauth_accounts o WHERE o.user_id=u.id) AS is_oauth,
 		       p.first_name, COALESCE(p.last_name, '') AS last_name,
-		       COALESCE(p.phone, '') AS phone
+		       COALESCE(p.phone, '') AS phone,
+		       u.store_id
 		FROM users u
 		JOIN profiles p ON p.user_id = u.id
 		WHERE u.email = $1
@@ -146,7 +147,7 @@ func (r *UserRepo) SetVerified(
 func (r *UserRepo) GetByID(ctx context.Context, userID string) (*domain.User, error) {
 	var u domain.User
 
-	query := `SELECT id, email, password_hash, role, is_active FROM users WHERE id = $1`
+	query := `SELECT id, email, password_hash, role, is_active, store_id FROM users WHERE id = $1`
 
 	err := r.pg.GetContext(ctx, &u, query, userID)
 	if err != nil {
@@ -291,6 +292,34 @@ func (r *UserRepo) GetEmailByUserID(
 	return email, nil
 }
 
+func (r *UserRepo) GetStoreIDByUserID(
+	ctx context.Context,
+	userID string,
+) (*string, error) {
+	const query = `SELECT store_id FROM users WHERE id = $1`
+
+	var storeID sql.NullString
+
+	err := r.pg.GetContext(
+		ctx,
+		&storeID,
+		query,
+		userID,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to receive store id: %w", err)
+	}
+
+	if !storeID.Valid {
+		return nil, domain.ErrStoreIDNotSet
+	}
+
+	return &storeID.String, nil
+}
+
 func (r *UserRepo) GetByIDProfile(ctx context.Context, userID string) (*domain.User, error) {
 	var u domain.User
 
@@ -299,6 +328,7 @@ func (r *UserRepo) GetByIDProfile(ctx context.Context, userID string) (*domain.U
 						u.is_active,
 						u.role,
 						u.is_email_verified,
+						u.store_id,
  EXISTS(SELECT 1 FROM oauth_accounts o WHERE o.user_id=u.id) AS is_oauth,
 						p.first_name,
 						COALESCE(p.last_name, '') AS last_name,
@@ -528,6 +558,26 @@ func (r *UserRepo) UpdateBanStatus(ctx context.Context, userID string, isBanned 
 	rows, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("failed to get affected rows for profiles: %w", err)
+	}
+
+	if rows == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
+}
+
+func (r *UserRepo) UpdateStoreID(ctx context.Context, userID string, storeID *string) error {
+	const query = `UPDATE users SET store_id = $1 WHERE id = $2`
+
+	result, err := r.pg.ExecContext(ctx, query, storeID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update user store id: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows for users: %w", err)
 	}
 
 	if rows == 0 {

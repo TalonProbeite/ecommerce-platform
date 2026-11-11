@@ -11,6 +11,7 @@ import type { Role } from '@/types'
 const ROLE_OPTIONS = [
   { value: 'customer', label: 'Customer' },
   { value: 'analyst', label: 'Analyst' },
+  { value: 'store_manager', label: 'Store Manager' },
   { value: 'admin', label: 'Admin' },
 ]
 const BAN_OPTIONS = [{ value: 'true', label: 'Ban' }, { value: 'false', label: 'Unban' }]

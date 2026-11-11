@@ -50,6 +50,30 @@ export function onSessionExpired(handler: () => void) {
   sessionExpiredHandler = handler
 }
 
+/** Let non-central clients report that a refreshed session is still invalid. */
+export function notifySessionExpired() {
+  sessionExpiredHandler?.()
+}
+
+/**
+ * Refresh the httpOnly auth cookie once, sharing the in-flight request with
+ * every caller. Used by the central client and by catalog admin requests.
+ */
+export function refreshAuthSession(): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = api.post(REFRESH_PATH).then(response => {
+      if (!isMockApi) messageResponse(response.data)
+      refreshVersion += 1
+    }).catch(error => {
+      if (isHttpError(error) && error.response?.status === 401) sessionExpiredHandler?.()
+      throw error
+    }).finally(() => {
+      refreshPromise = null
+    })
+  }
+  return refreshPromise as Promise<void>
+}
+
 async function handleError(error: unknown): Promise<ApiResponse> {
   if (!isHttpError(error)) throw error
   const original = error.config as RetriableConfig | undefined
@@ -63,20 +87,9 @@ async function handleError(error: unknown): Promise<ApiResponse> {
   if (!shouldRefresh) throw error
 
   original._retry = true
-  try {
-    // A slow 401 may arrive after a parallel request has already refreshed.
-    if (original._refreshVersion === refreshVersion) {
-      refreshPromise ??= api.post(REFRESH_PATH).then(response => {
-        if (!isMockApi) messageResponse(response.data)
-        refreshVersion += 1
-      }).finally(() => {
-        refreshPromise = null
-      })
-      await refreshPromise
-    }
-  } catch (refreshError) {
-    if (isHttpError(refreshError) && refreshError.response?.status === 401) sessionExpiredHandler?.()
-    throw refreshError
+  // A slow 401 may arrive after a parallel request has already refreshed.
+  if (original._refreshVersion === refreshVersion) {
+    await refreshAuthSession()
   }
   try {
     return await request(original)

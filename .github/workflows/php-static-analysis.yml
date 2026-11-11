@@ -1,0 +1,72 @@
+name: PHP static analysis
+
+# Runs Larastan/PHPStan for PHP services.
+# To add another PHP service: add its directory to the matrix below
+# and to the push/pull_request path filters.
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "services/catalog/**"
+      - ".github/workflows/php-static-analysis.yml"
+  pull_request:
+    paths:
+      - "services/catalog/**"
+      - ".github/workflows/php-static-analysis.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: php-static-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  larastan:
+    name: Larastan (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - catalog
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          extensions: mbstring, intl, bcmath, sockets, pdo_pgsql, zip, xml
+          coverage: none
+          tools: composer:v2
+          ini-values: memory_limit=-1
+
+      - name: Resolve Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('services/catalog/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp -n .env.example .env
+          php artisan key:generate --force
+
+      - name: Run Larastan
+        run: php vendor/bin/phpstan analyse --no-progress --memory-limit=1G --error-format=github

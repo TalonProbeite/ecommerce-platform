@@ -1,0 +1,62 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Api\V1;
+
+use App\Contracts\Services\CategoryServiceInterface;
+use App\DTO\CreateCategoryData;
+use App\DTO\UpdateCategoryData;
+use App\Exceptions\CategoryNotFoundException;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\CreateCategoryRequest;
+use App\Http\Requests\UpdateCategoryRequest;
+use App\Http\Resources\CategoryResource;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
+
+final class CategoryController extends Controller
+{
+    public function __construct(
+        private readonly CategoryServiceInterface $categories,
+    ) {
+    }
+
+    public function index(string $storeId): JsonResponse
+    {
+        return CategoryResource::collection($this->categories->list($storeId))->response();
+    }
+
+    public function show(string $storeId, string $categoryId): JsonResponse
+    {
+        $category = $this->categories->getWithAncestors($categoryId, $storeId);
+
+        if ($category === null) {
+            throw new CategoryNotFoundException($categoryId);
+        }
+
+        return (new CategoryResource($category))->response();
+    }
+
+    public function children(string $storeId, string $categoryId): JsonResponse
+    {
+        return CategoryResource::collection($this->categories->getChildren($categoryId, $storeId))->response();
+    }
+
+    public function store(CreateCategoryRequest $request, string $storeId): JsonResponse
+    {
+        return (new CategoryResource($this->categories->create($storeId, CreateCategoryData::fromArray($request->validated()))))->response()->setStatusCode(201);
+    }
+
+    public function update(UpdateCategoryRequest $request, string $storeId, string $categoryId): JsonResponse
+    {
+        return (new CategoryResource($this->categories->update($categoryId, $storeId, UpdateCategoryData::fromArray($request->validated()))))->response();
+    }
+
+    public function destroy(string $storeId, string $categoryId): Response
+    {
+        $this->categories->delete($categoryId, $storeId);
+
+        return response()->noContent();
+    }
+}

@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { ROUTES, isOAuthHandoffPath } from '@/app/routes'
 import { useAuthStore } from '@/store/auth-store'
-import { isMockApi } from '@/api/client'
+import { IS_CATALOG_LIVE } from '@/api/endpoints'
 import { SiteFooter } from './site-footer'
 import { SiteHeader } from './site-header'
 
@@ -27,7 +27,7 @@ export function AppLayout({ children }: { children?: ReactNode }) {
       </a>
       <SiteHeader />
       <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 scroll-mt-20">
-        {!isMockApi && (pathname === ROUTES.catalog || pathname.startsWith('/equipment/') || pathname.startsWith(ROUTES.checkout)) ? <p role="status" className="mx-auto mt-4 max-w-7xl rounded-xl bg-secondary px-4 py-3 text-sm">Demo equipment. Live availability and rental booking are not available yet.</p> : null}
+        {IS_CATALOG_LIVE && (pathname === ROUTES.catalog || pathname.startsWith('/equipment/') || pathname.startsWith(ROUTES.checkout)) ? <p role="status" className="mx-auto mt-4 max-w-7xl rounded-xl bg-secondary px-4 py-3 text-sm">Catalog data is live. Online rental booking is not connected yet.</p> : null}
         {children ?? <Outlet />}
       </main>
       <SiteFooter />

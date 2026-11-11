@@ -7,25 +7,33 @@ namespace App\Repositories;
 use App\Contracts\Repositories\CategoryRepositoryInterface;
 use App\Models\Category;
 use Illuminate\Database\Eloquent\Collection;
+use App\DTO\CreateCategoryData;
+use App\DTO\UpdateCategoryData;
 
 class CategoryRepository implements CategoryRepositoryInterface
 {
     /**
-     * Find a category by its ID.
+     * Find a category within a store with its ancestor chain eager loaded.
      */
-    public function findByID(string $id): ?Category
+    public function findByStoreAndID(string $id, string $storeId): ?Category
     {
-        return Category::find($id);
+        return Category::with('recursiveParent')
+            ->where('id', $id)
+            ->where('store_id', $storeId)
+            ->first();
     }
 
     /**
-     * Find all categories for a given store.
+     * Find all root categories for a given store with their descendant tree.
      *
      * @return Collection<int, Category>
      */
     public function findByStore(string $storeID): Collection
     {
-        return Category::where('store_id', $storeID)->get();
+        return Category::whereNull('parent_id')
+                ->where('store_id', $storeID)
+                ->with('recursiveChildren')
+                ->get();
     }
 
     /**
@@ -52,20 +60,62 @@ class CategoryRepository implements CategoryRepositoryInterface
             ->get();
     }
 
-    /**
-     * Save a category.
-     */
-    public function save(Category $category): Category
+    public function createCategory(CreateCategoryData $data, string $storeId): Category
     {
+        $category = new Category();
+        $category->fill($data->toArray());
+        $category->store_id = $storeId;
         $category->saveOrFail();
         return $category;
     }
 
-    /**
-     * Delete a category.
-     */
-    public function delete(Category $category): void
+    public function updateCategory(string $categoryId, string $storeId, UpdateCategoryData $data): ?Category
     {
+        $category = Category::where('id', $categoryId)
+            ->where('store_id', $storeId)
+            ->first();
+
+        if ($category === null) {
+            return null;
+        }
+
+        $category->fill($data->toArray());
+        $category->saveOrFail();
+
+        return $category;
+    }
+
+    public function deleteCategory(string $categoryId, string $storeId): ?Category
+    {
+        $category = Category::where('id', $categoryId)
+            ->where('store_id', $storeId)
+            ->first();
+
+        if ($category === null) {
+            return null;
+        }
+
         $category->deleteOrFail();
+
+        return $category;
+    }
+
+    /**
+     * Lock a category row for update. Must be called inside a DB transaction.
+     */
+    public function lockByStoreAndId(string $categoryId, string $storeId): ?Category
+    {
+        return Category::query()
+            ->whereKey($categoryId)
+            ->where('store_id', $storeId)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    public function hasSubcategories(string $categoryId, string $storeId): bool
+    {
+        return Category::where('parent_id', $categoryId)
+                ->where('store_id', $storeId)
+                ->exists();
     }
 }

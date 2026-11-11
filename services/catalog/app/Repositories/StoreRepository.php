@@ -8,6 +8,8 @@ use App\Contracts\Repositories\StoreRepositoryInterface;
 use App\Models\Store;
 use App\DTO\StoreFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use App\DTO\CreateStoreData;
+use App\DTO\UpdateStoreData;
 
 class StoreRepository implements StoreRepositoryInterface
 {
@@ -39,20 +41,49 @@ class StoreRepository implements StoreRepositoryInterface
         return Store::find($id);
     }
 
-    /**
-     * Save a store.
-     */
-    public function save(Store $store): Store
+    public function createStore(CreateStoreData $data): Store
     {
+        $store =  new Store();
+        $store->fill($data->toArray());
         $store->saveOrFail();
         return $store;
     }
 
-    /**
-     * Delete a store.
-     */
-    public function delete(Store $store): void
+    public function updateStore(string $id, UpdateStoreData $data): ?Store
     {
+        $store = Store::find($id);
+
+        if ($store === null) {
+            return null;
+        }
+
+        $store->fill($data->toArray());
+        $store->saveOrFail();
+
+        return $store;
+    }
+
+    public function deleteStore(string $storeID): ?Store
+    {
+        $store = Store::find($storeID);
+
+        if ($store === null) {
+            return null;
+        }
+
         $store->deleteOrFail();
+
+        return $store;
+    }
+
+    /**
+     * Lock a store row for update. Must be called inside a DB transaction.
+     */
+    public function lockById(string $storeId): ?Store
+    {
+        return Store::query()
+            ->whereKey($storeId)
+            ->lockForUpdate()
+            ->first();
     }
 }

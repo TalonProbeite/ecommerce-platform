@@ -3,15 +3,16 @@ package domain
 import "shop/shared/roles"
 
 type User struct {
-	ID              string     `db:"id"`
-	Email           string     `db:"email"`
+	StoreID         *string    `db:"store_id"`
+	Phone           string     `db:"phone"`
 	Password        string     `db:"password_hash"`
 	Role            roles.Role `db:"role"`
 	FirstName       string     `db:"first_name"`
 	LastName        string     `db:"last_name"`
-	Phone           string     `db:"phone"`
+	ID              string     `db:"id"`
 	Provider        Provider   `db:"provider"`
 	ProviderUserID  string     `db:"provider_user_id"`
+	Email           string     `db:"email"`
 	IsActive        bool       `db:"is_active"`
 	IsEmailVerified bool       `db:"is_email_verified"`
 	IsOAuth         bool       `db:"is_oauth"`
@@ -43,6 +44,7 @@ type OAuthRegistrationData struct {
 }
 
 type UserProfile struct {
+	StoreID    *string    `json:"store_id,omitempty"`
 	Email      string     `json:"email"`
 	FirstName  string     `json:"first_name"`
 	LastName   string     `json:"last_name"`

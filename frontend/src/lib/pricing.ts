@@ -16,6 +16,18 @@ export function formatCurrency(value: number): string {
   return Number.isInteger(value) ? wholeCurrency.format(value) : preciseCurrency.format(value)
 }
 
+export function centsToAmount(cents: number): number {
+  return cents / 100
+}
+
+export function amountToCents(amount: number): number {
+  return Math.round(amount * 100)
+}
+
+export function formatCents(cents: number): string {
+  return formatCurrency(centsToAmount(cents))
+}
+
 function toLocalISO(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')

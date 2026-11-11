@@ -29,6 +29,16 @@ interface StockReservationRepositoryInterface
     public function findActiveByStore(string $storeID, ?string $status = null): Collection;
 
     /**
+     * Determine whether the store has any reserved or issued reservations.
+     */
+    public function hasActiveByStore(string $storeId): bool;
+
+    /**
+     * Determine whether the product has any reserved or issued reservations.
+     */
+    public function hasActiveByProduct(string $productId): bool;
+
+    /**
      * Save a stock reservation.
      */
     public function save(StockReservation $stockReservation): StockReservation;

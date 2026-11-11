@@ -7,6 +7,8 @@ namespace App\Contracts\Repositories;
 use App\Models\Store;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use App\DTO\StoreFilters;
+use App\DTO\CreateStoreData;
+use App\DTO\UpdateStoreData;
 
 interface StoreRepositoryInterface
 {
@@ -22,13 +24,14 @@ interface StoreRepositoryInterface
      */
     public function findAll(StoreFilters $filters): LengthAwarePaginator;
 
-    /**
-     * Save a store.
-     */
-    public function save(Store $store): Store;
+    public function createStore(CreateStoreData $data): Store;
+
+    public function updateStore(string $id, UpdateStoreData $data): ?Store;
+
+    public function deleteStore(string $storeID): ?Store;
 
     /**
-     * Delete a store.
+     * Lock a store row for update. Must be called inside a DB transaction.
      */
-    public function delete(Store $store): void;
+    public function lockById(string $storeId): ?Store;
 }

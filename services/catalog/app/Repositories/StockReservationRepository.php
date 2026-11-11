@@ -43,6 +43,28 @@ class StockReservationRepository implements StockReservationRepositoryInterface
     }
 
     /**
+     * Determine whether the store has any reserved or issued reservations.
+     */
+    public function hasActiveByStore(string $storeId): bool
+    {
+        return StockReservation::query()
+            ->where('store_id', $storeId)
+            ->whereIn('status', ['reserved', 'issued'])
+            ->exists();
+    }
+
+    /**
+     * Determine whether the product has any reserved or issued reservations.
+     */
+    public function hasActiveByProduct(string $productId): bool
+    {
+        return StockReservation::query()
+            ->where('product_id', $productId)
+            ->whereIn('status', ['reserved', 'issued'])
+            ->exists();
+    }
+
+    /**
      * Save a stock reservation.
      */
     public function save(StockReservation $stockReservation): StockReservation

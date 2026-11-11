@@ -26,6 +26,9 @@ namespace App\Models{
  * @property-read Category|null $parent
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Product> $products
  * @property-read int|null $products_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Category> $recursiveChildren
+ * @property-read int|null $recursive_children_count
+ * @property-read Category|null $recursiveParent
  * @property-read \App\Models\Store|null $store
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Category newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Category newQuery()
@@ -55,8 +58,6 @@ namespace App\Models{
  * @property string|null $description
  * @property int $price_per_hour
  * @property int $deposit_amount
- * @property numeric $rating
- * @property int $reviews_count
  * @property bool $is_active
  * @property string $store_id
  * @property string $category_id
@@ -85,8 +86,6 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Product whereIsActive($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Product whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Product wherePricePerHour($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Product whereRating($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Product whereReviewsCount($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Product whereSlug($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Product whereStoreId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Product whereUpdatedAt($value)
@@ -126,9 +125,10 @@ namespace App\Models{
 /**
  * @property string $id
  * @property string $product_id
- * @property string $path
+ * @property string $object_key
+ * @property string|null $mime_type
+ * @property int|null $size
  * @property bool $is_main
- * @property int $sort_order
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \App\Models\Product|null $product
@@ -138,9 +138,10 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ProductImage whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ProductImage whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ProductImage whereIsMain($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ProductImage wherePath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProductImage whereMimeType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProductImage whereObjectKey($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ProductImage whereProductId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ProductImage whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProductImage whereSize($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ProductImage whereUpdatedAt($value)
  * @mixin \Eloquent
  */
@@ -157,7 +158,7 @@ namespace App\Models{
  * @property int $reserved
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read int $available
+ * @property-read mixed $available
  * @property-read \App\Models\Product|null $product
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\StockReservation> $stockReservations
  * @property-read int|null $stock_reservations_count
@@ -250,3 +251,4 @@ namespace App\Models{
 	#[\AllowDynamicProperties]
 	class IdeHelperStore {}
 }
+

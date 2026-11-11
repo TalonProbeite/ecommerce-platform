@@ -150,6 +150,7 @@ func (as *AuthService) Login(
 		LastName:   user.LastName,
 		Phone:      user.Phone,
 		Role:       user.Role,
+		StoreID:    user.StoreID,
 		IsVerified: user.IsEmailVerified,
 	}, nil
 }
@@ -236,6 +237,7 @@ func (as *AuthService) Refresh(
 	newAccessToken, err := as.tokenMng.GenerateToken(
 		session.UserID,
 		user.Role,
+		user.StoreID,
 	)
 	if err != nil {
 		return domain.TokenPair{}, fmt.Errorf(

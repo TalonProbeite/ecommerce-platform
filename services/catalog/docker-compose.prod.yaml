@@ -1,91 +1,143 @@
 name: shop-catalog-prod
 
+x-catalog-build: &catalog-build
+  context: ..
+  dockerfile: catalog/Dockerfile
+  args:
+    COMPOSER_NO_DEV: "1"
+
+x-catalog-app-env: &catalog-app-env
+  APP_ENV: ${APP_ENV:-production}
+  APP_DEBUG: ${APP_DEBUG:-false}
+  APP_KEY: ${APP_KEY:?APP_KEY must be set in services/catalog/.env}
+  APP_URL: ${APP_URL:?APP_URL must be set in services/catalog/.env}
+  LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+  DB_CONNECTION: pgsql
+  DB_HOST: catalog-db
+  DB_PORT: "5432"
+  DB_DATABASE: ${DB_DATABASE:?DB_DATABASE must be set in services/catalog/.env}
+  DB_USERNAME: ${DB_USERNAME:?DB_USERNAME must be set in services/catalog/.env}
+  DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in services/catalog/.env}
+
+  CACHE_STORE: redis
+  REDIS_CLIENT: phpredis
+  REDIS_HOST: catalog-redis
+  REDIS_PORT: "6379"
+  SESSION_DRIVER: array
+  QUEUE_CONNECTION: sync
+
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+  RABBITMQ_USER: ${RABBITMQ_USER:?RABBITMQ_USER must be set in services/catalog/.env}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD must be set in services/catalog/.env}
+  RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+
+  JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?JWT_PUBLIC_KEY_B64 must be set in services/catalog/.env}
+
+  FILESYSTEM_DISK: seaweedfs
+  CATALOG_IMAGES_DISK: seaweedfs
+  SEAWEEDFS_ENDPOINT: http://catalog-seaweedfs:8333
+  SEAWEEDFS_ACCESS_KEY_ID: ${SEAWEEDFS_ACCESS_KEY_ID:?SEAWEEDFS_ACCESS_KEY_ID must be set in services/catalog/.env}
+  SEAWEEDFS_SECRET_ACCESS_KEY: ${SEAWEEDFS_SECRET_ACCESS_KEY:?SEAWEEDFS_SECRET_ACCESS_KEY must be set in services/catalog/.env}
+  SEAWEEDFS_REGION: ${SEAWEEDFS_REGION:-us-east-1}
+  SEAWEEDFS_BUCKET: ${SEAWEEDFS_BUCKET:-catalog}
+  SEAWEEDFS_PUBLIC_URL: ${SEAWEEDFS_PUBLIC_URL:?SEAWEEDFS_PUBLIC_URL must be set in services/catalog/.env}
+
 services:
   catalog-db:
     image: postgres:16-alpine
     container_name: catalog-db-prod
-    ports:
-      - "127.0.0.1:5433:5432"
     restart: always
-    env_file:
-      - path: .env
-        required: false
+    env_file: .env
     environment:
-      POSTGRES_DB: ${DB_DATABASE:-catalog_db}
-      POSTGRES_USER: ${DB_USERNAME:-admin}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+      POSTGRES_DB: ${DB_DATABASE:?DB_DATABASE must be set in services/catalog/.env}
+      POSTGRES_USER: ${DB_USERNAME:?DB_USERNAME must be set in services/catalog/.env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in services/catalog/.env}
     volumes:
       - catalog_postgres_data:/var/lib/postgresql/data
     networks:
       - catalog_internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-admin} -d ${DB_DATABASE:-catalog_db}"]
-      interval: 10s
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 10s
 
   catalog-redis:
     image: redis:7-alpine
     container_name: catalog-redis-prod
-    ports:
-      - "127.0.0.1:6380:6379"
     restart: always
+    env_file: .env
     volumes:
       - catalog_redis_data:/data
     networks:
       - catalog_internal
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 5s
 
   catalog-seaweedfs:
-    image: chrislusf/seaweedfs:latest
+    image: chrislusf/seaweedfs:4.52
     container_name: catalog-seaweedfs-prod
-    ports:
-      - "127.0.0.1:8333:8333"
     restart: always
+    env_file: .env
     environment:
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-seaweed_admin}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-seaweed_secret_123}
-      S3_BUCKET: ${AWS_BUCKET:-catalog_assets}
-    command: ["mini", "-dir=/data"]
+      SEAWEEDFS_ACCESS_KEY_ID: ${SEAWEEDFS_ACCESS_KEY_ID:?SEAWEEDFS_ACCESS_KEY_ID must be set in services/catalog/.env}
+      SEAWEEDFS_SECRET_ACCESS_KEY: ${SEAWEEDFS_SECRET_ACCESS_KEY:?SEAWEEDFS_SECRET_ACCESS_KEY must be set in services/catalog/.env}
     volumes:
+      - ./docker/seaweedfs/s3.json.tpl:/etc/seaweedfs/s3.json.tpl:ro
       - catalog_seaweedfs_data:/data
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - >-
+        sed -e "s|__ACCESS_KEY__|$$SEAWEEDFS_ACCESS_KEY_ID|g"
+        -e "s|__SECRET_KEY__|$$SEAWEEDFS_SECRET_ACCESS_KEY|g"
+        /etc/seaweedfs/s3.json.tpl > /tmp/s3.json &&
+        exec weed server
+        -dir=/data
+        -master.port=9333
+        -filer
+        -s3
+        -s3.port=8333
+        -s3.config=/tmp/s3.json
+        -ip.bind=0.0.0.0
     networks:
       - catalog_internal
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9333/cluster/status"]
+      test: [ "CMD", "wget", "--spider", "-q", "http://127.0.0.1:9333/cluster/status" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
 
-  # Laravel runs on the host by default. The container runtime is not configured yet.
+  catalog-migrate:
+    build: *catalog-build
+    image: shop-catalog-app:prod
+    container_name: catalog-migrate-prod
+    restart: "no"
+    env_file: .env
+    environment: *catalog-app-env
+    command: [ "php", "artisan", "migrate", "--force", "--no-interaction" ]
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+    networks:
+      - catalog_internal
+
   catalog-app:
-    profiles: [catalog-container]
-    image: shop-catalog-app:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: *catalog-build
+    image: shop-catalog-app:prod
     container_name: catalog-app-prod
     restart: always
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      APP_ENV: ${APP_ENV:-production}
-      APP_DEBUG: ${APP_DEBUG:-false}
-      APP_PORT: ${APP_PORT:-8000}
-      DB_HOST: catalog-db
-      DB_PORT: 5432
-      REDIS_HOST: catalog-redis
-      REDIS_PORT: 6379
-      AWS_ENDPOINT: http://catalog-seaweedfs:8333
+    env_file: .env
+    environment: *catalog-app-env
     depends_on:
+      catalog-migrate:
+        condition: service_completed_successfully
       catalog-db:
         condition: service_healthy
       catalog-redis:
@@ -93,18 +145,17 @@ services:
       catalog-seaweedfs:
         condition: service_healthy
     networks:
-      - shop_global
       - catalog_internal
+      - shop_global
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8000/up || exit 1"]
+      test: [ "CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/healthz" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
 
   catalog-nginx:
-    profiles: [catalog-container]
-    image: nginx:alpine
+    image: nginx:1.28-alpine
     container_name: catalog-nginx-prod
     restart: always
     volumes:
@@ -114,10 +165,10 @@ services:
       catalog-app:
         condition: service_healthy
     networks:
-      - shop_global
       - catalog_internal
+      - shop_global
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-check-certificate -q --spider https://127.0.0.1/ || exit 1"]
+      test: [ "CMD-SHELL", "wget --no-verbose --no-check-certificate --tries=1 --spider https://localhost:443/healthz || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -131,6 +182,6 @@ volumes:
 networks:
   catalog_internal:
     driver: bridge
-
   shop_global:
     name: shop_global
+    driver: bridge
