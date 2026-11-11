@@ -1,3 +1,4 @@
+import { amountToCents } from '@/lib/pricing'
 import type { ProductListParams, ProductSortField, SortDirection } from '@/types/catalog'
 
 export const CATALOG_PAGE_SIZE = 24
@@ -35,6 +36,16 @@ function positiveInt(value: string | null): number | undefined {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
 }
 
+function positiveNumber(value: string | null): number | undefined {
+  if (!value) return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
+}
+
+function moneyToCents(value: number | undefined): number | undefined {
+  return value === undefined ? undefined : amountToCents(value)
+}
+
 function sortToApi(sort: CatalogSort): { sort: ProductSortField; sort_direction: SortDirection } {
   if (sort === 'price_asc') return { sort: 'price_per_hour', sort_direction: 'asc' }
   if (sort === 'price_desc') return { sort: 'price_per_hour', sort_direction: 'desc' }
@@ -52,9 +63,9 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilterState
   return {
     storeId: uuidOrEmpty(params.get('store')),
     categoryId: uuidOrEmpty(params.get('category')),
-    minPrice: positiveInt(params.get('min_price')),
-    maxPrice: positiveInt(params.get('max_price')),
-    maxDeposit: positiveInt(params.get('max_deposit')),
+    minPrice: positiveNumber(params.get('min_price')),
+    maxPrice: positiveNumber(params.get('max_price')),
+    maxDeposit: positiveNumber(params.get('max_deposit')),
     availableOnly: params.get('available') === '1',
     sort,
     page,
@@ -67,9 +78,9 @@ export function toProductListParams(filters: CatalogFilterState): ProductListPar
   return {
     store_id: filters.storeId || undefined,
     category_id: filters.categoryId || undefined,
-    min_price: filters.minPrice,
-    max_price: filters.maxPrice,
-    max_deposit: filters.maxDeposit,
+    min_price: moneyToCents(filters.minPrice),
+    max_price: moneyToCents(filters.maxPrice),
+    max_deposit: moneyToCents(filters.maxDeposit),
     available_only: filters.availableOnly || undefined,
     sort,
     sort_direction,

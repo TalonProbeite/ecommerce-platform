@@ -3,7 +3,7 @@ import { Loader2, Plus, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { catalogErrorMessage } from '@/lib/catalog/api'
 import { FALLBACK_IMAGE, flattenCategoryTree } from '@/lib/catalog-mapping'
-import { formatCurrency } from '@/lib/pricing'
+import { formatCents } from '@/lib/pricing'
 import type { AsyncState } from '@/hooks/use-catalog-data'
 import { useAdminProducts } from '@/hooks/use-admin-catalog'
 import { adminDeleteProduct, adminRestoreProduct } from '@/services/catalog'
@@ -197,11 +197,12 @@ export function ProductSection({ storeId, categories }: { storeId: string; categ
           No products match these filters.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border bg-card">
+        <div className="overflow-x-auto rounded-2xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-5">Product</TableHead>
+                <TableHead>ID</TableHead>
                 <TableHead className="hidden md:table-cell">Category</TableHead>
                 <TableHead>Price / hour</TableHead>
                 <TableHead className="hidden sm:table-cell">Deposit</TableHead>
@@ -221,9 +222,12 @@ export function ProductSection({ storeId, categories }: { storeId: string; categ
                       </div>
                     </div>
                   </TableCell>
+                  <TableCell>
+                    <span className="font-mono text-xs text-muted-foreground">{product.id}</span>
+                  </TableCell>
                   <TableCell className="hidden md:table-cell">{productCategory(product)}</TableCell>
-                  <TableCell>{formatCurrency(product.price_per_hour)}</TableCell>
-                  <TableCell className="hidden sm:table-cell">{formatCurrency(product.deposit_amount)}</TableCell>
+                  <TableCell>{formatCents(product.price_per_hour)}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{formatCents(product.deposit_amount)}</TableCell>
                   <TableCell className="hidden sm:table-cell">
                     <Badge className="rounded-full px-3">{product.is_active ? 'Active' : 'Inactive'}</Badge>
                   </TableCell>

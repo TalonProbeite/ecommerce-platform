@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { catalogErrorMessage } from '@/lib/catalog/api'
 import { flattenCategoryTree } from '@/lib/catalog-mapping'
 import { slugify } from '@/lib/catalog/slug'
+import { amountToCents, centsToAmount } from '@/lib/pricing'
 import { useAdminProduct } from '@/hooks/use-admin-catalog'
 import {
   adminCreateProduct,
@@ -53,6 +54,10 @@ const EMPTY_FORM: ProductFormState = {
   active: true,
 }
 
+function isMoneyAmount(value: number): boolean {
+  return Number.isFinite(value) && value >= 0 && Math.abs(Math.round(value * 100) - value * 100) < 1e-6
+}
+
 export function ProductFormDialog({
   open,
   onOpenChange,
@@ -100,8 +105,8 @@ export function ProductFormDialog({
       slug: product.slug,
       description: product.description ?? '',
       categoryId: product.category_id,
-      price: String(product.price_per_hour),
-      deposit: String(product.deposit_amount),
+      price: String(centsToAmount(product.price_per_hour)),
+      deposit: String(centsToAmount(product.deposit_amount)),
       quantity: String(product.stock?.quantity ?? 0),
       active: product.is_active,
     })
@@ -134,12 +139,12 @@ export function ProductFormDialog({
     const price = Number(form.price)
     const deposit = Number(form.deposit)
     const quantity = Number(form.quantity)
-    if (!Number.isInteger(price) || price < 0) {
-      setError('Enter a whole-number hourly price.')
+    if (!isMoneyAmount(price)) {
+      setError('Enter a valid hourly price with up to two decimals.')
       return
     }
-    if (!Number.isInteger(deposit) || deposit < 0) {
-      setError('Enter a whole-number deposit amount.')
+    if (!isMoneyAmount(deposit)) {
+      setError('Enter a valid deposit amount with up to two decimals.')
       return
     }
     const incompleteAttribute = attributes.some(
@@ -161,8 +166,8 @@ export function ProductFormDialog({
           name: form.name.trim(),
           slug: form.slug.trim(),
           category_id: form.categoryId,
-          price_per_hour: price,
-          deposit_amount: deposit,
+          price_per_hour: amountToCents(price),
+          deposit_amount: amountToCents(deposit),
           description: form.description.trim() || null,
           is_active: form.active,
           attributes: cleanAttributes,
@@ -179,8 +184,8 @@ export function ProductFormDialog({
           name: form.name.trim(),
           slug: form.slug.trim(),
           category_id: form.categoryId,
-          price_per_hour: price,
-          deposit_amount: deposit,
+          price_per_hour: amountToCents(price),
+          deposit_amount: amountToCents(deposit),
           quantity,
           description: form.description.trim() || null,
           is_active: form.active,
@@ -351,12 +356,12 @@ export function ProductFormDialog({
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="product-price">Price / hour</Label>
-                <Input id="product-price" type="number" min={0} step={1} inputMode="numeric" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required />
+                <Label htmlFor="product-price">Price / hour (USD)</Label>
+                <Input id="product-price" type="number" min={0} step={0.01} inputMode="decimal" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="product-deposit">Deposit</Label>
-                <Input id="product-deposit" type="number" min={0} step={1} inputMode="numeric" value={form.deposit} onChange={(event) => setForm({ ...form, deposit: event.target.value })} />
+                <Label htmlFor="product-deposit">Deposit (USD)</Label>
+                <Input id="product-deposit" type="number" min={0} step={0.01} inputMode="decimal" value={form.deposit} onChange={(event) => setForm({ ...form, deposit: event.target.value })} />
               </div>
               {!isEdit ? (
                 <div className="space-y-1.5">

@@ -238,36 +238,39 @@ function FiltersBar({
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1.5">
-          <Label htmlFor="catalog-min-price">Min price / hour</Label>
+          <Label htmlFor="catalog-min-price">Min price / hour (USD)</Label>
           <Input
             id="catalog-min-price"
             type="number"
             min={0}
-            inputMode="numeric"
+            step={0.01}
+            inputMode="decimal"
             placeholder="0"
             value={filters.minPrice ?? ''}
             onChange={(event) => update('min_price', event.target.value)}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="catalog-max-price">Max price / hour</Label>
+          <Label htmlFor="catalog-max-price">Max price / hour (USD)</Label>
           <Input
             id="catalog-max-price"
             type="number"
             min={0}
-            inputMode="numeric"
+            step={0.01}
+            inputMode="decimal"
             placeholder="Any"
             value={filters.maxPrice ?? ''}
             onChange={(event) => update('max_price', event.target.value)}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="catalog-max-deposit">Max deposit</Label>
+          <Label htmlFor="catalog-max-deposit">Max deposit (USD)</Label>
           <Input
             id="catalog-max-deposit"
             type="number"
             min={0}
-            inputMode="numeric"
+            step={0.01}
+            inputMode="decimal"
             placeholder="Any"
             value={filters.maxDeposit ?? ''}
             onChange={(event) => update('max_deposit', event.target.value)}

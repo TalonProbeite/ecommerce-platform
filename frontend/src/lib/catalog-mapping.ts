@@ -1,3 +1,4 @@
+import { centsToAmount } from '@/lib/pricing'
 import type { Equipment } from '@/types'
 import type { Category as ApiCategory, Product, Store } from '@/types/catalog'
 
@@ -26,9 +27,9 @@ export function toEquipment(product: Product, store?: Store, categoryName?: stri
     category: product.category_id,
     categoryLabel: categoryName ?? product.category?.name ?? product.category_name ?? undefined,
     image: product.main_image_url || FALLBACK_IMAGE,
-    pricePerDay: product.price_per_hour,
+    pricePerDay: centsToAmount(product.price_per_hour),
     priceUnit: 'hour',
-    deposit: product.deposit_amount,
+    deposit: centsToAmount(product.deposit_amount),
     rating: 0,
     reviewCount: 0,
     location: store?.location ?? '',

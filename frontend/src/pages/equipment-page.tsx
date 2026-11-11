@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import { ROUTES } from '@/app/routes'
 import { EmptyState } from '@/components/common/empty-state'
 import { LinkButton } from '@/components/common/link-button'
-import { Rating } from '@/components/common/rating'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -65,7 +64,6 @@ function EquipmentDetail({ item, image, canBook, isGuest }: { item: Equipment; i
             <p className="text-sm font-bold text-primary">{item.categoryLabel ?? getCategoryLabel(item.category)}</p>
             <h1 className="mt-1 text-balance text-3xl font-extrabold tracking-tight sm:text-4xl">{item.name}</h1>
             <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
-              {item.rating > 0 ? <Rating value={item.rating} count={item.reviewCount} /> : null}
               {item.location ? (
                 <span className="inline-flex items-center gap-1">
                   <MapPin className="size-4" aria-hidden="true" /> {item.location}

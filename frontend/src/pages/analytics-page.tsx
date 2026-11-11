@@ -55,17 +55,15 @@ export function AnalyticsPage() {
 
   const totalRevenue = revenueByCategory.reduce((sum, row) => sum + row.value, 0)
   const totalRentals = EQUIPMENT.reduce((sum, item) => sum + item.totalRentals, 0)
-  const avgRating = EQUIPMENT.reduce((sum, item) => sum + item.rating, 0) / EQUIPMENT.length
   const maxMonth = Math.max(...MONTHLY_REVENUE.map((entry) => entry.value))
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <PageHeader title="Analytics" description="Performance overview across the whole marketplace." />
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <StatCard label="Estimated revenue" value={formatCurrency(totalRevenue)} hint="Lifetime, all categories" />
         <StatCard label="Total rentals" value={totalRentals.toLocaleString('en-US')} />
-        <StatCard label="Average rating" value={avgRating.toFixed(2)} hint="Across all listings" />
       </div>
 
       <section className="mt-6 rounded-3xl border bg-card p-6" aria-labelledby="monthly-heading">
