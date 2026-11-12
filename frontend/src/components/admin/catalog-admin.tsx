@@ -90,6 +90,7 @@ export function CatalogAdmin({
                 {storeItems.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
               </SelectContent>
             </Select>
+            {selectedStoreId ? <p className="break-all font-mono text-[11px] text-muted-foreground">ID: {selectedStoreId}</p> : null}
           </div>
           <Button variant="outline" className="h-10 rounded-full px-4" onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" aria-hidden="true" /> New store

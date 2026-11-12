@@ -194,6 +194,10 @@ export function StoreSection({
   return (
     <form onSubmit={submit} className="max-w-2xl space-y-4 rounded-2xl border bg-card p-5 sm:p-6">
       <div className="space-y-1.5">
+        <Label htmlFor="store-id">Store ID</Label>
+        <Input id="store-id" value={storeId} readOnly className="font-mono text-xs" />
+      </div>
+      <div className="space-y-1.5">
         <Label htmlFor="store-name">Name</Label>
         <Input id="store-name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />
       </div>

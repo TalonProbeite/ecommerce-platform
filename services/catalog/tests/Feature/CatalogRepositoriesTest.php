@@ -270,12 +270,13 @@ class CatalogRepositoriesTest extends PostgresTestCase
         ProductImage::create(['product_id' => $this->product->id, 'object_key' => 'second.jpg']);
         Stock::create(['product_id' => $this->product->id, 'store_id' => $this->store->id, 'quantity' => 10, 'reserved' => 3]);
         $product = (new ProductRepository())->findDetailedById($this->product->id, $this->store->id);
-        foreach (['category', 'attributes', 'images', 'stock'] as $relation) {
+        foreach (['category', 'attributes', 'images', 'mainImage', 'stock'] as $relation) {
             self::assertTrue($product->relationLoaded($relation));
         }
         self::assertTrue($product->category->is($this->category));
         self::assertSame(['800 W'], $product->attributes->pluck('value')->all());
         self::assertSame(['first.jpg', 'second.jpg'], $product->images->pluck('object_key')->all());
+        self::assertSame('first.jpg', $product->mainImage?->object_key);
         self::assertSame(7, $product->stock->available);
         self::assertSame(100, $product->price_per_hour);
         self::assertTrue($product->is_active);
