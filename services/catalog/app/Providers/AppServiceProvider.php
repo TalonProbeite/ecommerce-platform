@@ -28,6 +28,11 @@ use App\Infrastructure\Cache\CategoryCache;
 use App\Infrastructure\Health\ReadinessChecker;
 use Aws\S3\S3Client;
 use App\Infrastructure\Cache\ProductCache;
+use App\Messaging\Inbound\Handlers\OrderCancelledHandler;
+use App\Messaging\Inbound\Handlers\OrderCreatedHandler;
+use App\Messaging\Inbound\Handlers\OrderIssuedHandler;
+use App\Messaging\Inbound\Handlers\OrderReturnedHandler;
+use App\Messaging\Inbound\InboundHandlerRegistry;
 use App\Messaging\RabbitMqPublisher;
 use App\Models\Category;
 use App\Observers\CategoryObserver;
@@ -90,6 +95,18 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(RabbitMqPublisher::class);
         $this->app->alias(RabbitMqPublisher::class, EventPublisherInterface::class);
+
+        $this->app->tag([
+            OrderCreatedHandler::class,
+            OrderCancelledHandler::class,
+            OrderIssuedHandler::class,
+            OrderReturnedHandler::class,
+        ], 'inbound.handlers');
+
+        $this->app->singleton(InboundHandlerRegistry::class, static function ($app): InboundHandlerRegistry {
+            return new InboundHandlerRegistry($app->tagged('inbound.handlers'));
+        });
+
         $this->app->singleton(AmqpOutboxPublisher::class);
         $this->app->alias(AmqpOutboxPublisher::class, OutboxMessagePublisherInterface::class);
         $this->app->singleton(CategoryCache::class);

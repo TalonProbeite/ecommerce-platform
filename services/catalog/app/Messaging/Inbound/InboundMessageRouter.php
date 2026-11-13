@@ -25,7 +25,7 @@ final readonly class InboundMessageRouter
 
     public function dispatch(AMQPMessage $message): InboundOutcome
     {
-        $routingKey = $message->getRoutingKey();
+        $routingKey = $message->getRoutingKey() ?? '';
         $messageId = $message->has('message_id') ? (string) $message->get('message_id') : null;
         $eventId = null;
 
