@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Services\Inbound;
 
 use App\Contracts\Database\TransactionRunnerInterface;
+use App\Contracts\Outbox\OutboxWriterInterface;
 use App\Contracts\Repositories\ProcessedEventRepositoryInterface;
 use App\Contracts\Repositories\StockRepositoryInterface;
 use App\Contracts\Repositories\StockReservationRepositoryInterface;
 use App\Contracts\Services\Inbound\OrderFulfilmentServiceInterface;
 use App\Enums\ReservationStatus;
+use App\Messaging\Events\StockChanged;
 use App\Messaging\Inbound\Data\OrderIssuedData;
 use App\Messaging\Inbound\Data\OrderLineData;
 use App\Messaging\Inbound\Data\OrderReturnedData;
@@ -29,6 +31,7 @@ final class OrderFulfilmentService implements OrderFulfilmentServiceInterface
         private readonly StockReservationRepositoryInterface $reservations,
         private readonly ProcessedEventRepositoryInterface $processedEvents,
         private readonly TransactionRunnerInterface $transactions,
+        private readonly OutboxWriterInterface $outbox,
     ) {
     }
 
@@ -38,8 +41,6 @@ final class OrderFulfilmentService implements OrderFulfilmentServiceInterface
             if (! $this->processedEvents->markProcessed($data->eventId, InboundRoutingKeys::ORDER_ISSUED, $now)) {
                 return ProcessingResult::duplicate();
             }
-
-            $this->lockStocks($data->items, $data->storeId);
 
             foreach ($this->sortedItems($data->items) as $item) {
                 $reservation = $this->reservations->findByLineIdForUpdate($item->lineId)
@@ -111,6 +112,13 @@ final class OrderFulfilmentService implements OrderFulfilmentServiceInterface
                 // Issued units still count as reserved, so returning releases them.
                 $this->adjustReserved($stock, -$reservation->quantity);
                 $affected[$item->productId] = true;
+            }
+
+            foreach (array_keys($affected) as $productId) {
+                $updatedStock = $this->stocks->findByProductId($productId, $data->storeId);
+                if ($updatedStock !== null) {
+                    $this->outbox->enqueue(StockChanged::fromModel($updatedStock), $now);
+                }
             }
 
             return ProcessingResult::applied(array_keys($affected));

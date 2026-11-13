@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Messaging\Inbound;
 
+use App\Contracts\Database\TransactionRunnerInterface;
 use App\Database\DbTransactionRunner;
 use App\Enums\ReservationStatus;
 use App\Messaging\Inbound\Data\OrderCreatedData;
@@ -16,6 +17,8 @@ use App\Models\Product;
 use App\Models\Stock;
 use App\Models\StockReservation;
 use App\Models\Store;
+use App\Outbox\OutboxRepository;
+use App\Outbox\OutboxWriter;
 use App\Repositories\ProcessedEventRepository;
 use App\Repositories\StockRepository;
 use App\Repositories\StockReservationRepository;
@@ -25,10 +28,12 @@ use App\Services\Inbound\Results\ProcessingResult;
 use App\Services\Inbound\Results\ProcessingStatus;
 use App\Services\Inbound\Results\StockRejectionReason;
 use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Ramsey\Uuid\Uuid;
+use RuntimeException;
 use Tests\PostgresTestCase;
 
 final class InboundServicesTest extends PostgresTestCase
@@ -68,18 +73,21 @@ final class InboundServicesTest extends PostgresTestCase
         $reservationRepository = new StockReservationRepository();
         $processedEvents = new ProcessedEventRepository();
         $transactions = new DbTransactionRunner();
+        $outbox = new OutboxWriter(new OutboxRepository());
 
         $this->reservationService = new OrderStockReservationService(
             $stockRepository,
             $reservationRepository,
             $processedEvents,
             $transactions,
+            $outbox,
         );
         $this->fulfilmentService = new OrderFulfilmentService(
             $stockRepository,
             $reservationRepository,
             $processedEvents,
             $transactions,
+            $outbox,
         );
         $this->now = CarbonImmutable::parse('2026-11-20T10:00:00+00:00');
     }
@@ -183,6 +191,71 @@ final class InboundServicesTest extends PostgresTestCase
         // It requires a second connection and a controlled interleaving, which the normal
         // single-connection test process cannot express reliably.
         self::assertTrue(true);
+    }
+
+    #[Test]
+    public function successful_handle_created_writes_outbox_in_same_transaction_and_rolls_back_with_it(): void
+    {
+        $lineId = (string) Uuid::uuid7();
+        $data = $this->created($lineId, 2);
+
+        $outboxCountBefore = DB::table('outbox')->count();
+
+        // When handleCreated runs successfully, outbox rows are written in the same transaction
+        $result = $this->reservationService->handleCreated($data, $this->now);
+        self::assertApplied($result);
+        // 1 stock.reserved + 1 stock.changed = 2 outbox rows
+        self::assertSame($outboxCountBefore + 2, DB::table('outbox')->count());
+
+        // When the transaction rolls back, outbox rows are rolled back too:
+        $fakeFailingRunner = new class () implements TransactionRunnerInterface {
+            public function run(Closure $callback): mixed
+            {
+                DB::beginTransaction();
+                try {
+                    $callback();
+                    throw new RuntimeException('Simulated failure triggering rollback');
+                } finally {
+                    DB::rollBack();
+                }
+            }
+        };
+
+        $failingService = new OrderStockReservationService(
+            new StockRepository(),
+            new StockReservationRepository(),
+            new ProcessedEventRepository(),
+            $fakeFailingRunner,
+            new OutboxWriter(new OutboxRepository()),
+        );
+
+        $lineId2 = (string) Uuid::uuid7();
+        $data2 = $this->created($lineId2, 1);
+        $outboxCountBeforeRollback = DB::table('outbox')->count();
+
+        try {
+            $failingService->handleCreated($data2, $this->now);
+            self::fail('Expected exception');
+        } catch (RuntimeException) {
+            // Expected
+        }
+
+        self::assertSame($outboxCountBeforeRollback, DB::table('outbox')->count());
+    }
+
+    #[Test]
+    public function duplicate_handle_created_with_same_event_id_does_not_add_outbox_rows(): void
+    {
+        $lineId = (string) Uuid::uuid7();
+        $data = $this->created($lineId, 2);
+
+        $this->reservationService->handleCreated($data, $this->now);
+        $outboxCount = DB::table('outbox')->count();
+
+        // Duplicate call with same eventId
+        $duplicateResult = $this->reservationService->handleCreated($data, $this->now);
+        self::assertSame(ProcessingStatus::Duplicate, $duplicateResult->status);
+        self::assertSame($outboxCount, DB::table('outbox')->count());
     }
 
     private function created(string $lineId, int $quantity): OrderCreatedData

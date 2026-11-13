@@ -6,6 +6,9 @@ namespace App\Providers;
 
 use App\Contracts\Messaging\EventPublisherInterface;
 use App\Contracts\Database\TransactionRunnerInterface;
+use App\Contracts\Outbox\OutboxMessagePublisherInterface;
+use App\Contracts\Outbox\OutboxRepositoryInterface;
+use App\Contracts\Outbox\OutboxWriterInterface;
 use App\Contracts\Repositories\CategoryRepositoryInterface;
 use App\Contracts\Repositories\ProcessedEventRepositoryInterface;
 use App\Contracts\Repositories\ProductAttributeRepositoryInterface;
@@ -28,6 +31,9 @@ use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\RabbitMqPublisher;
 use App\Models\Category;
 use App\Observers\CategoryObserver;
+use App\Outbox\AmqpOutboxPublisher;
+use App\Outbox\OutboxRepository;
+use App\Outbox\OutboxWriter;
 use App\Repositories\CategoryRepository;
 use App\Repositories\ProcessedEventRepository;
 use App\Repositories\ProductAttributeRepository;
@@ -71,6 +77,9 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(TransactionRunnerInterface::class, DbTransactionRunner::class);
 
+        $this->app->bind(OutboxRepositoryInterface::class, OutboxRepository::class);
+        $this->app->bind(OutboxWriterInterface::class, OutboxWriter::class);
+
         $this->app->bind(CategoryServiceInterface::class, CategoryService::class);
         $this->app->bind(OrderFulfilmentServiceInterface::class, OrderFulfilmentService::class);
         $this->app->bind(OrderStockReservationServiceInterface::class, OrderStockReservationService::class);
@@ -81,6 +90,8 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(RabbitMqPublisher::class);
         $this->app->alias(RabbitMqPublisher::class, EventPublisherInterface::class);
+        $this->app->singleton(AmqpOutboxPublisher::class);
+        $this->app->alias(AmqpOutboxPublisher::class, OutboxMessagePublisherInterface::class);
         $this->app->singleton(CategoryCache::class);
         $this->app->singleton(ProductCache::class);
         $this->app->singleton(S3Client::class, fn (): S3Client => $this->makeS3Client(5.0));
@@ -127,6 +138,10 @@ class AppServiceProvider extends ServiceProvider
         Category::observe(CategoryObserver::class);
 
         Event::listen(WorkerStopping::class, static function (WorkerStopping $event): void {
+            if ($event->app->resolved(AmqpOutboxPublisher::class)) {
+                $event->app->make(AmqpOutboxPublisher::class)->close();
+            }
+
             if (! $event->app->resolved(RabbitMqPublisher::class)) {
                 return;
             }

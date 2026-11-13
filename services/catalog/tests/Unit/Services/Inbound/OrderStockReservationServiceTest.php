@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Services\Inbound;
 
 use App\Enums\ReservationStatus;
+use App\Messaging\Events\StockChanged;
+use App\Messaging\Events\StockReservationFailed;
+use App\Messaging\Events\StockReservationFailureReason;
+use App\Messaging\Events\StockReserved;
 use App\Messaging\Inbound\Data\OrderCancelledData;
 use App\Messaging\Inbound\Data\OrderCreatedData;
 use App\Messaging\Inbound\Data\OrderCreatedItemData;
@@ -15,7 +19,9 @@ use App\Services\Inbound\Results\ProcessingResult;
 use App\Services\Inbound\Results\ProcessingStatus;
 use App\Services\Inbound\Results\StockRejectionReason;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\Fakes\FakeOutboxWriter;
 use Tests\Support\Fakes\FakeProcessedEventRepository;
 use Tests\Support\Fakes\FakeStockRepository;
 use Tests\Support\Fakes\FakeStockReservationRepository;
@@ -33,6 +39,7 @@ final class OrderStockReservationServiceTest extends TestCase
     private FakeStockRepository $stocks;
     private FakeStockReservationRepository $reservations;
     private FakeProcessedEventRepository $processedEvents;
+    private FakeOutboxWriter $outbox;
     private OrderStockReservationService $service;
     private CarbonImmutable $now;
 
@@ -43,6 +50,7 @@ final class OrderStockReservationServiceTest extends TestCase
         $this->stocks = new FakeStockRepository();
         $this->reservations = new FakeStockReservationRepository();
         $this->processedEvents = new FakeProcessedEventRepository();
+        $this->outbox = new FakeOutboxWriter();
         $this->now = CarbonImmutable::parse('2026-11-20T10:00:00+00:00');
 
         $this->service = new OrderStockReservationService(
@@ -50,6 +58,7 @@ final class OrderStockReservationServiceTest extends TestCase
             $this->reservations,
             $this->processedEvents,
             new FakeTransactionRunner(),
+            $this->outbox,
         );
     }
 
@@ -69,6 +78,20 @@ final class OrderStockReservationServiceTest extends TestCase
         self::assertSame(2, $reservation->quantity);
         self::assertTrue($reservation->rental_start_at?->equalTo($this->now->addDay()));
         self::assertTrue($reservation->rental_end_at?->equalTo($this->now->addDays(3)));
+
+        // Outbox assertions: exactly one StockReserved and one StockChanged per product
+        self::assertSame(2, $this->outbox->count());
+        $reservedEvents = $this->outbox->eventsOf(StockReserved::class);
+        self::assertCount(1, $reservedEvents);
+        self::assertSame(self::ORDER_ID, $reservedEvents[0]->orderId);
+        self::assertSame(self::STORE_ID, $reservedEvents[0]->storeId);
+
+        $changedEvents = $this->outbox->eventsOf(StockChanged::class);
+        self::assertCount(1, $changedEvents);
+        self::assertSame(self::PRODUCT_ID, $changedEvents[0]->productId);
+        self::assertSame(self::STORE_ID, $changedEvents[0]->storeId);
+        self::assertSame(10, $changedEvents[0]->quantity);
+        self::assertSame(2, $changedEvents[0]->reserved);
     }
 
     #[Test]
@@ -81,6 +104,15 @@ final class OrderStockReservationServiceTest extends TestCase
         self::assertRejected($result, StockRejectionReason::InsufficientStock);
         self::assertSame(9, $this->stocks->get(self::PRODUCT_ID, self::STORE_ID)?->reserved);
         self::assertSame([], $this->reservations->all());
+
+        // Outbox assertions: only StockReservationFailed(insufficient_stock), no StockChanged
+        self::assertSame(1, $this->outbox->count());
+        $failedEvents = $this->outbox->eventsOf(StockReservationFailed::class);
+        self::assertCount(1, $failedEvents);
+        self::assertSame(self::ORDER_ID, $failedEvents[0]->orderId);
+        self::assertSame(self::STORE_ID, $failedEvents[0]->storeId);
+        self::assertSame(StockReservationFailureReason::InsufficientStock, $failedEvents[0]->reason);
+        self::assertEmpty($this->outbox->eventsOf(StockChanged::class));
     }
 
     #[Test]
@@ -99,6 +131,12 @@ final class OrderStockReservationServiceTest extends TestCase
         self::assertRejected($result, StockRejectionReason::InsufficientStock);
         self::assertSame(0, $this->stocks->get(self::PRODUCT_ID, self::STORE_ID)?->reserved);
         self::assertSame([], $this->reservations->all());
+
+        self::assertSame(1, $this->outbox->count());
+        $failedEvents = $this->outbox->eventsOf(StockReservationFailed::class);
+        self::assertCount(1, $failedEvents);
+        self::assertSame(StockReservationFailureReason::InsufficientStock, $failedEvents[0]->reason);
+        self::assertEmpty($this->outbox->eventsOf(StockChanged::class));
     }
 
     #[Test]
@@ -107,11 +145,16 @@ final class OrderStockReservationServiceTest extends TestCase
         $this->stocks->seed(self::PRODUCT_ID, self::STORE_ID, 10);
 
         $this->service->handleCreated($this->created(), $this->now);
+        self::assertSame(2, $this->outbox->count());
+
+        $this->outbox->reset();
         $result = $this->service->handleCreated($this->created(), $this->now);
 
         self::assertSame(ProcessingStatus::Duplicate, $result->status);
         self::assertSame(2, $this->stocks->get(self::PRODUCT_ID, self::STORE_ID)?->reserved);
         self::assertCount(1, $this->reservations->all());
+        // Duplicate event: 0 outbox entries written
+        self::assertSame(0, $this->outbox->count());
     }
 
     #[Test]
@@ -121,6 +164,12 @@ final class OrderStockReservationServiceTest extends TestCase
 
         self::assertRejected($result, StockRejectionReason::ProductNotFound);
         self::assertSame([], $this->reservations->all());
+
+        self::assertSame(1, $this->outbox->count());
+        $failedEvents = $this->outbox->eventsOf(StockReservationFailed::class);
+        self::assertCount(1, $failedEvents);
+        self::assertSame(StockReservationFailureReason::ProductNotFound, $failedEvents[0]->reason);
+        self::assertEmpty($this->outbox->eventsOf(StockChanged::class));
     }
 
     #[Test]
@@ -136,6 +185,8 @@ final class OrderStockReservationServiceTest extends TestCase
         self::assertNotNull($tombstone);
         self::assertSame(ReservationStatus::Released->value, $tombstone->status);
         self::assertNull($tombstone->rental_start_at);
+        // Tombstone: nothing published
+        self::assertSame(0, $this->outbox->count());
 
         $created = $this->service->handleCreated(
             $this->created(eventId: '8c9e6679-7425-40de-944b-e07fc1f90ae7'),
@@ -146,6 +197,38 @@ final class OrderStockReservationServiceTest extends TestCase
         self::assertSame(0, $this->stocks->get(self::PRODUCT_ID, self::STORE_ID)?->reserved);
         self::assertCount(1, $this->reservations->all());
         self::assertSame(ReservationStatus::Released->value, $this->reservations->get(self::LINE_ID)?->status);
+        // All lines already exist: nothing published
+        self::assertSame(0, $this->outbox->count());
+    }
+
+    #[Test]
+    public function it_handles_mixed_existing_lines_without_reservation_or_outbox_and_logs_warning(): void
+    {
+        Log::spy();
+
+        $this->stocks->seed(self::PRODUCT_ID, self::STORE_ID, 10);
+        // Pre-seed one line as existing (e.g. from an early partial cancellation/tombstone)
+        $this->reservations->seed(self::LINE_ID, self::ORDER_ID, self::PRODUCT_ID, self::STORE_ID, 2, ReservationStatus::Released);
+
+        $secondLineId = 'b1b2b3b4-c1c2-4d1d-8e1e-1f2021222324';
+        $result = $this->service->handleCreated(
+            $this->created(items: [
+                $this->createdItem(self::LINE_ID, 2),
+                $this->createdItem($secondLineId, 3),
+            ]),
+            $this->now,
+        );
+
+        self::assertApplied($result);
+        self::assertSame([], $result->affectedProductIds);
+        self::assertSame(0, $this->stocks->get(self::PRODUCT_ID, self::STORE_ID)?->reserved);
+        self::assertNull($this->reservations->get($secondLineId));
+        self::assertSame(0, $this->outbox->count());
+
+        Log::shouldHaveReceived('warning')->once()->with(
+            'Partial existing lines detected for order',
+            ['order_id' => self::ORDER_ID, 'event_id' => self::EVENT_ID],
+        );
     }
 
     #[Test]
@@ -153,6 +236,7 @@ final class OrderStockReservationServiceTest extends TestCase
     {
         $this->stocks->seed(self::PRODUCT_ID, self::STORE_ID, 10);
         $this->service->handleCreated($this->created(), $this->now);
+        $this->outbox->reset();
 
         $result = $this->service->handleCancelled(
             $this->cancelled(eventId: '8c9e6679-7425-40de-944b-e07fc1f90ae7'),
@@ -163,6 +247,14 @@ final class OrderStockReservationServiceTest extends TestCase
         self::assertSame([self::PRODUCT_ID], $result->affectedProductIds);
         self::assertSame(0, $this->stocks->get(self::PRODUCT_ID, self::STORE_ID)?->reserved);
         self::assertSame(ReservationStatus::Released->value, $this->reservations->get(self::LINE_ID)?->status);
+
+        // Cancelled reserved: stock.changed for each affected product, nothing for Order
+        self::assertSame(1, $this->outbox->count());
+        $changedEvents = $this->outbox->eventsOf(StockChanged::class);
+        self::assertCount(1, $changedEvents);
+        self::assertSame(self::PRODUCT_ID, $changedEvents[0]->productId);
+        self::assertSame(10, $changedEvents[0]->quantity);
+        self::assertSame(0, $changedEvents[0]->reserved);
     }
 
     #[Test]
@@ -175,6 +267,7 @@ final class OrderStockReservationServiceTest extends TestCase
         self::assertApplied($result);
         self::assertSame([], $result->affectedProductIds);
         self::assertSame(ReservationStatus::Released->value, $this->reservations->get(self::LINE_ID)?->status);
+        self::assertSame(0, $this->outbox->count());
     }
 
     #[Test]

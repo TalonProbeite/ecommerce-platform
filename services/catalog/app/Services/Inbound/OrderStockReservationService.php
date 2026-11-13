@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services\Inbound;
 
+use App\Contracts\Outbox\OutboxWriterInterface;
 use App\Contracts\Repositories\ProcessedEventRepositoryInterface;
 use App\Contracts\Repositories\StockRepositoryInterface;
 use App\Contracts\Repositories\StockReservationRepositoryInterface;
 use App\Contracts\Services\Inbound\OrderStockReservationServiceInterface;
 use App\Contracts\Database\TransactionRunnerInterface;
 use App\Enums\ReservationStatus;
+use App\Messaging\Events\StockChanged;
+use App\Messaging\Events\StockReservationFailed;
+use App\Messaging\Events\StockReservationFailureReason;
+use App\Messaging\Events\StockReserved;
 use App\Messaging\Inbound\Data\OrderCancelledData;
 use App\Messaging\Inbound\Data\OrderCreatedData;
 use App\Messaging\Inbound\Data\OrderCreatedItemData;
@@ -32,6 +37,7 @@ final class OrderStockReservationService implements OrderStockReservationService
         private readonly StockReservationRepositoryInterface $reservations,
         private readonly ProcessedEventRepositoryInterface $processedEvents,
         private readonly TransactionRunnerInterface $transactions,
+        private readonly OutboxWriterInterface $outbox,
     ) {
     }
 
@@ -46,16 +52,21 @@ final class OrderStockReservationService implements OrderStockReservationService
                 array_map(static fn (OrderCreatedItemData $item): string => $item->lineId, $data->items),
             ));
 
-            /** @var list<OrderCreatedItemData> $pending */
-            $pending = array_values(array_filter(
-                $data->items,
-                static fn (OrderCreatedItemData $item): bool => ! isset($existing[$item->lineId]),
-            ));
+            $existingCount = count($existing);
+            $totalCount = count($data->items);
 
-            if ($pending === []) {
-                // Every line is already known (for example a released tombstone from an early cancel).
+            if ($existingCount > 0) {
+                if ($existingCount < $totalCount) {
+                    logger()->warning('Partial existing lines detected for order', [
+                        'order_id' => $data->orderId,
+                        'event_id' => $data->eventId,
+                    ]);
+                }
+
                 return ProcessingResult::applied();
             }
+
+            $pending = $data->items;
 
             usort(
                 $pending,
@@ -73,12 +84,22 @@ final class OrderStockReservationService implements OrderStockReservationService
 
             foreach ($requiredByProduct as $productId => $required) {
                 if (! isset($stocks[$productId])) {
+                    $this->outbox->enqueue(
+                        new StockReservationFailed($data->orderId, $data->storeId, StockReservationFailureReason::ProductNotFound),
+                        $now,
+                    );
+
                     return ProcessingResult::rejected(StockRejectionReason::ProductNotFound);
                 }
 
                 $stock = $stocks[$productId];
 
                 if ($stock->quantity - $stock->reserved < $required) {
+                    $this->outbox->enqueue(
+                        new StockReservationFailed($data->orderId, $data->storeId, StockReservationFailureReason::InsufficientStock),
+                        $now,
+                    );
+
                     return ProcessingResult::rejected(StockRejectionReason::InsufficientStock);
                 }
             }
@@ -102,6 +123,15 @@ final class OrderStockReservationService implements OrderStockReservationService
             }
 
             $this->reservations->insertIgnoringExisting($rows);
+
+            $this->outbox->enqueue(new StockReserved($data->orderId, $data->storeId), $now);
+
+            foreach (array_keys($requiredByProduct) as $productId) {
+                $updatedStock = $this->stocks->findByProductId($productId, $data->storeId);
+                if ($updatedStock !== null) {
+                    $this->outbox->enqueue(StockChanged::fromModel($updatedStock), $now);
+                }
+            }
 
             return ProcessingResult::applied(array_keys($requiredByProduct));
         });
@@ -168,6 +198,13 @@ final class OrderStockReservationService implements OrderStockReservationService
 
                 $this->adjustReserved($stock, -$reservation->quantity);
                 $affected[$item->productId] = true;
+            }
+
+            foreach (array_keys($affected) as $productId) {
+                $updatedStock = $this->stocks->findByProductId($productId, $data->storeId);
+                if ($updatedStock !== null) {
+                    $this->outbox->enqueue(StockChanged::fromModel($updatedStock), $now);
+                }
             }
 
             return ProcessingResult::applied(array_keys($affected));

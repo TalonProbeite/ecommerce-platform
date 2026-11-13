@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Services\Inbound;
 
 use App\Enums\ReservationStatus;
+use App\Messaging\Events\StockChanged;
 use App\Messaging\Inbound\Data\OrderIssuedData;
 use App\Messaging\Inbound\Data\OrderLineData;
 use App\Messaging\Inbound\Data\OrderReturnedData;
@@ -15,6 +16,7 @@ use App\Services\Inbound\Results\ProcessingResult;
 use App\Services\Inbound\Results\ProcessingStatus;
 use Carbon\CarbonImmutable;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\Fakes\FakeOutboxWriter;
 use Tests\Support\Fakes\FakeProcessedEventRepository;
 use Tests\Support\Fakes\FakeStockRepository;
 use Tests\Support\Fakes\FakeStockReservationRepository;
@@ -31,6 +33,7 @@ final class OrderFulfilmentServiceTest extends TestCase
 
     private FakeStockRepository $stocks;
     private FakeStockReservationRepository $reservations;
+    private FakeOutboxWriter $outbox;
     private OrderFulfilmentService $service;
     private CarbonImmutable $now;
 
@@ -40,6 +43,7 @@ final class OrderFulfilmentServiceTest extends TestCase
 
         $this->stocks = new FakeStockRepository();
         $this->reservations = new FakeStockReservationRepository();
+        $this->outbox = new FakeOutboxWriter();
         $this->now = CarbonImmutable::parse('2026-11-20T10:00:00+00:00');
 
         $this->service = new OrderFulfilmentService(
@@ -47,6 +51,7 @@ final class OrderFulfilmentServiceTest extends TestCase
             $this->reservations,
             new FakeProcessedEventRepository(),
             new FakeTransactionRunner(),
+            $this->outbox,
         );
     }
 
@@ -63,6 +68,9 @@ final class OrderFulfilmentServiceTest extends TestCase
         $reservation = $this->reservations->get(self::LINE_ID);
         self::assertSame(ReservationStatus::Issued->value, $reservation?->status);
         self::assertTrue($reservation?->issued_at?->equalTo($this->now));
+
+        // Issued: nothing published
+        self::assertSame(0, $this->outbox->count());
     }
 
     #[Test]
@@ -89,6 +97,15 @@ final class OrderFulfilmentServiceTest extends TestCase
         $reservation = $this->reservations->get(self::LINE_ID);
         self::assertSame(ReservationStatus::Returned->value, $reservation?->status);
         self::assertTrue($reservation?->returned_at?->equalTo($this->now));
+
+        // Returned: stock.changed for each affected product
+        self::assertSame(1, $this->outbox->count());
+        $changedEvents = $this->outbox->eventsOf(StockChanged::class);
+        self::assertCount(1, $changedEvents);
+        self::assertSame(self::PRODUCT_ID, $changedEvents[0]->productId);
+        self::assertSame(self::STORE_ID, $changedEvents[0]->storeId);
+        self::assertSame(10, $changedEvents[0]->quantity);
+        self::assertSame(0, $changedEvents[0]->reserved);
     }
 
     #[Test]
@@ -113,6 +130,7 @@ final class OrderFulfilmentServiceTest extends TestCase
         self::assertApplied($result);
         self::assertSame([], $result->affectedProductIds);
         self::assertSame(0, $this->stocks->get(self::PRODUCT_ID, self::STORE_ID)?->reserved);
+        self::assertSame(0, $this->outbox->count());
     }
 
     #[Test]
