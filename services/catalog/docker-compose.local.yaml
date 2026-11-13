@@ -145,7 +145,7 @@ services:
       SEAWEEDFS_REGION: ${SEAWEEDFS_REGION:-us-east-1}
       SEAWEEDFS_BUCKET: ${SEAWEEDFS_BUCKET:-catalog}
       SEAWEEDFS_ENDPOINT: http://catalog-seaweedfs:8333
-      SEAWEEDFS_PUBLIC_URL: https://localhost:8444/media/catalog
+      SEAWEEDFS_PUBLIC_URL: https://localhost:8444/media/${SEAWEEDFS_BUCKET:-catalog}
 
       # Generic S3 disk remains configured for parity with the base .env.
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-seaweed_admin}

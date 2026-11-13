@@ -40,6 +40,14 @@ final class ConsumeOrdersCommandTest extends PostgresTestCase
 
         $this->now = CarbonImmutable::parse('2026-11-20T10:00:00+00:00');
 
+        $prefix = 'catalog-test-' . (string) Uuid::uuid7();
+        config([
+            'inbound.exchange' => $prefix . '.events',
+            'inbound.queue' => $prefix . '.orders',
+            'inbound.dead_queue' => $prefix . '.dead',
+            'inbound.dlx_exchange' => $prefix . '.dlx',
+        ]);
+
         $this->declareFreshTopology();
 
         $this->store = Store::create(['name' => 'Tools']);

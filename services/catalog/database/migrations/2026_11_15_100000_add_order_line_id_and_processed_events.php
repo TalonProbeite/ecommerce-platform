@@ -34,6 +34,15 @@ return new class () extends Migration {
 
     public function down(): void
     {
+        if (DB::table('stock_reservations')->select('order_id', 'product_id')
+            ->groupBy('order_id', 'product_id')->havingRaw('COUNT(*) > 1')->exists()) {
+            throw new \RuntimeException(
+                'Cannot roll back: multiple reservation lines share an order and product. '
+                . 'Keep this schema, back up reservations, and migrate these lines to a schema '
+                . 'that preserves line identity before retrying rollback. No data was changed.',
+            );
+        }
+
         Schema::dropIfExists('processed_events');
 
         Schema::table('stock_reservations', function (Blueprint $table) {

@@ -15,6 +15,7 @@ use App\Messaging\Events\StockChanged;
 use App\Messaging\Inbound\Data\OrderIssuedData;
 use App\Messaging\Inbound\Data\OrderLineData;
 use App\Messaging\Inbound\Data\OrderReturnedData;
+use App\Messaging\Inbound\Exceptions\InvalidMessageException;
 use App\Messaging\Inbound\Exceptions\InvalidReservationTransitionException;
 use App\Messaging\Inbound\Exceptions\ReservationNotFoundException;
 use App\Messaging\Inbound\Exceptions\RetryableMessageException;
@@ -45,6 +46,12 @@ final class OrderFulfilmentService implements OrderFulfilmentServiceInterface
             foreach ($this->sortedItems($data->items) as $item) {
                 $reservation = $this->reservations->findByLineIdForUpdate($item->lineId)
                     ?? throw new ReservationNotFoundException($item->lineId);
+
+                if ((string) $reservation->order_id !== $data->orderId
+                    || (string) $reservation->store_id !== $data->storeId
+                    || (string) $reservation->product_id !== $item->productId) {
+                    throw new InvalidMessageException([], 'Reservation identity does not match the order event.');
+                }
 
                 $current = ReservationStatus::from((string) $reservation->status);
 
@@ -84,10 +91,20 @@ final class OrderFulfilmentService implements OrderFulfilmentServiceInterface
                 $reservation = $this->reservations->findByLineIdForUpdate($item->lineId)
                     ?? throw new ReservationNotFoundException($item->lineId);
 
+                if ((string) $reservation->order_id !== $data->orderId
+                    || (string) $reservation->store_id !== $data->storeId
+                    || (string) $reservation->product_id !== $item->productId) {
+                    throw new InvalidMessageException([], 'Reservation identity does not match the order event.');
+                }
+
                 $current = ReservationStatus::from((string) $reservation->status);
 
                 if ($current === ReservationStatus::Returned) {
                     continue;
+                }
+
+                if ($current === ReservationStatus::Reserved) {
+                    throw new RetryableMessageException('Return arrived before the reservation was issued.');
                 }
 
                 if ($current !== ReservationStatus::Issued) {

@@ -184,4 +184,4 @@ migrate:
 
 seed:
 	$(COMPOSE) exec $(APP) php artisan db:seed \
-		--class=CatalogSeeder --no-interaction
+		--class=CatalogSeeder --no-interaction $(ARGS)

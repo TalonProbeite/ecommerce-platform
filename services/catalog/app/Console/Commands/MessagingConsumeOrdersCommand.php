@@ -142,7 +142,7 @@ final class MessagingConsumeOrdersCommand extends Command
 
     private function retryLater(AMQPMessage $message, int $delayMs): void
     {
-        $message->nack(true);
+        $message->reject(true);
 
         if ($delayMs > 0) {
             usleep($delayMs * 1000);

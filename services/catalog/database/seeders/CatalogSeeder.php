@@ -218,9 +218,7 @@ class CatalogSeeder extends Seeder
                 $size = (int) $current->size;
             }
 
-            $isMain = $current !== null
-                ? (bool) $current->is_main
-                : (! $hasMain && $row['is_main']);
+            $isMain = (bool) ($current->is_main ?? false) || (! $hasMain && $row['is_main']);
 
             if ($isMain) {
                 $hasMain = true;

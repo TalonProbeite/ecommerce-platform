@@ -64,17 +64,36 @@ class CatalogSchemaTest extends PostgresTestCase
         ];
     }
 
-    public function test_schema_has_exactly_eight_table_migrations(): void
+    public function test_schema_has_nine_migrations_and_all_catalog_tables(): void
     {
-        $this->assertCount(8, glob(database_path('migrations/*.php')));
+        $this->assertCount(9, glob(database_path('migrations/*.php')));
         $tables = DB::table('information_schema.tables')
             ->where('table_schema', $this->testSchema)
             ->where('table_type', 'BASE TABLE')
             ->orderBy('table_name')->pluck('table_name')->all();
         $this->assertSame([
-            'categories', 'processed_events', 'product_attributes', 'product_images', 'products',
+            'categories', 'outbox', 'processed_events', 'product_attributes', 'product_images', 'products',
             'stock_reservations', 'stocks', 'stores',
         ], $tables);
+    }
+
+    public function test_rollback_preflights_duplicate_product_lines_without_changing_data(): void
+    {
+        $first = $this->reservation();
+        $second = $first;
+        $second['id'] = (string) Uuid::uuid7();
+        $second['order_line_id'] = (string) Uuid::uuid7();
+        DB::table('stock_reservations')->insert([$first, $second]);
+        $migration = require database_path('migrations/2026_11_15_100000_add_order_line_id_and_processed_events.php');
+        try {
+            $migration->down();
+            self::fail('Rollback must reject duplicate product lines');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('Cannot roll back', $exception->getMessage());
+            self::assertTrue(Schema::hasTable('processed_events'));
+            self::assertTrue(Schema::hasColumn('stock_reservations', 'order_line_id'));
+            self::assertSame(2, DB::table('stock_reservations')->count());
+        }
     }
 
     public function test_rental_fields_have_correct_defaults_and_relationships(): void

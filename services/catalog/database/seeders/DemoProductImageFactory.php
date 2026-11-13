@@ -260,7 +260,7 @@ final class DemoProductImageFactory
         $pixel = str_repeat($this->pixel($color), $x1 - $x0);
 
         for ($row = $y0; $row < $y1; $row++) {
-            $rows[$row] = substr_replace($rows[$row], $pixel, $x0, $x1 - $x0);
+            $rows[$row] = substr_replace($rows[$row], $pixel, $x0 * 3, ($x1 - $x0) * 3);
         }
     }
 

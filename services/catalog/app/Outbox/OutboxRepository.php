@@ -35,6 +35,13 @@ final class OutboxRepository implements OutboxRepositoryInterface
     {
         $records = DB::table('outbox')
             ->whereNull('published_at')
+            ->where('attempts', '<', 5)
+            ->whereNotExists(function ($query): void {
+                $query->selectRaw('1')->from('outbox as earlier')
+                    ->whereNull('earlier.published_at')
+                    ->whereColumn('earlier.id', '<', 'outbox.id')
+                    ->whereRaw("earlier.payload->>'order_id' = outbox.payload->>'order_id'");
+            })
             ->orderBy('id', 'asc')
             ->limit($limit)
             ->lock('FOR UPDATE SKIP LOCKED')
@@ -72,6 +79,10 @@ final class OutboxRepository implements OutboxRepositoryInterface
             ]);
     }
 
+    /**
+     * Five failed attempts quarantine an unpublished row and block later events for its order.
+     * After repairing the cause, reset attempts to zero to resume delivery.
+     */
     public function recordFailure(int $id, string $error): void
     {
         DB::table('outbox')

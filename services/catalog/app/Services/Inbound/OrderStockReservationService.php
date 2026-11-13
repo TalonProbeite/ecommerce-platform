@@ -19,6 +19,7 @@ use App\Messaging\Inbound\Data\OrderCancelledData;
 use App\Messaging\Inbound\Data\OrderCreatedData;
 use App\Messaging\Inbound\Data\OrderCreatedItemData;
 use App\Messaging\Inbound\Data\OrderLineData;
+use App\Messaging\Inbound\Exceptions\InvalidMessageException;
 use App\Messaging\Inbound\Exceptions\InvalidReservationTransitionException;
 use App\Messaging\Inbound\Exceptions\RetryableMessageException;
 use App\Messaging\Inbound\InboundRoutingKeys;
@@ -122,7 +123,9 @@ final class OrderStockReservationService implements OrderStockReservationService
                 $this->adjustReserved($stocks[$productId], $required);
             }
 
-            $this->reservations->insertIgnoringExisting($rows);
+            if ($this->reservations->insertIgnoringExisting($rows) !== count($pending)) {
+                throw new RetryableMessageException('Reservation insert raced with another order event; retry existing-line check.');
+            }
 
             $this->outbox->enqueue(new StockReserved($data->orderId, $data->storeId), $now);
 
@@ -169,6 +172,12 @@ final class OrderStockReservationService implements OrderStockReservationService
                     ]]);
 
                     continue;
+                }
+
+                if ((string) $reservation->order_id !== $data->orderId
+                    || (string) $reservation->store_id !== $data->storeId
+                    || (string) $reservation->product_id !== $item->productId) {
+                    throw new InvalidMessageException([], 'Reservation identity does not match the order event.');
                 }
 
                 $current = ReservationStatus::from((string) $reservation->status);

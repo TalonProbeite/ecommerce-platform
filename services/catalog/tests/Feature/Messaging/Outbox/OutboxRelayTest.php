@@ -108,7 +108,7 @@ final class OutboxRelayTest extends PostgresTestCase
     }
 
     #[Test]
-    public function relay_failure_on_second_row_marks_first_leaves_second_unmarked_and_aborts(): void
+    public function relay_failure_on_second_row_allows_unrelated_orders_to_progress(): void
     {
         $id1 = $this->writer->enqueue(new StockReserved('order-1', 'store-1'), $this->now);
         $id2 = $this->writer->enqueue(new StockReserved('order-2', 'store-1'), $this->now);
@@ -135,8 +135,8 @@ final class OutboxRelayTest extends PostgresTestCase
         $relay = new OutboxRelay($this->repository, $fakePublisher, new NullLogger());
         $count = $relay->processBatch();
 
-        self::assertSame(1, $count);
-        self::assertSame([$id1], $fakePublisher->published);
+        self::assertSame(2, $count);
+        self::assertSame([$id1, $id3], $fakePublisher->published);
 
         $row1 = DB::table('outbox')->where('event_id', $id1)->first();
         $row2 = DB::table('outbox')->where('event_id', $id2)->first();
@@ -156,10 +156,46 @@ final class OutboxRelayTest extends PostgresTestCase
         self::assertSame(1, $row2->attempts);
         self::assertStringContainsString('Connection lost to broker during publish', (string) $row2->last_error);
 
-        // Row 3: untouched because batch aborted on first failure
-        self::assertNull($row3->published_at);
+        // Row 3: unrelated order progresses despite row 2 failing
+        self::assertNotNull($row3->published_at);
         self::assertSame(0, $row3->attempts);
         self::assertNull($row3->last_error);
+    }
+
+    #[Test]
+    public function poison_first_event_is_recoverably_quarantined_without_blocking_other_orders(): void
+    {
+        config(['outbox.batch_size' => 1]);
+        $failed = $this->writer->enqueue(new StockReserved('order-1', 'store-1'), $this->now);
+        $sameOrder = $this->writer->enqueue(new StockReserved('order-1', 'store-1'), $this->now);
+        $later = $this->writer->enqueue(new StockReserved('order-2', 'store-1'), $this->now);
+        $publisher = new class ($failed) implements OutboxMessagePublisherInterface {
+            public bool $repaired = false;
+            public array $published = [];
+            public function __construct(private string $failed)
+            {
+            }
+            public function publish(string $routingKey, array $body, string $messageId): void
+            {
+                if ($messageId === $this->failed && ! $this->repaired) {
+                    throw new RuntimeException('Persistent failure');
+                }
+                $this->published[] = $messageId;
+            }
+        };
+        $relay = new OutboxRelay($this->repository, $publisher, new NullLogger());
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            self::assertSame(0, $relay->processBatch());
+        }
+        self::assertSame(1, $relay->processBatch());
+        self::assertSame([$later], $publisher->published);
+        self::assertSame(0, $relay->processBatch());
+        self::assertSame(5, DB::table('outbox')->where('event_id', $failed)->value('attempts'));
+        $publisher->repaired = true;
+        DB::table('outbox')->where('event_id', $failed)->update(['attempts' => 0]);
+        self::assertSame(1, $relay->processBatch());
+        self::assertSame(1, $relay->processBatch());
+        self::assertSame([$later, $failed, $sameOrder], $publisher->published);
     }
 
     #[Test]

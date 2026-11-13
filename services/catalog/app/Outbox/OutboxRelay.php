@@ -58,9 +58,7 @@ final readonly class OutboxRelay
                     ]);
 
                     $this->repository->recordFailure($row->id, $e->getMessage());
-                    DB::commit();
-
-                    return $publishedCount;
+                    continue;
                 }
             }
 

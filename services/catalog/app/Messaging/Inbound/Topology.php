@@ -32,6 +32,9 @@ final class Topology
 
         $channel->queue_bind($deadQueue, $deadLetterExchange, $queue);
 
+        // Apply scripts/configure-inbound-dead-lettering.py before consuming.
+        // Mutable policy sets dead-letter-strategy=at-least-once and overflow=reject-publish
+        // on both new and existing queues without incompatible declaration arguments.
         $channel->queue_declare(
             $queue,
             false,

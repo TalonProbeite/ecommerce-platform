@@ -162,7 +162,7 @@ final class InboundServicesTest extends PostgresTestCase
             new \App\Messaging\Inbound\Data\OrderCancelledData(
                 eventId: (string) Uuid::uuid7(),
                 occurredAt: $this->now,
-                orderId: (string) Uuid::uuid7(),
+                orderId: (string) Uuid::uuid5(Uuid::NAMESPACE_URL, $lineId),
                 storeId: $this->store->id,
                 items: [new OrderLineData($this->product->id, 2, $lineId)],
             ),
@@ -182,15 +182,7 @@ final class InboundServicesTest extends PostgresTestCase
     #[Group('concurrency')]
     public function two_concurrent_reservations_of_the_last_unit_leave_one_applied_and_one_rejected(): void
     {
-        if (! getenv('RUN_CONCURRENCY_TESTS')) {
-            self::markTestSkipped('Concurrency suite is opt-in: set RUN_CONCURRENCY_TESTS=1.');
-        }
-
-        // Described scenario: two transactions lock the same stock row; one reserves the
-        // last unit, the other re-reads reserved=quantity after the lock and gets Rejected.
-        // It requires a second connection and a controlled interleaving, which the normal
-        // single-connection test process cannot express reliably.
-        self::assertTrue(true);
+        self::markTestSkipped('Requires two connections and controlled reservation interleaving before enabling.');
     }
 
     #[Test]
@@ -258,12 +250,91 @@ final class InboundServicesTest extends PostgresTestCase
         self::assertSame($outboxCount, DB::table('outbox')->count());
     }
 
+    #[Test]
+    public function return_before_issue_retries_without_committing_changes(): void
+    {
+        $lineId = (string) Uuid::uuid7();
+        $this->reservationService->handleCreated($this->created($lineId, 2), $this->now);
+        $count = DB::table('processed_events')->count();
+        try {
+            $this->fulfilmentService->handleReturned($this->returned($lineId, 2), $this->now);
+            self::fail('Expected retry');
+        } catch (\App\Messaging\Inbound\Exceptions\RetryableMessageException) {
+            self::assertSame($count, DB::table('processed_events')->count());
+            self::assertSame(2, $this->stock->fresh()->reserved);
+            self::assertSame('reserved', $this->reservation($lineId)->status);
+        }
+    }
+
+    #[Test]
+    public function lifecycle_events_reject_each_identity_mismatch_before_transition(): void
+    {
+        foreach (['order_id', 'store_id', 'product_id'] as $field) {
+            foreach (['issued', 'returned', 'cancelled'] as $operation) {
+                $lineId = (string) Uuid::uuid7();
+                $this->stock->update(['quantity' => 100]);
+                $this->reservationService->handleCreated($this->created($lineId, 1), $this->now);
+                $event = $operation === 'issued' ? $this->issued($lineId, 1) : $this->returned($lineId, 1);
+                $values = ['order_id' => $event->orderId, 'store_id' => $event->storeId, 'product_id' => $this->product->id];
+                $values[$field] = (string) Uuid::uuid7();
+                $items = [new OrderLineData($values['product_id'], 1, $lineId)];
+                $class = match ($operation) {
+                    'issued' => OrderIssuedData::class,
+                    'returned' => OrderReturnedData::class,
+                    'cancelled' => \App\Messaging\Inbound\Data\OrderCancelledData::class,
+                };
+                $event = new $class((string) Uuid::uuid7(), $this->now, $values['order_id'], $values['store_id'], $items);
+                $before = $this->stock->fresh()->reserved;
+                try {
+                    match ($operation) {
+                        'issued' => $this->fulfilmentService->handleIssued($event, $this->now),
+                        'returned' => $this->fulfilmentService->handleReturned($event, $this->now),
+                        'cancelled' => $this->reservationService->handleCancelled($event, $this->now),
+                    };
+                    self::fail('Expected identity rejection');
+                } catch (\App\Messaging\Inbound\Exceptions\InvalidMessageException) {
+                    self::assertSame('reserved', $this->reservation($lineId)->status);
+                    self::assertSame($before, $this->stock->fresh()->reserved);
+                    self::assertFalse(DB::table('processed_events')->where('event_id', $event->eventId)->exists());
+                }
+            }
+        }
+    }
+
+    #[Test]
+    public function partial_reservation_insert_rolls_back_stock_and_outbox(): void
+    {
+        $reservations = new class () extends StockReservationRepository {
+            public function insertIgnoringExisting(array $rows): int
+            {
+                parent::insertIgnoringExisting($rows);
+                return 0;
+            }
+        };
+        $service = new OrderStockReservationService(
+            new StockRepository(),
+            $reservations,
+            new ProcessedEventRepository(),
+            new DbTransactionRunner(),
+            new OutboxWriter(new OutboxRepository())
+        );
+        try {
+            $service->handleCreated($this->created((string) Uuid::uuid7(), 2), $this->now);
+            self::fail('Expected retry');
+        } catch (\App\Messaging\Inbound\Exceptions\RetryableMessageException) {
+            self::assertSame(0, $this->stock->fresh()->reserved);
+            self::assertSame(0, DB::table('stock_reservations')->count());
+            self::assertSame(0, DB::table('processed_events')->count());
+            self::assertSame(0, DB::table('outbox')->count());
+        }
+    }
+
     private function created(string $lineId, int $quantity): OrderCreatedData
     {
         return new OrderCreatedData(
             eventId: (string) Uuid::uuid7(),
             occurredAt: $this->now,
-            orderId: (string) Uuid::uuid7(),
+            orderId: (string) Uuid::uuid5(Uuid::NAMESPACE_URL, $lineId),
             storeId: $this->store->id,
             items: [
                 new OrderCreatedItemData(
@@ -282,7 +353,7 @@ final class InboundServicesTest extends PostgresTestCase
         return new OrderIssuedData(
             eventId: (string) Uuid::uuid7(),
             occurredAt: $this->now,
-            orderId: (string) Uuid::uuid7(),
+            orderId: (string) Uuid::uuid5(Uuid::NAMESPACE_URL, $lineId),
             storeId: $this->store->id,
             items: [new OrderLineData($this->product->id, $quantity, $lineId)],
         );
@@ -293,7 +364,7 @@ final class InboundServicesTest extends PostgresTestCase
         return new OrderReturnedData(
             eventId: (string) Uuid::uuid7(),
             occurredAt: $this->now,
-            orderId: (string) Uuid::uuid7(),
+            orderId: (string) Uuid::uuid5(Uuid::NAMESPACE_URL, $lineId),
             storeId: $this->store->id,
             items: [new OrderLineData($this->product->id, $quantity, $lineId)],
         );

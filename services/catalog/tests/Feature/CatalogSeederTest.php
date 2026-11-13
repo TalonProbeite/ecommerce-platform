@@ -93,6 +93,19 @@ class CatalogSeederTest extends PostgresTestCase
         self::assertSame(count($dataset['products']), DB::table('products')->count());
     }
 
+    public function test_reseeding_restores_a_deleted_main_image_and_promotes_an_existing_demo_row(): void
+    {
+        $this->seed(CatalogSeeder::class);
+        $main = DB::table('product_images')->where('is_main', true)->first();
+        DB::table('product_images')->where('id', $main->id)->delete();
+        $this->seed(CatalogSeeder::class);
+        self::assertTrue((bool) DB::table('product_images')->where('id', $main->id)->value('is_main'));
+        DB::table('product_images')->where('id', $main->id)->update(['is_main' => false]);
+        $this->seed(CatalogSeeder::class);
+        self::assertSame(1, DB::table('product_images')->where('product_id', $main->product_id)->where('is_main', true)->count());
+        self::assertTrue((bool) DB::table('product_images')->where('id', $main->id)->value('is_main'));
+    }
+
     /**
      * @return array{stores: int, categories: int, products: int, attributes: int, stocks: int, images: int, main_images: int}
      */
