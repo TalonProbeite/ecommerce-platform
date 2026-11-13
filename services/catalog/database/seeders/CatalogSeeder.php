@@ -26,6 +26,12 @@ class CatalogSeeder extends Seeder
 
     public function run(): void
     {
+        if (app()->environment('production')) {
+            $this->command?->error('CatalogSeeder contains DEMO data and must not run in production.');
+
+            return;
+        }
+
         $dataset = (new DemoCatalogDataset())->make();
         $disk = (string) config('catalog.product_images.disk');
         $storage = Storage::disk($disk);

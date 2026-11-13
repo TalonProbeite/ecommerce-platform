@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use Database\Seeders\DemoProductImageFactory;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 
 class DemoProductImageFactoryTest extends TestCase
 {
@@ -27,5 +28,21 @@ class DemoProductImageFactoryTest extends TestCase
             self::assertSame($stride, strlen($row));
             self::assertSame("\0", $row[0]);
         }
+    }
+
+    public function test_rect_writes_rgb_bytes_at_the_pixel_byte_offset_without_resizing_the_buffer(): void
+    {
+        $factory = new DemoProductImageFactory();
+        $rows = array_fill(0, 4, str_repeat("\x00\x00\x00", 4));
+        $before = array_map('strlen', $rows);
+
+        $method = new ReflectionMethod($factory, 'rect');
+        $args = [&$rows, 1, 2, 1, 1, [10, 20, 30]];
+        $method->invokeArgs($factory, $args);
+
+        self::assertSame($before, array_map('strlen', $rows));
+        self::assertSame(pack('C3', 10, 20, 30), substr($rows[2], 3, 3));
+        self::assertSame(str_repeat("\x00\x00\x00", 4), $rows[1]);
+        self::assertSame(str_repeat("\x00\x00\x00", 4), $rows[3]);
     }
 }

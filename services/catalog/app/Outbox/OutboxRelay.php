@@ -31,10 +31,17 @@ final readonly class OutboxRelay
 
         try {
             $batchSize = (int) config('outbox.batch_size', 100);
+            $maxAttempts = (int) config('outbox.max_attempts', 10);
             $rows = $this->repository->lockPendingBatch($batchSize);
             $publishedCount = 0;
+            /** @var array<string, true> $blockedAggregates */
+            $blockedAggregates = [];
 
             foreach ($rows as $row) {
+                if ($row->aggregateKey !== null && isset($blockedAggregates[$row->aggregateKey])) {
+                    continue;
+                }
+
                 $body = [
                     'event_id' => $row->eventId,
                     'occurred_at' => $row->occurredAt->toIso8601String(),
@@ -46,18 +53,39 @@ final readonly class OutboxRelay
                     $this->repository->markPublished($row->id, CarbonImmutable::now());
                     $publishedCount++;
                 } catch (Throwable $e) {
+                    $quarantined = $this->repository->recordFailure($row, $e->getMessage(), $maxAttempts);
+
+                    if ($row->aggregateKey !== null) {
+                        $blockedAggregates[$row->aggregateKey] = true;
+                    }
+
+                    $context = [
+                        'event_id' => $row->eventId,
+                        'routing_key' => $row->routingKey,
+                        'aggregate_key' => $row->aggregateKey,
+                        'attempts' => $row->attempts + 1,
+                        'exception' => $e,
+                    ];
+
+                    if ($quarantined) {
+                        $this->logger->critical(sprintf(
+                            'Outbox event %s (%s) quarantined in outbox_failed after %d attempts: %s',
+                            $row->eventId,
+                            $row->routingKey,
+                            $row->attempts + 1,
+                            $e->getMessage(),
+                        ), $context);
+
+                        continue;
+                    }
+
                     $this->logger->error(sprintf(
                         'Failed to publish outbox event %s (%s): %s',
                         $row->eventId,
                         $row->routingKey,
                         $e->getMessage(),
-                    ), [
-                        'event_id' => $row->eventId,
-                        'routing_key' => $row->routingKey,
-                        'exception' => $e,
-                    ]);
+                    ), $context);
 
-                    $this->repository->recordFailure($row->id, $e->getMessage());
                     continue;
                 }
             }

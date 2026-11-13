@@ -32,9 +32,10 @@ final class Topology
 
         $channel->queue_bind($deadQueue, $deadLetterExchange, $queue);
 
-        // Apply scripts/configure-inbound-dead-lettering.py before consuming.
-        // Mutable policy sets dead-letter-strategy=at-least-once and overflow=reject-publish
-        // on both new and existing queues without incompatible declaration arguments.
+        // Existing queues declared without these immutable arguments must be recreated
+        // once in development (rabbitmqctl delete_queue or the management UI). The
+        // deployment helper scripts/configure-inbound-dead-lettering.py applies an
+        // equivalent mutable policy where recreating the queue is not acceptable.
         $channel->queue_declare(
             $queue,
             false,
@@ -47,6 +48,8 @@ final class Topology
                 'x-dead-letter-exchange' => $deadLetterExchange,
                 'x-dead-letter-routing-key' => $queue,
                 'x-delivery-limit' => $deliveryLimit,
+                'x-dead-letter-strategy' => 'at-least-once',
+                'x-overflow' => 'reject-publish',
             ]),
         );
 

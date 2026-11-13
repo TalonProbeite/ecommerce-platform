@@ -13,6 +13,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\AbstractLogger;
 use Psr\Log\NullLogger;
 use RuntimeException;
 use Tests\PostgresTestCase;
@@ -163,39 +164,103 @@ final class OutboxRelayTest extends PostgresTestCase
     }
 
     #[Test]
-    public function poison_first_event_is_recoverably_quarantined_without_blocking_other_orders(): void
+    public function relay_retries_until_max_attempts_then_quarantines_the_row(): void
     {
-        config(['outbox.batch_size' => 1]);
+        config(['outbox.batch_size' => 10, 'outbox.max_attempts' => 3]);
+
         $failed = $this->writer->enqueue(new StockReserved('order-1', 'store-1'), $this->now);
-        $sameOrder = $this->writer->enqueue(new StockReserved('order-1', 'store-1'), $this->now);
-        $later = $this->writer->enqueue(new StockReserved('order-2', 'store-1'), $this->now);
+
+        $publisher = new class () implements OutboxMessagePublisherInterface {
+            public function publish(string $routingKey, array $body, string $messageId): void
+            {
+                throw new RuntimeException('Persistent failure');
+            }
+        };
+
+        $logger = new class () extends AbstractLogger {
+            /** @var list<array{level: mixed, message: string, context: array<string, mixed>}> */
+            public array $records = [];
+
+            public function log($level, string|\Stringable $message, array $context = []): void
+            {
+                $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
+            }
+        };
+
+        $relay = new OutboxRelay($this->repository, $publisher, $logger);
+
+        self::assertSame(0, $relay->processBatch());
+        self::assertSame(1, DB::table('outbox')->where('event_id', $failed)->value('attempts'));
+        self::assertSame(0, $relay->processBatch());
+        self::assertSame(2, DB::table('outbox')->where('event_id', $failed)->value('attempts'));
+        self::assertSame(0, $relay->processBatch());
+
+        self::assertFalse(DB::table('outbox')->where('event_id', $failed)->exists());
+
+        $quarantined = DB::table('outbox_failed')->where('event_id', $failed)->first();
+        self::assertNotNull($quarantined);
+        self::assertSame('stock.reserved', $quarantined->routing_key);
+        self::assertSame('order-1', $quarantined->aggregate_key);
+        self::assertSame(3, $quarantined->attempts);
+        self::assertStringContainsString('Persistent failure', (string) $quarantined->last_error);
+        self::assertSame('order-1', json_decode((string) $quarantined->payload, true, 512, JSON_THROW_ON_ERROR)['order_id']);
+
+        $critical = array_values(array_filter(
+            $logger->records,
+            static fn (array $record): bool => $record['level'] === 'critical',
+        ));
+        self::assertCount(1, $critical);
+        self::assertSame($failed, $critical[0]['context']['event_id']);
+        self::assertSame('stock.reserved', $critical[0]['context']['routing_key']);
+    }
+
+    #[Test]
+    public function same_aggregate_events_wait_until_the_quarantined_row_is_resolved(): void
+    {
+        config(['outbox.batch_size' => 10, 'outbox.max_attempts' => 2]);
+
+        $failed = $this->writer->enqueue(new StockReserved('order-1', 'store-1'), $this->now);
+        $sameAggregate = $this->writer->enqueue(new StockReserved('order-1', 'store-1'), $this->now);
+        $otherAggregate = $this->writer->enqueue(new StockReserved('order-2', 'store-1'), $this->now);
+
         $publisher = new class ($failed) implements OutboxMessagePublisherInterface {
             public bool $repaired = false;
+            /** @var list<string> */
             public array $published = [];
-            public function __construct(private string $failed)
+
+            public function __construct(private readonly string $failed)
             {
             }
+
             public function publish(string $routingKey, array $body, string $messageId): void
             {
                 if ($messageId === $this->failed && ! $this->repaired) {
                     throw new RuntimeException('Persistent failure');
                 }
+
                 $this->published[] = $messageId;
             }
         };
+
         $relay = new OutboxRelay($this->repository, $publisher, new NullLogger());
-        for ($attempt = 0; $attempt < 5; $attempt++) {
-            self::assertSame(0, $relay->processBatch());
-        }
+
+        // Row 1 fails, its same-aggregate sibling is skipped, and the unrelated order proceeds.
         self::assertSame(1, $relay->processBatch());
-        self::assertSame([$later], $publisher->published);
+        self::assertSame([$otherAggregate], $publisher->published);
+        self::assertNull(DB::table('outbox')->where('event_id', $sameAggregate)->value('published_at'));
+
+        // The retry reaches the limit and moves the poison row to outbox_failed.
         self::assertSame(0, $relay->processBatch());
-        self::assertSame(5, DB::table('outbox')->where('event_id', $failed)->value('attempts'));
+        self::assertTrue(DB::table('outbox_failed')->where('event_id', $failed)->exists());
+        self::assertFalse(DB::table('outbox')->where('event_id', $failed)->exists());
+        self::assertSame(0, $relay->processBatch());
+        self::assertSame([$otherAggregate], $publisher->published);
+
+        // Manual resolution unblocks the waiting sibling.
         $publisher->repaired = true;
-        DB::table('outbox')->where('event_id', $failed)->update(['attempts' => 0]);
+        DB::table('outbox_failed')->where('event_id', $failed)->delete();
         self::assertSame(1, $relay->processBatch());
-        self::assertSame(1, $relay->processBatch());
-        self::assertSame([$later, $failed, $sameOrder], $publisher->published);
+        self::assertSame([$otherAggregate, $sameAggregate], $publisher->published);
     }
 
     #[Test]

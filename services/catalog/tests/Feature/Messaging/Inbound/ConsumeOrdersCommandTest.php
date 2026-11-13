@@ -15,6 +15,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
+use PhpAmqpLib\Wire\AMQPTable;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Ramsey\Uuid\Uuid;
@@ -29,6 +30,7 @@ final class ConsumeOrdersCommandTest extends PostgresTestCase
     private Stock $stock;
     private CarbonImmutable $now;
     private ?AMQPStreamConnection $connection = null;
+    private string $prefix = '';
 
     protected function setUp(): void
     {
@@ -40,12 +42,12 @@ final class ConsumeOrdersCommandTest extends PostgresTestCase
 
         $this->now = CarbonImmutable::parse('2026-11-20T10:00:00+00:00');
 
-        $prefix = 'catalog-test-' . (string) Uuid::uuid7();
+        $this->prefix = 'test.' . (string) Uuid::uuid7();
         config([
-            'inbound.exchange' => $prefix . '.events',
-            'inbound.queue' => $prefix . '.orders',
-            'inbound.dead_queue' => $prefix . '.dead',
-            'inbound.dlx_exchange' => $prefix . '.dlx',
+            'inbound.exchange' => $this->prefix . '.events',
+            'inbound.queue' => $this->prefix . '.orders',
+            'inbound.dead_queue' => $this->prefix . '.dead',
+            'inbound.dlx_exchange' => $this->prefix . '.dlx',
         ]);
 
         $this->declareFreshTopology();
@@ -74,10 +76,23 @@ final class ConsumeOrdersCommandTest extends PostgresTestCase
     protected function tearDown(): void
     {
         try {
-            if ($this->connection?->isConnected()) {
+            if ($this->prefix !== '' && $this->connection?->isConnected()) {
                 $channel = $this->connection->channel();
-                $channel->queue_purge($this->mainQueue());
-                $channel->queue_purge($this->deadQueue());
+
+                foreach ([$this->mainQueue(), $this->deadQueue()] as $queue) {
+                    try {
+                        $channel->queue_delete($queue, false, false);
+                    } catch (Throwable) {
+                    }
+                }
+
+                foreach ([$this->exchange(), $this->deadLetterExchange()] as $exchange) {
+                    try {
+                        $channel->exchange_delete($exchange, false);
+                    } catch (Throwable) {
+                    }
+                }
+
                 $channel->close();
             }
         } catch (Throwable) {
@@ -94,12 +109,31 @@ final class ConsumeOrdersCommandTest extends PostgresTestCase
     }
 
     #[Test]
-    public function topology_declare_is_idempotent(): void
+    public function topology_declare_is_idempotent_and_uses_the_configured_arguments(): void
     {
         $channel = $this->connection()->channel();
 
         Topology::declare($channel);
         Topology::declare($channel);
+
+        // Re-declaring with the expected immutable arguments fails with
+        // PRECONDITION_FAILED if Topology omitted or changed any of them.
+        $channel->queue_declare(
+            $this->mainQueue(),
+            false,
+            true,
+            false,
+            false,
+            false,
+            new AMQPTable([
+                'x-queue-type' => 'quorum',
+                'x-dead-letter-exchange' => $this->deadLetterExchange(),
+                'x-dead-letter-routing-key' => $this->mainQueue(),
+                'x-delivery-limit' => (int) config('inbound.delivery_limit'),
+                'x-dead-letter-strategy' => 'at-least-once',
+                'x-overflow' => 'reject-publish',
+            ]),
+        );
 
         $channel->close();
 
@@ -323,5 +357,15 @@ final class ConsumeOrdersCommandTest extends PostgresTestCase
     private function deadQueue(): string
     {
         return (string) config('inbound.dead_queue');
+    }
+
+    private function exchange(): string
+    {
+        return (string) config('inbound.exchange');
+    }
+
+    private function deadLetterExchange(): string
+    {
+        return (string) config('inbound.dlx_exchange');
     }
 }

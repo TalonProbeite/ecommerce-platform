@@ -19,8 +19,8 @@ use App\Messaging\Inbound\Data\OrderCancelledData;
 use App\Messaging\Inbound\Data\OrderCreatedData;
 use App\Messaging\Inbound\Data\OrderCreatedItemData;
 use App\Messaging\Inbound\Data\OrderLineData;
-use App\Messaging\Inbound\Exceptions\InvalidMessageException;
 use App\Messaging\Inbound\Exceptions\InvalidReservationTransitionException;
+use App\Messaging\Inbound\Exceptions\ReservationMismatchException;
 use App\Messaging\Inbound\Exceptions\RetryableMessageException;
 use App\Messaging\Inbound\InboundRoutingKeys;
 use App\Models\Stock;
@@ -49,6 +49,24 @@ final class OrderStockReservationService implements OrderStockReservationService
                 return ProcessingResult::duplicate();
             }
 
+            $pending = $data->items;
+
+            usort(
+                $pending,
+                static fn (OrderCreatedItemData $left, OrderCreatedItemData $right): int => strcmp($left->lineId, $right->lineId),
+            );
+
+            /** @var array<string, int> $requiredByProduct */
+            $requiredByProduct = [];
+
+            foreach ($pending as $item) {
+                $requiredByProduct[$item->productId] = ($requiredByProduct[$item->productId] ?? 0) + $item->quantity;
+            }
+
+            // Lock stock rows before reading existing lines. A concurrent event for the
+            // same order then blocks here and sees the lines committed by the winner.
+            $stocks = $this->lockStocks(array_keys($requiredByProduct), $data->storeId);
+
             $existing = array_flip($this->reservations->findExistingLineIds(
                 array_map(static fn (OrderCreatedItemData $item): string => $item->lineId, $data->items),
             ));
@@ -66,22 +84,6 @@ final class OrderStockReservationService implements OrderStockReservationService
 
                 return ProcessingResult::applied();
             }
-
-            $pending = $data->items;
-
-            usort(
-                $pending,
-                static fn (OrderCreatedItemData $left, OrderCreatedItemData $right): int => strcmp($left->lineId, $right->lineId),
-            );
-
-            /** @var array<string, int> $requiredByProduct */
-            $requiredByProduct = [];
-
-            foreach ($pending as $item) {
-                $requiredByProduct[$item->productId] = ($requiredByProduct[$item->productId] ?? 0) + $item->quantity;
-            }
-
-            $stocks = $this->lockStocks(array_keys($requiredByProduct), $data->storeId);
 
             foreach ($requiredByProduct as $productId => $required) {
                 if (! isset($stocks[$productId])) {
@@ -174,11 +176,7 @@ final class OrderStockReservationService implements OrderStockReservationService
                     continue;
                 }
 
-                if ((string) $reservation->order_id !== $data->orderId
-                    || (string) $reservation->store_id !== $data->storeId
-                    || (string) $reservation->product_id !== $item->productId) {
-                    throw new InvalidMessageException([], 'Reservation identity does not match the order event.');
-                }
+                $this->assertReservationMatches($reservation, $data->orderId, $data->storeId, $item);
 
                 $current = ReservationStatus::from((string) $reservation->status);
 
@@ -218,6 +216,35 @@ final class OrderStockReservationService implements OrderStockReservationService
 
             return ProcessingResult::applied(array_keys($affected));
         });
+    }
+
+    private function assertReservationMatches(
+        StockReservation $reservation,
+        string $orderId,
+        string $storeId,
+        OrderLineData $item,
+    ): void {
+        $fields = [];
+
+        if ((string) $reservation->order_id !== $orderId) {
+            $fields[] = 'order_id';
+        }
+
+        if ((string) $reservation->store_id !== $storeId) {
+            $fields[] = 'store_id';
+        }
+
+        if ((string) $reservation->product_id !== $item->productId) {
+            $fields[] = 'product_id';
+        }
+
+        if ((int) $reservation->quantity !== $item->quantity) {
+            $fields[] = 'quantity';
+        }
+
+        if ($fields !== []) {
+            throw new ReservationMismatchException((string) $reservation->order_line_id, $fields);
+        }
     }
 
     /**

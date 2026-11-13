@@ -14,6 +14,7 @@ use App\Messaging\Inbound\Data\OrderCreatedData;
 use App\Messaging\Inbound\Data\OrderCreatedItemData;
 use App\Messaging\Inbound\Data\OrderLineData;
 use App\Messaging\Inbound\Exceptions\InvalidReservationTransitionException;
+use App\Messaging\Inbound\Exceptions\ReservationMismatchException;
 use App\Services\Inbound\OrderStockReservationService;
 use App\Services\Inbound\Results\ProcessingResult;
 use App\Services\Inbound\Results\ProcessingStatus;
@@ -21,6 +22,7 @@ use App\Services\Inbound\Results\StockRejectionReason;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Test;
+use Ramsey\Uuid\Uuid;
 use Tests\Support\Fakes\FakeOutboxWriter;
 use Tests\Support\Fakes\FakeProcessedEventRepository;
 use Tests\Support\Fakes\FakeStockRepository;
@@ -279,6 +281,38 @@ final class OrderStockReservationServiceTest extends TestCase
         $this->expectException(InvalidReservationTransitionException::class);
 
         $this->service->handleCancelled($this->cancelled(), $this->now);
+    }
+
+    #[Test]
+    public function it_rejects_cancelling_a_reservation_whose_identity_does_not_match(): void
+    {
+        $this->stocks->seed(self::PRODUCT_ID, self::STORE_ID, 10, 2);
+        $this->reservations->seed(self::LINE_ID, self::ORDER_ID, self::PRODUCT_ID, self::STORE_ID, 2);
+
+        $mismatches = [
+            [new OrderLineData('11111111-1111-4111-8111-111111111111', 2, self::LINE_ID), 'product_id'],
+            [new OrderLineData(self::PRODUCT_ID, 3, self::LINE_ID), 'quantity'],
+        ];
+
+        foreach ($mismatches as [$line, $field]) {
+            $event = new OrderCancelledData(
+                (string) Uuid::uuid7(),
+                $this->now,
+                self::ORDER_ID,
+                self::STORE_ID,
+                [$line],
+            );
+
+            try {
+                $this->service->handleCancelled($event, $this->now);
+                self::fail('Expected an identity mismatch rejection.');
+            } catch (ReservationMismatchException $exception) {
+                self::assertContains($field, $exception->fields);
+                self::assertSame(ReservationStatus::Reserved->value, $this->reservations->get(self::LINE_ID)?->status);
+                self::assertSame(2, $this->stocks->get(self::PRODUCT_ID, self::STORE_ID)?->reserved);
+                self::assertSame(0, $this->outbox->count());
+            }
+        }
     }
 
     /**

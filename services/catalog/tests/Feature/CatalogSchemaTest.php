@@ -64,16 +64,16 @@ class CatalogSchemaTest extends PostgresTestCase
         ];
     }
 
-    public function test_schema_has_nine_migrations_and_all_catalog_tables(): void
+    public function test_schema_has_ten_migrations_and_all_catalog_tables(): void
     {
-        $this->assertCount(9, glob(database_path('migrations/*.php')));
+        $this->assertCount(10, glob(database_path('migrations/*.php')));
         $tables = DB::table('information_schema.tables')
             ->where('table_schema', $this->testSchema)
             ->where('table_type', 'BASE TABLE')
             ->orderBy('table_name')->pluck('table_name')->all();
         $this->assertSame([
-            'categories', 'outbox', 'processed_events', 'product_attributes', 'product_images', 'products',
-            'stock_reservations', 'stocks', 'stores',
+            'categories', 'outbox', 'outbox_failed', 'processed_events', 'product_attributes', 'product_images',
+            'products', 'stock_reservations', 'stocks', 'stores',
         ], $tables);
     }
 

@@ -13,7 +13,7 @@ prod-stop:
 seed: seed-auth seed-notification seed-catalog
 
 seed-catalog:
-	$(MAKE) -C services/catalog seed COMPOSE_FILE="$(CURDIR)/docker-compose.yaml" ARGS="--force"
+	$(MAKE) -C services/catalog seed COMPOSE_FILE="$(CURDIR)/docker-compose.yaml"
 
 seed-auth:
 	$(MAKE) -C services/auth seed COMPOSE_FILE="$(CURDIR)/docker-compose.yaml"

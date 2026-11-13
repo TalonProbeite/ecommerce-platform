@@ -142,6 +142,9 @@ final class MessagingConsumeOrdersCommand extends Command
 
     private function retryLater(AMQPMessage $message, int $delayMs): void
     {
+        // basic.reject (not basic.nack) increments the quorum-queue delivery count on
+        // RabbitMQ 4.3+, so x-delivery-limit can eventually dead-letter a poison message.
+        // On RabbitMQ 3.x both methods count towards the limit, so this remains safe there.
         $message->reject(true);
 
         if ($delayMs > 0) {

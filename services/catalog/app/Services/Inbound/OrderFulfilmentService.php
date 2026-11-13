@@ -15,8 +15,8 @@ use App\Messaging\Events\StockChanged;
 use App\Messaging\Inbound\Data\OrderIssuedData;
 use App\Messaging\Inbound\Data\OrderLineData;
 use App\Messaging\Inbound\Data\OrderReturnedData;
-use App\Messaging\Inbound\Exceptions\InvalidMessageException;
 use App\Messaging\Inbound\Exceptions\InvalidReservationTransitionException;
+use App\Messaging\Inbound\Exceptions\ReservationMismatchException;
 use App\Messaging\Inbound\Exceptions\ReservationNotFoundException;
 use App\Messaging\Inbound\Exceptions\RetryableMessageException;
 use App\Messaging\Inbound\InboundRoutingKeys;
@@ -47,11 +47,7 @@ final class OrderFulfilmentService implements OrderFulfilmentServiceInterface
                 $reservation = $this->reservations->findByLineIdForUpdate($item->lineId)
                     ?? throw new ReservationNotFoundException($item->lineId);
 
-                if ((string) $reservation->order_id !== $data->orderId
-                    || (string) $reservation->store_id !== $data->storeId
-                    || (string) $reservation->product_id !== $item->productId) {
-                    throw new InvalidMessageException([], 'Reservation identity does not match the order event.');
-                }
+                $this->assertReservationMatches($reservation, $data->orderId, $data->storeId, $item);
 
                 $current = ReservationStatus::from((string) $reservation->status);
 
@@ -91,11 +87,7 @@ final class OrderFulfilmentService implements OrderFulfilmentServiceInterface
                 $reservation = $this->reservations->findByLineIdForUpdate($item->lineId)
                     ?? throw new ReservationNotFoundException($item->lineId);
 
-                if ((string) $reservation->order_id !== $data->orderId
-                    || (string) $reservation->store_id !== $data->storeId
-                    || (string) $reservation->product_id !== $item->productId) {
-                    throw new InvalidMessageException([], 'Reservation identity does not match the order event.');
-                }
+                $this->assertReservationMatches($reservation, $data->orderId, $data->storeId, $item);
 
                 $current = ReservationStatus::from((string) $reservation->status);
 
@@ -140,6 +132,35 @@ final class OrderFulfilmentService implements OrderFulfilmentServiceInterface
 
             return ProcessingResult::applied(array_keys($affected));
         });
+    }
+
+    private function assertReservationMatches(
+        StockReservation $reservation,
+        string $orderId,
+        string $storeId,
+        OrderLineData $item,
+    ): void {
+        $fields = [];
+
+        if ((string) $reservation->order_id !== $orderId) {
+            $fields[] = 'order_id';
+        }
+
+        if ((string) $reservation->store_id !== $storeId) {
+            $fields[] = 'store_id';
+        }
+
+        if ((string) $reservation->product_id !== $item->productId) {
+            $fields[] = 'product_id';
+        }
+
+        if ((int) $reservation->quantity !== $item->quantity) {
+            $fields[] = 'quantity';
+        }
+
+        if ($fields !== []) {
+            throw new ReservationMismatchException((string) $reservation->order_line_id, $fields);
+        }
     }
 
     /**

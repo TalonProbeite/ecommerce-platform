@@ -9,6 +9,7 @@ use App\Enums\ReservationStatus;
 use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\Inbound\Exceptions\InvalidMessageException;
 use App\Messaging\Inbound\Exceptions\InvalidReservationTransitionException;
+use App\Messaging\Inbound\Exceptions\ReservationMismatchException;
 use App\Messaging\Inbound\Exceptions\RetryableMessageException;
 use App\Messaging\Inbound\InboundHandler;
 use App\Messaging\Inbound\InboundHandlerRegistry;
@@ -207,6 +208,19 @@ final class InboundMessageRouterTest extends TestCase
                 ReservationStatus::Reserved,
                 ReservationStatus::Issued,
                 ReservationStatus::Returned,
+            ),
+        ));
+
+        self::assertSame(InboundOutcome::Reject, $router->dispatch($this->message()));
+    }
+
+    #[Test]
+    public function a_reservation_mismatch_returns_reject(): void
+    {
+        $router = $this->routerFor($this->handler(
+            static fn (object $dto, CarbonImmutable $now): ProcessingResult => throw new ReservationMismatchException(
+                'line-1',
+                ['product_id', 'quantity'],
             ),
         ));
 

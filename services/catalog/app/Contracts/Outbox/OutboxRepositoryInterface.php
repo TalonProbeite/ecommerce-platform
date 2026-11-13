@@ -12,7 +12,13 @@ interface OutboxRepositoryInterface
     /**
      * @param array<string, mixed> $payload
      */
-    public function insert(string $eventId, string $routingKey, array $payload, CarbonImmutable $occurredAt): void;
+    public function insert(
+        string $eventId,
+        string $routingKey,
+        array $payload,
+        CarbonImmutable $occurredAt,
+        ?string $aggregateKey = null,
+    ): void;
 
     /**
      * Lock and fetch up to $limit unpublished outbox rows ordered by id ascending.
@@ -24,5 +30,11 @@ interface OutboxRepositoryInterface
 
     public function markPublished(int $id, CarbonImmutable $at): void;
 
-    public function recordFailure(int $id, string $error): void;
+    /**
+     * Increment the attempt counter. When the limit is reached the row is moved
+     * to outbox_failed and removed from outbox in the current transaction.
+     *
+     * @return bool True when the row was quarantined in outbox_failed.
+     */
+    public function recordFailure(OutboxRow $row, string $error, int $maxAttempts): bool;
 }

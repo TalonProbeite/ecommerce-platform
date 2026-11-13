@@ -7,6 +7,7 @@ namespace App\Messaging\Inbound;
 use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\Inbound\Exceptions\InvalidMessageException;
 use App\Messaging\Inbound\Exceptions\InvalidReservationTransitionException;
+use App\Messaging\Inbound\Exceptions\ReservationMismatchException;
 use App\Messaging\Inbound\Exceptions\RetryableMessageException;
 use App\Messaging\Inbound\Exceptions\UnknownRoutingKeyException;
 use App\Services\Inbound\Results\ProcessingStatus;
@@ -98,7 +99,7 @@ final readonly class InboundMessageRouter
             );
 
             return InboundOutcome::Reject;
-        } catch (InvalidReservationTransitionException $e) {
+        } catch (InvalidReservationTransitionException | ReservationMismatchException $e) {
             $this->logger->warning(
                 $e->getMessage(),
                 $this->buildLogContext($routingKey, $messageId, $eventId, [

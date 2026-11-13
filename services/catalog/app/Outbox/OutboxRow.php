@@ -20,6 +20,7 @@ final readonly class OutboxRow
         public ?CarbonImmutable $publishedAt = null,
         public int $attempts = 0,
         public ?string $lastError = null,
+        public ?string $aggregateKey = null,
     ) {
     }
 }

@@ -74,6 +74,19 @@ class CatalogSeederTest extends PostgresTestCase
         self::assertSame($snapshot, $this->counts());
     }
 
+    public function test_seeder_refuses_to_write_demo_data_in_production(): void
+    {
+        $this->app['env'] = 'production';
+
+        $this->artisan('db:seed', ['--class' => CatalogSeeder::class, '--force' => true])
+            ->assertSuccessful();
+
+        self::assertSame(0, DB::table('stores')->count());
+        self::assertSame(0, DB::table('categories')->count());
+        self::assertSame(0, DB::table('products')->count());
+        self::assertSame(0, DB::table('product_images')->count());
+    }
+
     public function test_seeder_restores_soft_deleted_demo_records(): void
     {
         $dataset = (new DemoCatalogDataset())->make();

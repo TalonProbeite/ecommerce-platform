@@ -12,6 +12,8 @@ use App\Messaging\Inbound\Data\OrderCreatedItemData;
 use App\Messaging\Inbound\Data\OrderIssuedData;
 use App\Messaging\Inbound\Data\OrderLineData;
 use App\Messaging\Inbound\Data\OrderReturnedData;
+use App\Messaging\Inbound\Exceptions\ReservationMismatchException;
+use App\Messaging\Inbound\Exceptions\RetryableMessageException;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Stock;
@@ -182,7 +184,10 @@ final class InboundServicesTest extends PostgresTestCase
     #[Group('concurrency')]
     public function two_concurrent_reservations_of_the_last_unit_leave_one_applied_and_one_rejected(): void
     {
-        self::markTestSkipped('Requires two connections and controlled reservation interleaving before enabling.');
+        self::markTestSkipped(
+            'Requires two database connections and controlled reservation interleaving; '
+            . 'covered by the C14 catalog-consumer review backlog item, not enabled in this change.',
+        );
     }
 
     #[Test]
@@ -251,33 +256,43 @@ final class InboundServicesTest extends PostgresTestCase
     }
 
     #[Test]
-    public function return_before_issue_retries_without_committing_changes(): void
+    public function return_before_issue_retries_then_succeeds_after_issue(): void
     {
         $lineId = (string) Uuid::uuid7();
         $this->reservationService->handleCreated($this->created($lineId, 2), $this->now);
+        $returned = $this->returned($lineId, 2);
         $count = DB::table('processed_events')->count();
+
         try {
-            $this->fulfilmentService->handleReturned($this->returned($lineId, 2), $this->now);
+            $this->fulfilmentService->handleReturned($returned, $this->now);
             self::fail('Expected retry');
-        } catch (\App\Messaging\Inbound\Exceptions\RetryableMessageException) {
+        } catch (RetryableMessageException) {
             self::assertSame($count, DB::table('processed_events')->count());
             self::assertSame(2, $this->stock->fresh()->reserved);
             self::assertSame('reserved', $this->reservation($lineId)->status);
         }
+
+        self::assertApplied($this->fulfilmentService->handleIssued($this->issued($lineId, 2), $this->now->addMinute()));
+        self::assertApplied($this->fulfilmentService->handleReturned($returned, $this->now->addMinutes(2)));
+        self::assertSame(0, $this->stock->fresh()->reserved);
+        self::assertSame('returned', $this->reservation($lineId)->status);
     }
 
     #[Test]
     public function lifecycle_events_reject_each_identity_mismatch_before_transition(): void
     {
-        foreach (['order_id', 'store_id', 'product_id'] as $field) {
+        foreach (['order_id', 'store_id', 'product_id', 'quantity'] as $field) {
             foreach (['issued', 'returned', 'cancelled'] as $operation) {
                 $lineId = (string) Uuid::uuid7();
                 $this->stock->update(['quantity' => 100]);
                 $this->reservationService->handleCreated($this->created($lineId, 1), $this->now);
                 $event = $operation === 'issued' ? $this->issued($lineId, 1) : $this->returned($lineId, 1);
                 $values = ['order_id' => $event->orderId, 'store_id' => $event->storeId, 'product_id' => $this->product->id];
-                $values[$field] = (string) Uuid::uuid7();
-                $items = [new OrderLineData($values['product_id'], 1, $lineId)];
+                if ($field !== 'quantity') {
+                    $values[$field] = (string) Uuid::uuid7();
+                }
+                $quantity = $field === 'quantity' ? 2 : 1;
+                $items = [new OrderLineData($values['product_id'], $quantity, $lineId)];
                 $class = match ($operation) {
                     'issued' => OrderIssuedData::class,
                     'returned' => OrderReturnedData::class,
@@ -292,7 +307,7 @@ final class InboundServicesTest extends PostgresTestCase
                         'cancelled' => $this->reservationService->handleCancelled($event, $this->now),
                     };
                     self::fail('Expected identity rejection');
-                } catch (\App\Messaging\Inbound\Exceptions\InvalidMessageException) {
+                } catch (ReservationMismatchException) {
                     self::assertSame('reserved', $this->reservation($lineId)->status);
                     self::assertSame($before, $this->stock->fresh()->reserved);
                     self::assertFalse(DB::table('processed_events')->where('event_id', $event->eventId)->exists());
@@ -321,12 +336,45 @@ final class InboundServicesTest extends PostgresTestCase
         try {
             $service->handleCreated($this->created((string) Uuid::uuid7(), 2), $this->now);
             self::fail('Expected retry');
-        } catch (\App\Messaging\Inbound\Exceptions\RetryableMessageException) {
+        } catch (RetryableMessageException) {
             self::assertSame(0, $this->stock->fresh()->reserved);
             self::assertSame(0, DB::table('stock_reservations')->count());
             self::assertSame(0, DB::table('processed_events')->count());
             self::assertSame(0, DB::table('outbox')->count());
         }
+    }
+
+    #[Test]
+    public function a_raced_existing_line_lookup_does_not_double_reserve(): void
+    {
+        $racingReservations = new class () extends StockReservationRepository {
+            public function findExistingLineIds(array $lineIds): array
+            {
+                return [];
+            }
+        };
+        $service = new OrderStockReservationService(
+            new StockRepository(),
+            $racingReservations,
+            new ProcessedEventRepository(),
+            new DbTransactionRunner(),
+            new OutboxWriter(new OutboxRepository())
+        );
+
+        $lineId = (string) Uuid::uuid7();
+        self::assertApplied($service->handleCreated($this->created($lineId, 2), $this->now));
+
+        try {
+            $service->handleCreated($this->created($lineId, 2), $this->now->addMinute());
+            self::fail('Expected retry after the insert conflict.');
+        } catch (RetryableMessageException) {
+            // Expected: the failed transaction must roll back its reservation and inbox mark.
+        }
+
+        self::assertSame(2, $this->stock->fresh()->reserved);
+        self::assertSame(1, StockReservation::query()->where('order_line_id', $lineId)->count());
+        self::assertSame(1, DB::table('processed_events')->count());
+        self::assertSame(2, DB::table('outbox')->count());
     }
 
     private function created(string $lineId, int $quantity): OrderCreatedData

@@ -15,11 +15,17 @@ final class OutboxRepository implements OutboxRepositoryInterface
     /**
      * @param array<string, mixed> $payload
      */
-    public function insert(string $eventId, string $routingKey, array $payload, CarbonImmutable $occurredAt): void
-    {
+    public function insert(
+        string $eventId,
+        string $routingKey,
+        array $payload,
+        CarbonImmutable $occurredAt,
+        ?string $aggregateKey = null,
+    ): void {
         DB::table('outbox')->insert([
             'event_id' => $eventId,
             'routing_key' => $routingKey,
+            'aggregate_key' => $aggregateKey,
             'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
             'occurred_at' => $occurredAt->format(self::TIMESTAMP_FORMAT),
             'published_at' => null,
@@ -35,12 +41,19 @@ final class OutboxRepository implements OutboxRepositoryInterface
     {
         $records = DB::table('outbox')
             ->whereNull('published_at')
-            ->where('attempts', '<', 5)
+            // Preserve per-aggregate order: a pending row waits for earlier rows of the
+            // same aggregate and stays blocked while that aggregate is quarantined.
             ->whereNotExists(function ($query): void {
                 $query->selectRaw('1')->from('outbox as earlier')
                     ->whereNull('earlier.published_at')
                     ->whereColumn('earlier.id', '<', 'outbox.id')
-                    ->whereRaw("earlier.payload->>'order_id' = outbox.payload->>'order_id'");
+                    ->whereNotNull('outbox.aggregate_key')
+                    ->whereColumn('earlier.aggregate_key', 'outbox.aggregate_key');
+            })
+            ->whereNotExists(function ($query): void {
+                $query->selectRaw('1')->from('outbox_failed as failed')
+                    ->whereNotNull('outbox.aggregate_key')
+                    ->whereColumn('failed.aggregate_key', 'outbox.aggregate_key');
             })
             ->orderBy('id', 'asc')
             ->limit($limit)
@@ -64,6 +77,7 @@ final class OutboxRepository implements OutboxRepositoryInterface
                 publishedAt: $record->published_at !== null ? CarbonImmutable::parse((string) $record->published_at) : null,
                 attempts: (int) $record->attempts,
                 lastError: $record->last_error !== null ? (string) $record->last_error : null,
+                aggregateKey: $record->aggregate_key !== null ? (string) $record->aggregate_key : null,
             );
         }
 
@@ -79,17 +93,35 @@ final class OutboxRepository implements OutboxRepositoryInterface
             ]);
     }
 
-    /**
-     * Five failed attempts quarantine an unpublished row and block later events for its order.
-     * After repairing the cause, reset attempts to zero to resume delivery.
-     */
-    public function recordFailure(int $id, string $error): void
+    public function recordFailure(OutboxRow $row, string $error, int $maxAttempts): bool
     {
-        DB::table('outbox')
-            ->where('id', $id)
-            ->update([
-                'attempts' => DB::raw('attempts + 1'),
-                'last_error' => $error,
-            ]);
+        $attempts = $row->attempts + 1;
+        $maxAttempts = max(1, $maxAttempts);
+
+        if ($attempts < $maxAttempts) {
+            DB::table('outbox')
+                ->where('id', $row->id)
+                ->update([
+                    'attempts' => $attempts,
+                    'last_error' => $error,
+                ]);
+
+            return false;
+        }
+
+        DB::table('outbox_failed')->insert([
+            'event_id' => $row->eventId,
+            'routing_key' => $row->routingKey,
+            'aggregate_key' => $row->aggregateKey,
+            'payload' => json_encode($row->payload, JSON_THROW_ON_ERROR),
+            'occurred_at' => $row->occurredAt->format(self::TIMESTAMP_FORMAT),
+            'failed_at' => CarbonImmutable::now()->format(self::TIMESTAMP_FORMAT),
+            'attempts' => $attempts,
+            'last_error' => $error,
+        ]);
+
+        DB::table('outbox')->where('id', $row->id)->delete();
+
+        return true;
     }
 }
