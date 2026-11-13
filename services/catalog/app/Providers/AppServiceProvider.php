@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Contracts\Messaging\EventPublisherInterface;
+use App\Contracts\Database\TransactionRunnerInterface;
 use App\Contracts\Repositories\CategoryRepositoryInterface;
+use App\Contracts\Repositories\ProcessedEventRepositoryInterface;
 use App\Contracts\Repositories\ProductAttributeRepositoryInterface;
 use App\Contracts\Repositories\ProductImageRepositoryInterface;
 use App\Contracts\Repositories\ProductRepositoryInterface;
@@ -13,6 +15,8 @@ use App\Contracts\Repositories\StockRepositoryInterface;
 use App\Contracts\Repositories\StockReservationRepositoryInterface;
 use App\Contracts\Repositories\StoreRepositoryInterface;
 use App\Contracts\Services\CategoryServiceInterface;
+use App\Contracts\Services\Inbound\OrderFulfilmentServiceInterface;
+use App\Contracts\Services\Inbound\OrderStockReservationServiceInterface;
 use App\Contracts\Services\ProductImageServiceInterface;
 use App\Contracts\Services\ProductServiceInterface;
 use App\Contracts\Services\StockServiceInterface;
@@ -25,6 +29,7 @@ use App\Messaging\RabbitMqPublisher;
 use App\Models\Category;
 use App\Observers\CategoryObserver;
 use App\Repositories\CategoryRepository;
+use App\Repositories\ProcessedEventRepository;
 use App\Repositories\ProductAttributeRepository;
 use App\Repositories\ProductImageRepository;
 use App\Repositories\ProductRepository;
@@ -32,10 +37,13 @@ use App\Repositories\StockRepository;
 use App\Repositories\StockReservationRepository;
 use App\Repositories\StoreRepository;
 use App\Services\CategoryService;
+use App\Services\Inbound\OrderFulfilmentService;
+use App\Services\Inbound\OrderStockReservationService;
 use App\Services\ProductImageService;
 use App\Services\ProductService;
 use App\Services\StockService;
 use App\Services\StoreService;
+use App\Database\DbTransactionRunner;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -53,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(CategoryRepositoryInterface::class, CategoryRepository::class);
+        $this->app->bind(ProcessedEventRepositoryInterface::class, ProcessedEventRepository::class);
         $this->app->bind(ProductAttributeRepositoryInterface::class, ProductAttributeRepository::class);
         $this->app->bind(ProductImageRepositoryInterface::class, ProductImageRepository::class);
         $this->app->bind(ProductRepositoryInterface::class, ProductRepository::class);
@@ -60,7 +69,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(StockReservationRepositoryInterface::class, StockReservationRepository::class);
         $this->app->bind(StoreRepositoryInterface::class, StoreRepository::class);
 
+        $this->app->bind(TransactionRunnerInterface::class, DbTransactionRunner::class);
+
         $this->app->bind(CategoryServiceInterface::class, CategoryService::class);
+        $this->app->bind(OrderFulfilmentServiceInterface::class, OrderFulfilmentService::class);
+        $this->app->bind(OrderStockReservationServiceInterface::class, OrderStockReservationService::class);
         $this->app->bind(ProductImageServiceInterface::class, ProductImageService::class);
         $this->app->bind(ProductServiceInterface::class, ProductService::class);
         $this->app->bind(StockServiceInterface::class, StockService::class);

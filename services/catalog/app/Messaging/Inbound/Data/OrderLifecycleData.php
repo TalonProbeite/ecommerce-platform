@@ -40,6 +40,7 @@ abstract readonly class OrderLifecycleData
             'order_id' => InboundRules::UUID,
             'store_id' => InboundRules::UUID,
             'items' => InboundRules::items(),
+            'items.*.line_id' => InboundRules::LINE_ID,
             'items.*.product_id' => InboundRules::UUID,
             'items.*.quantity' => InboundRules::QUANTITY,
         ]);

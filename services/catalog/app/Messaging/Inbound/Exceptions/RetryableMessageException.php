@@ -9,8 +9,11 @@ use Throwable;
 /**
  * Transient failure: a deadlock, lost database connection, or other
  * condition that may succeed on a later delivery.
+ *
+ * Not final on purpose: specific retryable failures (for example a missing
+ * reservation that may arrive later) extend it so the router can retry them.
  */
-final class RetryableMessageException extends InboundMessageException
+class RetryableMessageException extends InboundMessageException
 {
     public function __construct(string $message, ?Throwable $previous = null)
     {

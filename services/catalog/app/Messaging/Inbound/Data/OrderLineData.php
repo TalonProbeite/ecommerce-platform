@@ -9,6 +9,7 @@ final readonly class OrderLineData
     public function __construct(
         public string $productId,
         public int $quantity,
+        public string $lineId,
     ) {
     }
 
@@ -20,6 +21,7 @@ final readonly class OrderLineData
         return new self(
             productId: (string) $row['product_id'],
             quantity: (int) $row['quantity'],
+            lineId: (string) $row['line_id'],
         );
     }
 }

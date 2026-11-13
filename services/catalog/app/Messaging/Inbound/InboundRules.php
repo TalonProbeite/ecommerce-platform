@@ -18,6 +18,7 @@ final class InboundRules
 
     public const EVENT_ID = ['required', 'uuid'];
     public const UUID = ['required', 'uuid'];
+    public const LINE_ID = ['required', 'uuid', 'distinct'];
     public const TIMESTAMP = ['required', 'date_format:Y-m-d\TH:i:sP'];
     public const QUANTITY = ['required', 'integer', 'min:1', 'max:' . self::MAX_QUANTITY];
 

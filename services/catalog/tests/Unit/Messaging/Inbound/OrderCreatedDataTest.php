@@ -32,6 +32,7 @@ final class OrderCreatedDataTest extends TestCase
                     2,
                     CarbonImmutable::parse('2026-11-21T09:00:00+00:00'),
                     CarbonImmutable::parse('2026-11-23T18:00:00+00:00'),
+                    'a1a2a3a4-b1b2-4c1c-8d1d-1e1f20212223',
                 ),
             ],
             $data->items,
@@ -42,6 +43,7 @@ final class OrderCreatedDataTest extends TestCase
         self::assertSame(2, $item->quantity);
         self::assertTrue($item->rentalStartAt->equalTo(CarbonImmutable::parse('2026-11-21T09:00:00+00:00')));
         self::assertTrue($item->rentalEndAt->equalTo(CarbonImmutable::parse('2026-11-23T18:00:00+00:00')));
+        self::assertSame('a1a2a3a4-b1b2-4c1c-8d1d-1e1f20212223', $item->lineId);
     }
 
     #[Test]
@@ -64,6 +66,63 @@ final class OrderCreatedDataTest extends TestCase
         self::assertSame('+03:00', $item->rentalStartAt->getTimezone()->getName());
         self::assertTrue($data->occurredAt->equalTo(CarbonImmutable::parse('2026-11-20T10:00:00+00:00')));
         self::assertTrue($item->rentalStartAt->equalTo(CarbonImmutable::parse('2026-11-21T09:00:00+00:00')));
+    }
+
+    #[Test]
+    public function it_rejects_a_payload_without_line_id(): void
+    {
+        $payload = self::payload();
+        unset($payload['items'][0]['line_id']);
+
+        $exception = self::validationError($payload);
+
+        self::assertArrayHasKey('items.0.line_id', $exception->errors);
+    }
+
+    #[Test]
+    public function it_rejects_a_non_uuid_line_id(): void
+    {
+        $payload = self::payload([
+            'items' => [
+                ['line_id' => 'not-a-uuid'],
+            ],
+        ]);
+
+        $exception = self::validationError($payload);
+
+        self::assertArrayHasKey('items.0.line_id', $exception->errors);
+    }
+
+    #[Test]
+    public function it_rejects_duplicate_line_ids_inside_one_event(): void
+    {
+        $duplicate = 'a1a2a3a4-b1b2-4c1c-8d1d-1e1f20212223';
+        $payload = self::payload([
+            'items' => [
+                array_replace(self::item(), ['line_id' => $duplicate]),
+                array_replace(self::item(), ['line_id' => $duplicate]),
+            ],
+        ]);
+
+        $exception = self::validationError($payload);
+
+        self::assertArrayHasKey('items.1.line_id', $exception->errors);
+    }
+
+    #[Test]
+    public function it_allows_the_same_product_in_multiple_lines(): void
+    {
+        $payload = self::payload([
+            'items' => [
+                array_replace(self::item(), ['line_id' => 'a1a2a3a4-b1b2-4c1c-8d1d-1e1f20212223']),
+                array_replace(self::item(), ['line_id' => 'b1b2b3b4-c1c2-4d1d-8e1e-1f2021222324']),
+            ],
+        ]);
+
+        $data = OrderCreatedData::fromPayload($payload);
+
+        self::assertCount(2, $data->items);
+        self::assertSame($data->items[0]->productId, $data->items[1]->productId);
     }
 
     #[Test]
@@ -237,6 +296,7 @@ final class OrderCreatedDataTest extends TestCase
     private static function item(): array
     {
         return [
+            'line_id' => 'a1a2a3a4-b1b2-4c1c-8d1d-1e1f20212223',
             'product_id' => '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
             'quantity' => 2,
             'rental_start_at' => '2026-11-21T09:00:00+00:00',

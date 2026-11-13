@@ -33,7 +33,15 @@ final class OrderLifecycleDataTest extends TestCase
         self::assertSame('f47ac10b-58cc-4372-a567-0e02b2c3d479', $data->orderId);
         self::assertSame('3d9a1c2e-4b5f-4a6d-9e8f-1a2b3c4d5e6f', $data->storeId);
         self::assertCount(1, $data->items);
-        self::assertEquals([new OrderLineData('9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d', 2)], $data->items);
+        self::assertEquals(
+            [new OrderLineData(
+                '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+                2,
+                'a1a2a3a4-b1b2-4c1c-8d1d-1e1f20212223',
+            )],
+            $data->items,
+        );
+        self::assertSame('a1a2a3a4-b1b2-4c1c-8d1d-1e1f20212223', $data->items[0]->lineId);
     }
 
     /**
@@ -55,6 +63,48 @@ final class OrderLifecycleDataTest extends TestCase
         $exception = self::validationError($payload);
 
         self::assertArrayHasKey('order_id', $exception->errors);
+    }
+
+    #[Test]
+    public function it_rejects_a_payload_without_line_id(): void
+    {
+        $payload = self::payload();
+        unset($payload['items'][0]['line_id']);
+
+        $exception = self::validationError($payload);
+
+        self::assertArrayHasKey('items.0.line_id', $exception->errors);
+    }
+
+    #[Test]
+    public function it_rejects_a_non_uuid_line_id(): void
+    {
+        $payload = self::payload([
+            'items' => [
+                ['line_id' => 'not-a-uuid'],
+            ],
+        ]);
+
+        $exception = self::validationError($payload);
+
+        self::assertArrayHasKey('items.0.line_id', $exception->errors);
+    }
+
+    #[Test]
+    public function it_rejects_duplicate_line_ids_inside_one_event(): void
+    {
+        $duplicate = 'a1a2a3a4-b1b2-4c1c-8d1d-1e1f20212223';
+        $item = self::item();
+        $payload = self::payload([
+            'items' => [
+                $item,
+                array_replace($item, ['line_id' => $duplicate]),
+            ],
+        ]);
+
+        $exception = self::validationError($payload);
+
+        self::assertArrayHasKey('items.1.line_id', $exception->errors);
     }
 
     #[Test]
@@ -91,12 +141,21 @@ final class OrderLifecycleDataTest extends TestCase
             'order_id' => 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
             'store_id' => '3d9a1c2e-4b5f-4a6d-9e8f-1a2b3c4d5e6f',
             'items' => [
-                [
-                    'product_id' => '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
-                    'quantity' => 2,
-                ],
+                self::item(),
             ],
         ], $overrides);
+    }
+
+    /**
+     * @return array<string, int|string>
+     */
+    private static function item(): array
+    {
+        return [
+            'line_id' => 'a1a2a3a4-b1b2-4c1c-8d1d-1e1f20212223',
+            'product_id' => '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+            'quantity' => 2,
+        ];
     }
 
     /**

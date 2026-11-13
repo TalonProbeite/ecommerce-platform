@@ -39,6 +39,7 @@ final readonly class OrderCreatedData
                 'order_id' => InboundRules::UUID,
                 'store_id' => InboundRules::UUID,
                 'items' => InboundRules::items(),
+                'items.*.line_id' => InboundRules::LINE_ID,
                 'items.*.product_id' => InboundRules::UUID,
                 'items.*.quantity' => InboundRules::QUANTITY,
                 'items.*.rental_start_at' => InboundRules::TIMESTAMP,

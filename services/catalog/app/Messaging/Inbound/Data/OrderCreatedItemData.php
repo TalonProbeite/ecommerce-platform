@@ -13,6 +13,7 @@ final readonly class OrderCreatedItemData
         public int $quantity,
         public CarbonImmutable $rentalStartAt,
         public CarbonImmutable $rentalEndAt,
+        public string $lineId,
     ) {
     }
 
@@ -26,6 +27,7 @@ final readonly class OrderCreatedItemData
             quantity: (int) $row['quantity'],
             rentalStartAt: CarbonImmutable::parse((string) $row['rental_start_at']),
             rentalEndAt: CarbonImmutable::parse((string) $row['rental_end_at']),
+            lineId: (string) $row['line_id'],
         );
     }
 }
