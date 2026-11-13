@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Messaging\Inbound;
 
+use App\Contracts\Repositories\ProductRepositoryInterface;
+use App\Enums\ReservationStatus;
+use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\Inbound\Exceptions\InvalidMessageException;
+use App\Messaging\Inbound\Exceptions\InvalidReservationTransitionException;
 use App\Messaging\Inbound\Exceptions\RetryableMessageException;
 use App\Messaging\Inbound\InboundHandler;
 use App\Messaging\Inbound\InboundHandlerRegistry;
@@ -15,6 +19,8 @@ use App\Services\Inbound\Results\ProcessingResult;
 use App\Services\Inbound\Results\StockRejectionReason;
 use Carbon\CarbonImmutable;
 use Closure;
+use Illuminate\Support\Facades\Cache;
+use Mockery;
 use PhpAmqpLib\Message\AMQPMessage;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
@@ -28,6 +34,51 @@ final class InboundMessageRouterTest extends TestCase
     {
         $router = $this->routerFor($this->handler(
             fn (object $dto, CarbonImmutable $now): ProcessingResult => ProcessingResult::applied(),
+        ));
+
+        self::assertSame(InboundOutcome::Ack, $router->dispatch($this->message()));
+    }
+
+    #[Test]
+    public function an_applied_result_invalidates_each_affected_product_card(): void
+    {
+        Cache::spy();
+
+        $router = $this->routerFor($this->handler(
+            static fn (object $dto, CarbonImmutable $now): ProcessingResult => ProcessingResult::applied(['p1', 'p2']),
+        ));
+
+        self::assertSame(InboundOutcome::Ack, $router->dispatch($this->message()));
+
+        Cache::shouldHaveReceived('put')
+            ->with('products:ver:card:p1', Mockery::type('string'), Mockery::type('int'))
+            ->once();
+        Cache::shouldHaveReceived('put')
+            ->with('products:ver:card:p2', Mockery::type('string'), Mockery::type('int'))
+            ->once();
+    }
+
+    #[Test]
+    public function an_applied_result_without_affected_products_does_not_invalidate_cards(): void
+    {
+        Cache::spy();
+
+        $router = $this->routerFor($this->handler(
+            static fn (object $dto, CarbonImmutable $now): ProcessingResult => ProcessingResult::applied(),
+        ));
+
+        self::assertSame(InboundOutcome::Ack, $router->dispatch($this->message()));
+
+        Cache::shouldNotHaveReceived('put');
+    }
+
+    #[Test]
+    public function a_cache_invalidation_failure_does_not_change_the_outcome(): void
+    {
+        Cache::shouldReceive('put')->andThrow(new RuntimeException('cache unavailable'))->zeroOrMoreTimes();
+
+        $router = $this->routerFor($this->handler(
+            static fn (object $dto, CarbonImmutable $now): ProcessingResult => ProcessingResult::applied(['p1', 'p2']),
         ));
 
         self::assertSame(InboundOutcome::Ack, $router->dispatch($this->message()));
@@ -56,9 +107,43 @@ final class InboundMessageRouterTest extends TestCase
     }
 
     #[Test]
+    public function a_duplicate_result_does_not_invalidate_product_cards(): void
+    {
+        Cache::spy();
+
+        $router = $this->routerFor($this->handler(
+            static fn (object $dto, CarbonImmutable $now): ProcessingResult => ProcessingResult::duplicate(),
+        ));
+
+        self::assertSame(InboundOutcome::Ack, $router->dispatch($this->message()));
+
+        Cache::shouldNotHaveReceived('put');
+    }
+
+    #[Test]
+    public function a_rejected_result_does_not_invalidate_product_cards(): void
+    {
+        Cache::spy();
+
+        $router = $this->routerFor($this->handler(
+            static fn (object $dto, CarbonImmutable $now): ProcessingResult => ProcessingResult::rejected(
+                StockRejectionReason::InsufficientStock,
+            ),
+        ));
+
+        self::assertSame(InboundOutcome::Ack, $router->dispatch($this->message()));
+
+        Cache::shouldNotHaveReceived('put');
+    }
+
+    #[Test]
     public function an_unknown_routing_key_returns_reject(): void
     {
-        $router = new InboundMessageRouter(new InboundHandlerRegistry([]), new NullLogger());
+        $router = new InboundMessageRouter(
+            new InboundHandlerRegistry([]),
+            new NullLogger(),
+            $this->productCache(),
+        );
 
         $outcome = $router->dispatch($this->message('order.completed'));
 
@@ -114,6 +199,21 @@ final class InboundMessageRouterTest extends TestCase
     }
 
     #[Test]
+    public function an_invalid_reservation_transition_returns_reject(): void
+    {
+        $router = $this->routerFor($this->handler(
+            static fn (object $dto, CarbonImmutable $now): ProcessingResult => throw new InvalidReservationTransitionException(
+                'line-1',
+                ReservationStatus::Reserved,
+                ReservationStatus::Issued,
+                ReservationStatus::Returned,
+            ),
+        ));
+
+        self::assertSame(InboundOutcome::Reject, $router->dispatch($this->message()));
+    }
+
+    #[Test]
     public function the_routing_result_status_is_preserved_in_the_dto(): void
     {
         $router = $this->routerFor($this->handler(
@@ -135,7 +235,21 @@ final class InboundMessageRouterTest extends TestCase
 
     private function routerFor(InboundHandler $handler): InboundMessageRouter
     {
-        return new InboundMessageRouter(new InboundHandlerRegistry([$handler]), new NullLogger());
+        return new InboundMessageRouter(
+            new InboundHandlerRegistry([$handler]),
+            new NullLogger(),
+            $this->productCache(),
+        );
+    }
+
+    private function productCache(): ProductCache
+    {
+        return new ProductCache(
+            300,
+            600,
+            86400,
+            Mockery::mock(ProductRepositoryInterface::class),
+        );
     }
 
     private function handler(?Closure $handle = null): InboundHandler

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Messaging\Inbound;
 
+use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\Inbound\Exceptions\InvalidMessageException;
+use App\Messaging\Inbound\Exceptions\InvalidReservationTransitionException;
 use App\Messaging\Inbound\Exceptions\RetryableMessageException;
 use App\Messaging\Inbound\Exceptions\UnknownRoutingKeyException;
+use App\Services\Inbound\Results\ProcessingStatus;
 use Carbon\CarbonImmutable;
 use JsonException;
 use LogicException;
@@ -20,6 +23,7 @@ final readonly class InboundMessageRouter
     public function __construct(
         private InboundHandlerRegistry $registry,
         private LoggerInterface $logger,
+        private ProductCache $productCache,
     ) {
     }
 
@@ -73,6 +77,10 @@ final readonly class InboundMessageRouter
             $now = CarbonImmutable::now();
             $result = $handler->handle($dto, $now);
 
+            if ($result->status === ProcessingStatus::Applied) {
+                $this->invalidateProductCards($result->affectedProductIds, $routingKey, $messageId, $eventId);
+            }
+
             $this->logger->info(
                 'Inbound message handled successfully.',
                 $this->buildLogContext($routingKey, $messageId, $eventId, [
@@ -82,6 +90,15 @@ final readonly class InboundMessageRouter
 
             return InboundOutcome::Ack;
         } catch (InvalidMessageException | UnknownRoutingKeyException $e) {
+            $this->logger->warning(
+                $e->getMessage(),
+                $this->buildLogContext($routingKey, $messageId, $eventId, [
+                    'exception' => $e,
+                ]),
+            );
+
+            return InboundOutcome::Reject;
+        } catch (InvalidReservationTransitionException $e) {
             $this->logger->warning(
                 $e->getMessage(),
                 $this->buildLogContext($routingKey, $messageId, $eventId, [
@@ -108,6 +125,30 @@ final readonly class InboundMessageRouter
             );
 
             return InboundOutcome::Retry;
+        }
+    }
+
+    /**
+     * @param list<string> $productIds
+     */
+    private function invalidateProductCards(
+        array $productIds,
+        string $routingKey,
+        ?string $messageId,
+        ?string $eventId,
+    ): void {
+        foreach ($productIds as $productId) {
+            try {
+                $this->productCache->invalidateCard($productId);
+            } catch (Throwable $e) {
+                $this->logger->warning(
+                    'Failed to invalidate product card cache after inbound message.',
+                    $this->buildLogContext($routingKey, $messageId, $eventId, [
+                        'product_id' => $productId,
+                        'exception' => $e,
+                    ]),
+                );
+            }
         }
     }
 
