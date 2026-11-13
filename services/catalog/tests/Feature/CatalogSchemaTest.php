@@ -56,6 +56,7 @@ class CatalogSchemaTest extends PostgresTestCase
     {
         return [
             'id' => (string) Uuid::uuid7(), 'order_id' => (string) Uuid::uuid7(),
+            'order_line_id' => (string) Uuid::uuid7(),
             'product_id' => $this->productId, 'store_id' => $this->storeId,
             'quantity' => 2, 'status' => 'reserved',
             'rental_start_at' => '2026-10-13 10:00:00+02',
@@ -63,17 +64,36 @@ class CatalogSchemaTest extends PostgresTestCase
         ];
     }
 
-    public function test_schema_has_exactly_seven_table_migrations(): void
+    public function test_schema_has_ten_migrations_and_all_catalog_tables(): void
     {
-        $this->assertCount(7, glob(database_path('migrations/*.php')));
+        $this->assertCount(10, glob(database_path('migrations/*.php')));
         $tables = DB::table('information_schema.tables')
             ->where('table_schema', $this->testSchema)
             ->where('table_type', 'BASE TABLE')
             ->orderBy('table_name')->pluck('table_name')->all();
         $this->assertSame([
-            'categories', 'product_attributes', 'product_images', 'products',
-            'stock_reservations', 'stocks', 'stores',
+            'categories', 'outbox', 'outbox_failed', 'processed_events', 'product_attributes', 'product_images',
+            'products', 'stock_reservations', 'stocks', 'stores',
         ], $tables);
+    }
+
+    public function test_rollback_preflights_duplicate_product_lines_without_changing_data(): void
+    {
+        $first = $this->reservation();
+        $second = $first;
+        $second['id'] = (string) Uuid::uuid7();
+        $second['order_line_id'] = (string) Uuid::uuid7();
+        DB::table('stock_reservations')->insert([$first, $second]);
+        $migration = require database_path('migrations/2026_11_15_100000_add_order_line_id_and_processed_events.php');
+        try {
+            $migration->down();
+            self::fail('Rollback must reject duplicate product lines');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('Cannot roll back', $exception->getMessage());
+            self::assertTrue(Schema::hasTable('processed_events'));
+            self::assertTrue(Schema::hasColumn('stock_reservations', 'order_line_id'));
+            self::assertSame(2, DB::table('stock_reservations')->count());
+        }
     }
 
     public function test_rental_fields_have_correct_defaults_and_relationships(): void
@@ -152,9 +172,12 @@ class CatalogSchemaTest extends PostgresTestCase
     public function test_reservations_accept_external_order_ids_and_prevent_duplicate_order_lines(): void
     {
         $values = $this->reservation();
+        $orderId = (string) Uuid::uuid7();
         foreach (['reserved', 'issued', 'released', 'returned'] as $status) {
             $reservation = StockReservation::create(array_replace($values, [
-                'order_id' => (string) Uuid::uuid7(), 'status' => $status,
+                'order_id' => $orderId,
+                'order_line_id' => (string) Uuid::uuid7(),
+                'status' => $status,
             ]));
             $this->assertSame(2, $reservation->quantity);
             $this->assertSame('2026-10-13 08:00:00', $reservation->rental_start_at->utc()->format('Y-m-d H:i:s'));
@@ -162,11 +185,25 @@ class CatalogSchemaTest extends PostgresTestCase
             $this->assertSame('2026-10-13 10:00:00', $reservation->fresh()->rental_end_at->utc()->format('Y-m-d H:i:s'));
             $this->assertSame(7, Uuid::fromString($reservation->id)->getVersion());
             $this->assertRejected(fn () => StockReservation::create(array_replace($values, [
-                'order_id' => $reservation->order_id, 'status' => $status,
+                'order_line_id' => $reservation->order_line_id,
+                'status' => $status,
             ])), '23505');
         }
+
+        // The same product may appear in several lines of one order.
+        $first = StockReservation::create(array_replace($values, [
+            'order_id' => $orderId,
+            'order_line_id' => (string) Uuid::uuid7(),
+        ]));
+        $second = StockReservation::create(array_replace($values, [
+            'order_id' => $orderId,
+            'order_line_id' => (string) Uuid::uuid7(),
+        ]));
+        $this->assertSame($first->order_id, $second->order_id);
+        $this->assertSame($first->product_id, $second->product_id);
+
         $this->assertFalse(Schema::hasTable('orders'));
-        $this->assertSame(4, StockReservation::count());
+        $this->assertSame(6, StockReservation::count());
     }
 
     public function test_reservation_dates_are_optional_information_and_do_not_release_stock(): void
@@ -227,7 +264,10 @@ class CatalogSchemaTest extends PostgresTestCase
         ]);
         Stock::create(['product_id' => $second->id, 'store_id' => $this->storeId, 'quantity' => 4]);
         foreach ([$this->productId, $second->id] as $productId) {
-            StockReservation::create(array_replace($this->reservation(), ['product_id' => $productId]));
+            StockReservation::create(array_replace($this->reservation(), [
+                'product_id' => $productId,
+                'order_line_id' => (string) Uuid::uuid7(),
+            ]));
         }
 
         $store = Store::with(['products.stock', 'categories', 'stocks.stockReservations'])->findOrFail($this->storeId);
@@ -309,7 +349,7 @@ class CatalogSchemaTest extends PostgresTestCase
         $this->assertSame('character varying', $columns['product_images.mime_type']->data_type);
         $this->assertSame('bigint', $columns['product_images.size']->data_type);
         $this->assertSame('boolean', $columns['product_images.is_main']->data_type);
-        foreach (['id', 'order_id', 'product_id', 'store_id'] as $column) {
+        foreach (['id', 'order_id', 'order_line_id', 'product_id', 'store_id'] as $column) {
             $this->assertSame('uuid', $columns['stock_reservations.' . $column]->data_type);
             $this->assertSame('NO', $columns['stock_reservations.' . $column]->is_nullable);
         }
@@ -321,7 +361,9 @@ class CatalogSchemaTest extends PostgresTestCase
         $this->assertSame('timestamp without time zone', $columns['stock_reservations.updated_at']->data_type);
 
         $indexes = Schema::getIndexes('stock_reservations');
-        $this->assertNotEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['order_id', 'product_id'] && $index['unique']));
+        $this->assertNotEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['order_line_id'] && $index['unique']));
+        $this->assertNotEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['order_id']));
+        $this->assertEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['order_id', 'product_id']));
         $this->assertNotEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['product_id']));
         $this->assertNotEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['store_id', 'status']));
         $this->assertEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['rental_start_at', 'rental_end_at']));

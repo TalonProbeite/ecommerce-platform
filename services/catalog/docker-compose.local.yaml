@@ -83,12 +83,20 @@ services:
     container_name: catalog-seaweedfs
     restart: unless-stopped
     environment:
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-seaweed_admin}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-seaweed_secret_123}
-      S3_BUCKET: ${AWS_BUCKET:-catalog_assets}
-    command: ["mini", "-dir=/data"]
+      # Keep S3 credentials aligned with the catalog disk. Anonymous read is
+      # enabled by s3.json.tpl so product image URLs work in the browser.
+      SEAWEEDFS_ACCESS_KEY_ID: ${SEAWEEDFS_ACCESS_KEY_ID:-seaweed_admin}
+      SEAWEEDFS_SECRET_ACCESS_KEY: ${SEAWEEDFS_SECRET_ACCESS_KEY:-seaweed_secret_123}
     volumes:
+      - ./docker/seaweedfs/s3.json.tpl:/etc/seaweedfs/s3.json.tpl:ro
       - catalog_seaweedfs_data:/data
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - >-
+        sed -e "s|__ACCESS_KEY__|$$SEAWEEDFS_ACCESS_KEY_ID|g"
+        -e "s|__SECRET_KEY__|$$SEAWEEDFS_SECRET_ACCESS_KEY|g"
+        /etc/seaweedfs/s3.json.tpl > /tmp/s3.json &&
+        exec weed mini -dir=/data -s3.config=/tmp/s3.json
     ports:
       - "127.0.0.1:8333:8333"
     networks:
@@ -130,7 +138,16 @@ services:
       RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
 
-      # SeaweedFS (S3)
+      # SeaweedFS (S3). The catalog disk uses SEAWEEDFS_* variables; the
+      # endpoint must be the internal service name when the app runs in Docker.
+      SEAWEEDFS_ACCESS_KEY_ID: ${SEAWEEDFS_ACCESS_KEY_ID:-seaweed_admin}
+      SEAWEEDFS_SECRET_ACCESS_KEY: ${SEAWEEDFS_SECRET_ACCESS_KEY:-seaweed_secret_123}
+      SEAWEEDFS_REGION: ${SEAWEEDFS_REGION:-us-east-1}
+      SEAWEEDFS_BUCKET: ${SEAWEEDFS_BUCKET:-catalog}
+      SEAWEEDFS_ENDPOINT: http://catalog-seaweedfs:8333
+      SEAWEEDFS_PUBLIC_URL: https://localhost:8444/media/${SEAWEEDFS_BUCKET:-catalog}
+
+      # Generic S3 disk remains configured for parity with the base .env.
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-seaweed_admin}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-seaweed_secret_123}
       AWS_BUCKET: ${AWS_BUCKET:-catalog_assets}
