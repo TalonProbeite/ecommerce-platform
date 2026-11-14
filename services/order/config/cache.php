@@ -50,7 +50,7 @@ return [
         'file' => [
             'driver' => 'file',
             'path' => storage_path('framework/cache/data'),
-            'lock_path' => storage_path('framework/cache/locks'),
+            'lock_path' => storage_path('framework/cache/data'),
         ],
 
         'storage' => [
@@ -118,7 +118,7 @@ return [
     |
     */
 
-    'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-cache-'),
+    'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')) . '-cache-'),
 
     /*
     |--------------------------------------------------------------------------
