@@ -52,7 +52,7 @@ final class OutboxFailedCommandsTest extends PostgresTestCase
         self::assertSame(0, $requeued->attempts);
         self::assertNull($requeued->last_error);
         self::assertNull($requeued->published_at);
-        self::assertSame('2026-11-20 10:00:00+00:00', $this->formatTimestamp((string) $requeued->occurred_at));
+        self::assertSame('2026-11-20 10:00:00.000000+00:00', $this->formatTimestamp((string) $requeued->occurred_at));
         self::assertFalse(DB::table('outbox_failed')->where('event_id', $eventId)->exists());
 
         $publisher = new class () implements OutboxMessagePublisherInterface {
@@ -97,6 +97,6 @@ final class OutboxFailedCommandsTest extends PostgresTestCase
 
     private function formatTimestamp(string $value): string
     {
-        return CarbonImmutable::parse($value)->setTimezone('+00:00')->format('Y-m-d H:i:sP');
+        return CarbonImmutable::parse($value)->setTimezone('+00:00')->format('Y-m-d H:i:s.uP');
     }
 }

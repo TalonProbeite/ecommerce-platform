@@ -15,7 +15,7 @@ final class ProcessedEventRepository implements ProcessedEventRepositoryInterfac
         return DB::table('processed_events')->insertOrIgnore([
             'event_id' => $eventId,
             'routing_key' => $routingKey,
-            'processed_at' => $at,
+            'processed_at' => $at->format('Y-m-d H:i:s.uP'),
         ]) === 1;
     }
 }

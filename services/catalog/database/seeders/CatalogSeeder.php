@@ -246,7 +246,7 @@ class CatalogSeeder extends Seeder
     {
         unset($row['index']);
 
-        $row['updated_at'] = now();
+        $row['updated_at'] = now()->format('Y-m-d H:i:s.uP');
 
         if (! $exists) {
             $row['created_at'] = $row['updated_at'];

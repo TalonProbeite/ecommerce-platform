@@ -16,7 +16,8 @@ return new class () extends Migration {
             $table->integer('quantity')->default(0);
             $table->integer('reserved')->default(0);
 
-            $table->timestamps();
+            $table->timestampTz('created_at', 6)->useCurrent();
+            $table->timestampTz('updated_at', 6)->useCurrent();
 
             $table->index('store_id');
             $table->foreign(['product_id', 'store_id'], 'stocks_product_store_foreign')

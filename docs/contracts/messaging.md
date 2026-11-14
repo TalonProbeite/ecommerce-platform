@@ -19,6 +19,8 @@ followed by the event-specific payload fields.
 Payload fields are flattened into the same object after the envelope fields.
 No nested `payload` wrapper is used.
 
+Database time columns use precision 6; microseconds are preserved end to end (точность 6, микросекунды сохраняются).
+
 Guarantees:
 
 - Delivery is **at least once**. Consumers must tolerate duplicate

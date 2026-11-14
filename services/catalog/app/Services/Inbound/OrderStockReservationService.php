@@ -31,7 +31,7 @@ use Carbon\CarbonImmutable;
 
 final class OrderStockReservationService implements OrderStockReservationServiceInterface
 {
-    private const TIMESTAMP_FORMAT = 'Y-m-d H:i:sP';
+    private const TIMESTAMP_FORMAT = 'Y-m-d H:i:s.uP';
 
     public function __construct(
         private readonly StockRepositoryInterface $stocks,

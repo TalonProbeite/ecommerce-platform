@@ -355,10 +355,14 @@ class CatalogSchemaTest extends PostgresTestCase
         }
         foreach (['rental_start_at', 'rental_end_at', 'issued_at', 'returned_at'] as $column) {
             $this->assertSame('timestamp with time zone', $columns['stock_reservations.' . $column]->data_type);
+            $this->assertSame('6', (string) $columns['stock_reservations.' . $column]->datetime_precision);
             $this->assertSame('YES', $columns['stock_reservations.' . $column]->is_nullable);
         }
-        $this->assertSame('timestamp without time zone', $columns['stock_reservations.created_at']->data_type);
-        $this->assertSame('timestamp without time zone', $columns['stock_reservations.updated_at']->data_type);
+        foreach (['created_at', 'updated_at'] as $column) {
+            $this->assertSame('timestamp with time zone', $columns['stock_reservations.' . $column]->data_type);
+            $this->assertSame('6', (string) $columns['stock_reservations.' . $column]->datetime_precision);
+            $this->assertSame('NO', $columns['stock_reservations.' . $column]->is_nullable);
+        }
 
         $indexes = Schema::getIndexes('stock_reservations');
         $this->assertNotEmpty(array_filter($indexes, fn ($index) => $index['columns'] === ['order_line_id'] && $index['unique']));

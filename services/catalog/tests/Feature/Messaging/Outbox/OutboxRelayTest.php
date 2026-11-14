@@ -377,8 +377,8 @@ final class OutboxRelayTest extends PostgresTestCase
         $relay->processBatch();
 
         self::assertSame($eventId, $fakePublisher->lastBody['event_id']);
-        // The outbox column stores whole seconds, so the formatter emits .000000.
-        self::assertSame('2026-11-20T10:00:00.000000+00:00', $fakePublisher->lastBody['occurred_at']);
+        // The outbox column keeps microsecond precision, so the formatter emits .123456.
+        self::assertSame('2026-11-20T10:00:00.123456+00:00', $fakePublisher->lastBody['occurred_at']);
     }
 
     #[Test]

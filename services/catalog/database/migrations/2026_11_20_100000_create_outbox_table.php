@@ -13,8 +13,8 @@ return new class () extends Migration {
             $table->uuid('event_id')->unique();
             $table->string('routing_key', 64);
             $table->jsonb('payload');
-            $table->timestampTz('occurred_at');
-            $table->timestampTz('published_at')->nullable();
+            $table->timestampTz('occurred_at', 6);
+            $table->timestampTz('published_at', 6)->nullable();
             $table->integer('attempts')->default(0);
             $table->text('last_error')->nullable();
         });

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 final class OutboxRepository implements OutboxRepositoryInterface
 {
-    private const TIMESTAMP_FORMAT = 'Y-m-d H:i:sP';
+    private const TIMESTAMP_FORMAT = 'Y-m-d H:i:s.uP';
 
     /**
      * @param array<string, mixed> $payload

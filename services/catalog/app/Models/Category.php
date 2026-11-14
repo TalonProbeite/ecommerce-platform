@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesPreciseDates;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -16,6 +17,7 @@ class Category extends Model
 {
     use HasUuids;
     use SoftDeletes;
+    use UsesPreciseDates;
 
     public function newUniqueId(): string
     {

@@ -29,8 +29,8 @@ return new class () extends Migration {
             $table->string('routing_key', 64);
             $table->string('aggregate_key', 128)->nullable();
             $table->jsonb('payload');
-            $table->timestampTz('occurred_at');
-            $table->timestampTz('failed_at');
+            $table->timestampTz('occurred_at', 6);
+            $table->timestampTz('failed_at', 6);
             $table->integer('attempts');
             $table->text('last_error');
 

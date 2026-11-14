@@ -129,17 +129,19 @@ class StockReservationRepository implements StockReservationRepositoryInterface
         ReservationStatus $to,
         CarbonImmutable $at,
     ): int {
+        $formattedAt = $at->format('Y-m-d H:i:s.uP');
+
         $values = [
             'status' => $to->value,
-            'updated_at' => $at,
+            'updated_at' => $formattedAt,
         ];
 
         if ($to === ReservationStatus::Issued) {
-            $values['issued_at'] = $at;
+            $values['issued_at'] = $formattedAt;
         }
 
         if ($to === ReservationStatus::Returned) {
-            $values['returned_at'] = $at;
+            $values['returned_at'] = $formattedAt;
         }
 
         // Use the query builder: Eloquent would overwrite updated_at with now().

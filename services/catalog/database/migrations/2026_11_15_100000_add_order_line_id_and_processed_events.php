@@ -28,7 +28,7 @@ return new class () extends Migration {
         Schema::create('processed_events', function (Blueprint $table) {
             $table->uuid('event_id')->primary();
             $table->string('routing_key', 64);
-            $table->timestampTz('processed_at')->useCurrent();
+            $table->timestampTz('processed_at', 6);
         });
     }
 
