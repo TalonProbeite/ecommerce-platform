@@ -1,0 +1,39 @@
+# Build context is services/. Exclude everything, then re-include order/ only.
+**
+!order
+!order/**
+
+# Host-installed dependencies and caches: the image installs its own
+order/vendor/**
+order/node_modules/**
+order/rr
+order/.phpunit.cache/**
+order/.phpunit.result.cache
+order/storage/app/**
+order/storage/framework/cache/**
+order/storage/framework/sessions/**
+order/storage/framework/views/**
+order/storage/framework/testing/**
+order/storage/logs/**
+order/bootstrap/cache/*.php
+
+# Secrets and local env files
+order/.env
+order/.env.*
+order/.git/**
+
+# IDE and AI tooling
+order/_ide_helper.php
+order/_ide_helper_models.php
+order/.phpstorm.meta.php
+order/AGENTS.md
+order/CLAUDE.md
+order/boost.json
+order/.ai/**
+order/.agents/**
+
+# Not needed inside the image (includes nginx keys and DB init scripts)
+order/docker/**
+order/docker-compose*.yaml
+order/Dockerfile.dockerignore
+order/**/*.log
