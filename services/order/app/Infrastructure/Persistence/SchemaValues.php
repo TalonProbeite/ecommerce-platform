@@ -31,7 +31,7 @@ final class SchemaValues
     ];
 
     /**
-     * Stripe PaymentIntent statuses as published on 2026-11-14.
+     * не сверено с Stripe API, проверить перед фазой P8
      */
     public const PAYMENT_STATUS = [
         'requires_payment_method',
@@ -43,6 +43,9 @@ final class SchemaValues
         'canceled',
     ];
 
+    /**
+     * не сверено с Stripe API, проверить перед фазой P8
+     */
     public const REFUND_STATUS = [
         'pending',
         'succeeded',

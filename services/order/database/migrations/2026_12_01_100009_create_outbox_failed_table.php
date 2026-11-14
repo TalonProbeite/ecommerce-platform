@@ -14,7 +14,6 @@ return new class () extends Migration {
             $table->string('aggregate_key', 128)->nullable();
             $table->jsonb('payload');
             $table->timestampTz('occurred_at', 6);
-            $table->timestampTz('published_at', 6)->nullable();
             $table->timestampTz('failed_at', 6);
             $table->integer('attempts')->default(0);
             $table->text('last_error')->nullable();

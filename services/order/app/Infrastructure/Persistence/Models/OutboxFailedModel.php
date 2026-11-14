@@ -18,7 +18,6 @@ final class OutboxFailedModel extends OrderBaseModel
         'aggregate_key',
         'payload',
         'occurred_at',
-        'published_at',
         'failed_at',
         'attempts',
         'last_error',
@@ -29,7 +28,6 @@ final class OutboxFailedModel extends OrderBaseModel
         return [
             'payload' => 'array',
             'occurred_at' => 'immutable_datetime',
-            'published_at' => 'immutable_datetime',
             'failed_at' => 'immutable_datetime',
             'attempts' => 'integer',
         ];

@@ -44,7 +44,7 @@ final class SchemaTest extends PersistenceTestCase
             'order_comments' => ['created_at'],
             'product_snapshots' => ['source_occurred_at', 'deleted_at', 'created_at', 'updated_at'],
             'outbox' => ['occurred_at', 'published_at'],
-            'outbox_failed' => ['occurred_at', 'published_at', 'failed_at'],
+            'outbox_failed' => ['occurred_at', 'failed_at'],
             'processed_events' => ['processed_at'],
             'stripe_events' => ['processed_at'],
         ];
