@@ -36,7 +36,7 @@ services:
       start_period: 5s
 
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:4.4-management
     container_name: global-rabbitmq
     restart: always
     environment:
