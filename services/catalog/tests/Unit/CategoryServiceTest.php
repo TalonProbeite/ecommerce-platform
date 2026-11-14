@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Contracts\Messaging\EventPublisherInterface;
+use Tests\Support\Fakes\FakeOutboxWriter;
 use App\Contracts\Repositories\CategoryRepositoryInterface;
 use App\Contracts\Repositories\ProductRepositoryInterface;
 use App\DTO\CreateCategoryData;
@@ -49,7 +49,7 @@ class CategoryServiceTest extends TestCase
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
         $expectedCollection = new Collection();
 
         $repository->shouldReceive('findByStore')
@@ -57,7 +57,7 @@ class CategoryServiceTest extends TestCase
             ->with('store-123')
             ->andReturn($expectedCollection);
 
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         self::assertSame($expectedCollection, $service->list('store-123'));
         self::assertSame($expectedCollection, $service->list('store-123'));
     }
@@ -66,7 +66,7 @@ class CategoryServiceTest extends TestCase
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
         $category = new Category(['name' => 'Tools']);
 
         $repository->shouldReceive('findByStoreAndID')
@@ -74,7 +74,7 @@ class CategoryServiceTest extends TestCase
             ->with('cat-123', 'store-123')
             ->andReturn($category);
 
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         self::assertSame($category, $service->getWithAncestors('cat-123', 'store-123'));
     }
 
@@ -82,7 +82,7 @@ class CategoryServiceTest extends TestCase
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
         $children = new Collection([new Category(['name' => 'Child'])]);
 
         $repository->shouldReceive('findChildren')
@@ -90,7 +90,7 @@ class CategoryServiceTest extends TestCase
             ->with('cat-123', 'store-123')
             ->andReturn($children);
 
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         self::assertSame($children, $service->getChildren('cat-123', 'store-123'));
     }
 
@@ -98,7 +98,7 @@ class CategoryServiceTest extends TestCase
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $parent = new Category([
             'name' => 'Parent',
@@ -126,38 +126,29 @@ class CategoryServiceTest extends TestCase
             ->with($data, 'store-123')
             ->andReturn($category);
 
-        $publisher->shouldReceive('publish')
-            ->once()
-            ->withArgs(function (CategoryCreated $event) use ($category): bool {
-                return $event->categoryId === $category->id
-                    && $event->storeId === 'store-123'
-                    && $event->name === 'Power Tools'
-                    && $event->slug === 'power-tools'
-                    && $event->parentId === 'parent-1';
-            });
-
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         $created = $service->create('store-123', $data);
 
         self::assertSame($category, $created);
+        self::assertCount(1, $outbox->events());
+        self::assertInstanceOf(CategoryCreated::class, $outbox->events()[0]);
     }
 
     public function test_create_rejects_missing_parent(): void
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $repository->shouldReceive('findByStoreAndID')
             ->once()
             ->with('missing', 'store-123')
             ->andReturn(null);
         $repository->shouldNotReceive('createCategory');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(ParentCategoryNotFoundException::class);
 
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         $service->create('store-123', new CreateCategoryData(
             name: 'Tools',
             slug: 'tools',
@@ -169,7 +160,7 @@ class CategoryServiceTest extends TestCase
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $existing = new Category([
             'name' => 'Tools',
@@ -197,27 +188,19 @@ class CategoryServiceTest extends TestCase
             ->with('cat-123', 'store-123', $data)
             ->andReturn($category);
 
-        $publisher->shouldReceive('publish')
-            ->once()
-            ->withArgs(function (CategoryUpdated $event) use ($category): bool {
-                return $event->categoryId === $category->id
-                    && $event->storeId === 'store-123'
-                    && $event->name === 'Updated Tools'
-                    && $event->slug === 'updated-tools'
-                    && $event->parentId === null;
-            });
-
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         $updated = $service->update('cat-123', 'store-123', $data);
 
         self::assertSame($category, $updated);
+        self::assertCount(1, $outbox->events());
+        self::assertInstanceOf(CategoryUpdated::class, $outbox->events()[0]);
     }
 
     public function test_update_rejects_explicit_null_for_non_nullable_fields(): void
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $existing = new Category(['name' => 'Tools', 'slug' => 'tools', 'store_id' => 'store-123']);
         $existing->id = 'cat-123';
@@ -227,11 +210,10 @@ class CategoryServiceTest extends TestCase
             ->with('cat-123', 'store-123')
             ->andReturn($existing);
         $repository->shouldNotReceive('updateCategory');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(NonNullableFieldException::class);
 
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         $service->update('cat-123', 'store-123', new UpdateCategoryData(name: null, nameProvided: true));
     }
 
@@ -239,7 +221,7 @@ class CategoryServiceTest extends TestCase
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $existing = new Category(['name' => 'Tools', 'slug' => 'tools', 'store_id' => 'store-123']);
         $existing->id = 'cat-123';
@@ -249,11 +231,10 @@ class CategoryServiceTest extends TestCase
             ->with('cat-123', 'store-123')
             ->andReturn($existing);
         $repository->shouldNotReceive('updateCategory');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(CategoryParentSelfException::class);
 
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         $service->update('cat-123', 'store-123', new UpdateCategoryData(parentId: 'cat-123'));
     }
 
@@ -261,7 +242,7 @@ class CategoryServiceTest extends TestCase
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $category = new Category(['name' => 'Tools', 'slug' => 'tools', 'store_id' => 'store-123']);
         $category->id = 'cat-123';
@@ -279,11 +260,10 @@ class CategoryServiceTest extends TestCase
             ->with('cat-456', 'store-123')
             ->andReturn($descendant);
         $repository->shouldNotReceive('updateCategory');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(CategoryParentDescendantException::class);
 
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         $service->update('cat-123', 'store-123', new UpdateCategoryData(parentId: 'cat-456'));
     }
 
@@ -291,7 +271,7 @@ class CategoryServiceTest extends TestCase
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $existing = new Category(['name' => 'Tools', 'slug' => 'tools', 'store_id' => 'store-123']);
         $existing->id = 'cat-123';
@@ -314,9 +294,8 @@ class CategoryServiceTest extends TestCase
             ->once()
             ->with('cat-123', 'store-123', $data)
             ->andReturn($category);
-        $publisher->shouldReceive('publish')->once();
 
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         self::assertSame($category, $service->update('cat-123', 'store-123', $data));
     }
 
@@ -324,7 +303,7 @@ class CategoryServiceTest extends TestCase
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $category = new Category([
             'name' => 'Tools',
@@ -350,24 +329,18 @@ class CategoryServiceTest extends TestCase
             ->with('cat-123', 'store-123')
             ->andReturn($category);
 
-        $publisher->shouldReceive('publish')
-            ->once()
-            ->withArgs(function (CategoryDeleted $event) use ($category): bool {
-                return $event->categoryId === $category->id
-                    && $event->storeId === 'store-123';
-            });
-
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         $service->delete('cat-123', 'store-123');
 
-        $this->addToAssertionCount(1);
+        self::assertCount(1, $outbox->events());
+        self::assertInstanceOf(CategoryDeleted::class, $outbox->events()[0]);
     }
 
     public function test_delete_throws_exception_when_category_has_subcategories(): void
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $category = new Category(['name' => 'Tools', 'slug' => 'tools', 'store_id' => 'store-123']);
         $category->id = 'cat-123';
@@ -382,11 +355,10 @@ class CategoryServiceTest extends TestCase
             ->andReturn(true);
         $productRepository->shouldNotReceive('hasByCategory');
         $repository->shouldNotReceive('deleteCategory');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(HasSubcategoriesException::class);
 
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         $service->delete('cat-123', 'store-123');
     }
 
@@ -394,7 +366,7 @@ class CategoryServiceTest extends TestCase
     {
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $category = new Category(['name' => 'Tools', 'slug' => 'tools', 'store_id' => 'store-123']);
         $category->id = 'cat-123';
@@ -412,11 +384,10 @@ class CategoryServiceTest extends TestCase
             ->with('cat-123')
             ->andReturn(true);
         $repository->shouldNotReceive('deleteCategory');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(HasProductsException::class);
 
-        $service = $this->service($repository, $productRepository, $publisher);
+        $service = $this->service($repository, $productRepository, $outbox);
         $service->delete('cat-123', 'store-123');
     }
 
@@ -427,7 +398,7 @@ class CategoryServiceTest extends TestCase
 
         $repository = Mockery::mock(CategoryRepositoryInterface::class);
         $productRepository = Mockery::mock(ProductRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $category = new Category([
             'name' => 'Tools',
@@ -442,9 +413,8 @@ class CategoryServiceTest extends TestCase
             ->once()
             ->with($data, 'store-123')
             ->andReturn($category);
-        $publisher->shouldReceive('publish')->once();
 
-        (new CategoryService($repository, $productRepository, $publisher, $categoryCache))
+        (new CategoryService($repository, $productRepository, $outbox, $categoryCache))
             ->create('store-123', $data);
 
         self::assertSame(
@@ -456,12 +426,12 @@ class CategoryServiceTest extends TestCase
     private function service(
         CategoryRepositoryInterface $categoryRepository,
         ProductRepositoryInterface $productRepository,
-        EventPublisherInterface $eventPublisher,
+        FakeOutboxWriter $outbox,
     ): CategoryService {
         return new CategoryService(
             $categoryRepository,
             $productRepository,
-            $eventPublisher,
+            $outbox,
             new CategoryCache(1800, 86400),
         );
     }

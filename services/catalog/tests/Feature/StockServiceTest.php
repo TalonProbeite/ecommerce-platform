@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Contracts\Messaging\EventPublisherInterface;
-use App\Domain\Contracts\EventInterface;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\QuantityBelowReservedException;
 use App\Exceptions\ReservedUnderflowException;
@@ -22,14 +20,14 @@ use InvalidArgumentException;
 use Mockery;
 use Ramsey\Uuid\Uuid;
 use Tests\PostgresTestCase;
+use Tests\Support\Fakes\FakeOutboxWriter;
 
 class StockServiceTest extends PostgresTestCase
 {
     private Store $store;
     private Product $product;
     private Stock $stock;
-    /** @var list<EventInterface> */
-    private array $events = [];
+    private FakeOutboxWriter $outbox;
 
     protected function setUp(): void
     {
@@ -54,6 +52,7 @@ class StockServiceTest extends PostgresTestCase
             'quantity' => 10,
             'reserved' => 2,
         ]);
+        $this->outbox = new FakeOutboxWriter();
     }
 
     protected function tearDown(): void
@@ -80,10 +79,10 @@ class StockServiceTest extends PostgresTestCase
         self::assertSame(15, $updated->quantity);
         self::assertSame(2, $updated->reserved);
         self::assertSame(13, $updated->available);
-        self::assertCount(1, $this->events);
-        self::assertInstanceOf(StockChanged::class, $this->events[0]);
-        self::assertSame(15, $this->events[0]->quantity);
-        self::assertSame(2, $this->events[0]->reserved);
+        self::assertCount(1, $this->outbox->events());
+        self::assertInstanceOf(StockChanged::class, $this->outbox->events()[0]);
+        self::assertSame(15, $this->outbox->events()[0]->quantity);
+        self::assertSame(2, $this->outbox->events()[0]->reserved);
     }
 
     public function test_set_quantity_rejects_values_below_reserved(): void
@@ -105,8 +104,8 @@ class StockServiceTest extends PostgresTestCase
         self::assertSame(1, $released->reserved);
         self::assertSame(9, $released->available);
 
-        self::assertCount(2, $this->events);
-        self::assertSame([5, 1], array_map(fn (StockChanged $event): int => $event->reserved, $this->events));
+        self::assertCount(2, $this->outbox->events());
+        self::assertSame([5, 1], array_map(fn (StockChanged $event): int => $event->reserved, $this->outbox->events()));
     }
 
     public function test_reserve_units_rejects_insufficient_stock(): void
@@ -117,7 +116,7 @@ class StockServiceTest extends PostgresTestCase
             $this->service()->reserveUnits($this->store->id, $this->product->id, 9);
         } finally {
             self::assertSame(2, $this->stock->fresh()->reserved);
-            self::assertCount(0, $this->events);
+            self::assertCount(0, $this->outbox->events());
         }
     }
 
@@ -129,7 +128,7 @@ class StockServiceTest extends PostgresTestCase
             $this->service()->releaseUnits($this->store->id, $this->product->id, 3);
         } finally {
             self::assertSame(2, $this->stock->fresh()->reserved);
-            self::assertCount(0, $this->events);
+            self::assertCount(0, $this->outbox->events());
         }
     }
 
@@ -184,12 +183,6 @@ class StockServiceTest extends PostgresTestCase
 
     private function service(): StockService
     {
-        $publisher = Mockery::mock(EventPublisherInterface::class);
-        $publisher->shouldReceive('publish')
-            ->andReturnUsing(function (EventInterface $event): void {
-                $this->events[] = $event;
-            });
-
-        return new StockService(new StockRepository(), $publisher, app(ProductCache::class));
+        return new StockService(new StockRepository(), $this->outbox, app(ProductCache::class));
     }
 }

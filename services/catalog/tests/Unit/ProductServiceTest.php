@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Contracts\Messaging\EventPublisherInterface;
+use Tests\Support\Fakes\FakeOutboxWriter;
 use App\Contracts\Repositories\CategoryRepositoryInterface;
 use App\Contracts\Repositories\ProductAttributeRepositoryInterface;
 use App\Contracts\Repositories\ProductRepositoryInterface;
@@ -177,7 +177,7 @@ class ProductServiceTest extends TestCase
         $attributeRepository = Mockery::mock(ProductAttributeRepositoryInterface::class);
         $categoryRepository = Mockery::mock(CategoryRepositoryInterface::class);
         $stockRepository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
         $cache = $this->cache();
         $product = $this->product();
         $data = new UpdateProductData(name: 'Updated Drill');
@@ -198,7 +198,6 @@ class ProductServiceTest extends TestCase
             ->once()
             ->with('product-123', 'store-123')
             ->andReturn($product);
-        $publisher->shouldReceive('publish')->once()->with(Mockery::type(ProductUpdated::class));
 
         $service = new ProductService(
             $productRepository,
@@ -206,7 +205,7 @@ class ProductServiceTest extends TestCase
             $categoryRepository,
             $stockRepository,
             Mockery::mock(StockReservationRepositoryInterface::class),
-            $publisher,
+            $outbox,
             $cache,
         );
 
@@ -223,7 +222,7 @@ class ProductServiceTest extends TestCase
         $attributeRepository = Mockery::mock(ProductAttributeRepositoryInterface::class);
         $categoryRepository = Mockery::mock(CategoryRepositoryInterface::class);
         $stockRepository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $category = new Category(['name' => 'Tools', 'slug' => 'tools', 'store_id' => 'store-123']);
         $category->id = 'category-123';
@@ -256,12 +255,6 @@ class ProductServiceTest extends TestCase
             ->once()
             ->with('product-123', 'store-123')
             ->andReturn($product);
-        $publisher->shouldReceive('publish')
-            ->once()
-            ->withArgs(fn (ProductCreated $event): bool => $event->productId === 'product-123'
-                && $event->storeId === 'store-123'
-                && $event->name === 'Drill'
-                && $event->pricePerHour === 500);
 
         $service = new ProductService(
             $productRepository,
@@ -269,11 +262,13 @@ class ProductServiceTest extends TestCase
             $categoryRepository,
             $stockRepository,
             Mockery::mock(StockReservationRepositoryInterface::class),
-            $publisher,
+            $outbox,
             $this->cache(),
         );
 
         self::assertSame($product, $service->create('store-123', $data));
+        self::assertCount(1, $outbox->events());
+        self::assertInstanceOf(ProductCreated::class, $outbox->events()[0]);
     }
 
     public function test_create_rejects_category_from_another_store(): void
@@ -282,7 +277,7 @@ class ProductServiceTest extends TestCase
         $attributeRepository = Mockery::mock(ProductAttributeRepositoryInterface::class);
         $categoryRepository = Mockery::mock(CategoryRepositoryInterface::class);
         $stockRepository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $categoryRepository->shouldReceive('findByStoreAndID')
             ->once()
@@ -291,7 +286,6 @@ class ProductServiceTest extends TestCase
         $productRepository->shouldNotReceive('createProduct');
         $stockRepository->shouldNotReceive('createStock');
         $attributeRepository->shouldNotReceive('createProductAttribute');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(ProductCategoryNotFoundException::class);
 
@@ -301,7 +295,7 @@ class ProductServiceTest extends TestCase
             $categoryRepository,
             $stockRepository,
             Mockery::mock(StockReservationRepositoryInterface::class),
-            $publisher,
+            $outbox,
             $this->cache(),
         );
 
@@ -319,7 +313,7 @@ class ProductServiceTest extends TestCase
         $attributeRepository = Mockery::mock(ProductAttributeRepositoryInterface::class);
         $categoryRepository = Mockery::mock(CategoryRepositoryInterface::class);
         $stockRepository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $product = $this->product();
         $data = new UpdateProductData(name: 'Updated Drill');
@@ -339,7 +333,6 @@ class ProductServiceTest extends TestCase
         $attributeRepository->shouldNotReceive('deleteAllByProductId');
         $attributeRepository->shouldNotReceive('createProductAttribute');
         $categoryRepository->shouldNotReceive('findByStoreAndID');
-        $publisher->shouldReceive('publish')->once()->with(Mockery::type(ProductUpdated::class));
 
         $service = new ProductService(
             $productRepository,
@@ -347,11 +340,13 @@ class ProductServiceTest extends TestCase
             $categoryRepository,
             $stockRepository,
             Mockery::mock(StockReservationRepositoryInterface::class),
-            $publisher,
+            $outbox,
             $this->cache(),
         );
 
         self::assertSame($product, $service->update('store-123', 'product-123', $data));
+        self::assertCount(1, $outbox->events());
+        self::assertInstanceOf(ProductUpdated::class, $outbox->events()[0]);
     }
 
     public function test_update_replaces_attributes_when_non_empty_array_is_provided(): void
@@ -360,7 +355,7 @@ class ProductServiceTest extends TestCase
         $attributeRepository = Mockery::mock(ProductAttributeRepositoryInterface::class);
         $categoryRepository = Mockery::mock(CategoryRepositoryInterface::class);
         $stockRepository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $product = $this->product();
         $attributes = [new ProductAttributeData('Color', 'Red')];
@@ -384,7 +379,6 @@ class ProductServiceTest extends TestCase
         $attributeRepository->shouldReceive('createProductAttribute')
             ->once()
             ->with($attributes, 'product-123');
-        $publisher->shouldReceive('publish')->once()->with(Mockery::type(ProductUpdated::class));
 
         $service = new ProductService(
             $productRepository,
@@ -392,7 +386,7 @@ class ProductServiceTest extends TestCase
             $categoryRepository,
             $stockRepository,
             Mockery::mock(StockReservationRepositoryInterface::class),
-            $publisher,
+            $outbox,
             $this->cache(),
         );
 
@@ -405,7 +399,7 @@ class ProductServiceTest extends TestCase
         $attributeRepository = Mockery::mock(ProductAttributeRepositoryInterface::class);
         $categoryRepository = Mockery::mock(CategoryRepositoryInterface::class);
         $stockRepository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $product = $this->product();
         $data = new UpdateProductData(attributes: []);
@@ -426,7 +420,6 @@ class ProductServiceTest extends TestCase
             ->once()
             ->with('product-123');
         $attributeRepository->shouldNotReceive('createProductAttribute');
-        $publisher->shouldReceive('publish')->once()->with(Mockery::type(ProductUpdated::class));
 
         $service = new ProductService(
             $productRepository,
@@ -434,7 +427,7 @@ class ProductServiceTest extends TestCase
             $categoryRepository,
             $stockRepository,
             Mockery::mock(StockReservationRepositoryInterface::class),
-            $publisher,
+            $outbox,
             $this->cache(),
         );
 
@@ -447,7 +440,7 @@ class ProductServiceTest extends TestCase
         $attributeRepository = Mockery::mock(ProductAttributeRepositoryInterface::class);
         $categoryRepository = Mockery::mock(CategoryRepositoryInterface::class);
         $stockRepository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $productRepository->shouldReceive('findById')
             ->once()
@@ -455,7 +448,6 @@ class ProductServiceTest extends TestCase
             ->andReturn($this->product());
         $productRepository->shouldNotReceive('updateProduct');
         $attributeRepository->shouldNotReceive('deleteAllByProductId');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(NonNullableFieldException::class);
 
@@ -465,7 +457,7 @@ class ProductServiceTest extends TestCase
             $categoryRepository,
             $stockRepository,
             Mockery::mock(StockReservationRepositoryInterface::class),
-            $publisher,
+            $outbox,
             $this->cache(),
         );
 
@@ -482,7 +474,7 @@ class ProductServiceTest extends TestCase
         $attributeRepository = Mockery::mock(ProductAttributeRepositoryInterface::class);
         $categoryRepository = Mockery::mock(CategoryRepositoryInterface::class);
         $stockRepository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $productRepository->shouldReceive('findById')
             ->once()
@@ -493,7 +485,6 @@ class ProductServiceTest extends TestCase
             ->with('category-999', 'store-123')
             ->andReturn(null);
         $productRepository->shouldNotReceive('updateProduct');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(ProductCategoryNotFoundException::class);
 
@@ -503,7 +494,7 @@ class ProductServiceTest extends TestCase
             $categoryRepository,
             $stockRepository,
             Mockery::mock(StockReservationRepositoryInterface::class),
-            $publisher,
+            $outbox,
             $this->cache(),
         );
 
@@ -521,7 +512,7 @@ class ProductServiceTest extends TestCase
         $categoryRepository = Mockery::mock(CategoryRepositoryInterface::class);
         $stockRepository = Mockery::mock(StockRepositoryInterface::class);
         $reservationRepository = Mockery::mock(StockReservationRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $productRepository->shouldReceive('findById')
             ->once()
@@ -536,7 +527,6 @@ class ProductServiceTest extends TestCase
             ->with('product-123')
             ->andReturn(true);
         $productRepository->shouldNotReceive('deleteProduct');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(ProductHasActiveReservationsException::class);
 
@@ -546,7 +536,7 @@ class ProductServiceTest extends TestCase
             $categoryRepository,
             $stockRepository,
             $reservationRepository,
-            $publisher,
+            $outbox,
             $this->cache(),
         );
 
@@ -560,7 +550,7 @@ class ProductServiceTest extends TestCase
         $categoryRepository = Mockery::mock(CategoryRepositoryInterface::class);
         $stockRepository = Mockery::mock(StockRepositoryInterface::class);
         $reservationRepository = Mockery::mock(StockReservationRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $productRepository->shouldReceive('findById')
             ->once()
@@ -577,10 +567,6 @@ class ProductServiceTest extends TestCase
         $productRepository->shouldReceive('deleteProduct')
             ->once()
             ->with('product-123', 'store-123');
-        $publisher->shouldReceive('publish')
-            ->once()
-            ->withArgs(fn (ProductDeleted $event): bool => $event->productId === 'product-123'
-                && $event->storeId === 'store-123');
 
         $service = new ProductService(
             $productRepository,
@@ -588,13 +574,14 @@ class ProductServiceTest extends TestCase
             $categoryRepository,
             $stockRepository,
             $reservationRepository,
-            $publisher,
+            $outbox,
             $this->cache(),
         );
 
         $service->delete('store-123', 'product-123');
 
-        $this->addToAssertionCount(1);
+        self::assertCount(1, $outbox->events());
+        self::assertInstanceOf(ProductDeleted::class, $outbox->events()[0]);
     }
 
     public function test_restore_is_store_scoped_and_publishes_updated_event(): void
@@ -603,7 +590,7 @@ class ProductServiceTest extends TestCase
         $attributeRepository = Mockery::mock(ProductAttributeRepositoryInterface::class);
         $categoryRepository = Mockery::mock(CategoryRepositoryInterface::class);
         $stockRepository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $product = $this->product();
 
@@ -619,9 +606,6 @@ class ProductServiceTest extends TestCase
             ->once()
             ->with('product-123', 'store-123')
             ->andReturn($product);
-        $publisher->shouldReceive('publish')
-            ->once()
-            ->with(Mockery::type(ProductUpdated::class));
 
         $service = new ProductService(
             $productRepository,
@@ -629,11 +613,13 @@ class ProductServiceTest extends TestCase
             $categoryRepository,
             $stockRepository,
             Mockery::mock(StockReservationRepositoryInterface::class),
-            $publisher,
+            $outbox,
             $this->cache(),
         );
 
         self::assertSame($product, $service->restore('store-123', 'product-123'));
+        self::assertCount(1, $outbox->events());
+        self::assertInstanceOf(ProductUpdated::class, $outbox->events()[0]);
     }
 
     public function test_restore_throws_when_product_is_not_trashed(): void
@@ -651,7 +637,7 @@ class ProductServiceTest extends TestCase
             Mockery::mock(CategoryRepositoryInterface::class),
             Mockery::mock(StockRepositoryInterface::class),
             Mockery::mock(StockReservationRepositoryInterface::class),
-            Mockery::mock(EventPublisherInterface::class),
+            new FakeOutboxWriter(),
             new ProductCache(300, 600, 86400, Mockery::mock(ProductRepositoryInterface::class)),
         );
 
@@ -669,7 +655,7 @@ class ProductServiceTest extends TestCase
             Mockery::mock(CategoryRepositoryInterface::class),
             Mockery::mock(StockRepositoryInterface::class),
             Mockery::mock(StockReservationRepositoryInterface::class),
-            Mockery::mock(EventPublisherInterface::class),
+            new FakeOutboxWriter(),
             $this->cache(),
         );
     }

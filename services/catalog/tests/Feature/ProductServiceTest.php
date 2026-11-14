@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Contracts\Messaging\EventPublisherInterface;
-use App\Domain\Contracts\EventInterface;
 use App\DTO\CreateProductData;
 use App\DTO\ProductAttributeData;
 use App\DTO\UpdateProductData;
@@ -26,6 +24,12 @@ use App\Repositories\ProductRepository;
 use App\Repositories\StockRepository;
 use App\Repositories\StockReservationRepository;
 use App\Services\ProductService;
+use App\Contracts\Outbox\OutboxWriterInterface;
+use App\Outbox\OutboxRepository;
+use App\Outbox\OutboxWriter;
+use Carbon\CarbonImmutable;
+use Tests\Support\Fakes\FakeOutboxWriter;
+use Illuminate\Support\Facades\DB;
 use Mockery;
 use Ramsey\Uuid\Uuid;
 use Tests\PostgresTestCase;
@@ -56,14 +60,8 @@ class ProductServiceTest extends PostgresTestCase
 
     public function test_product_lifecycle_persists_stock_attributes_and_publishes_events(): void
     {
-        $events = [];
-        $publisher = Mockery::mock(EventPublisherInterface::class);
-        $publisher->shouldReceive('publish')
-            ->times(6)
-            ->andReturnUsing(function (EventInterface $event) use (&$events): void {
-                $events[] = $event;
-            });
-        $service = $this->service($publisher);
+        $outbox = new FakeOutboxWriter();
+        $service = $this->service($outbox);
 
         $product = $service->create($this->store->id, new CreateProductData(
             name: 'Drill',
@@ -121,6 +119,8 @@ class ProductServiceTest extends PostgresTestCase
         $restored = $service->restore($this->store->id, $product->id);
         self::assertFalse($restored->trashed());
 
+        $events = $outbox->events();
+
         self::assertInstanceOf(ProductCreated::class, $events[0]);
         self::assertInstanceOf(ProductUpdated::class, $events[1]);
         self::assertInstanceOf(ProductUpdated::class, $events[2]);
@@ -131,7 +131,7 @@ class ProductServiceTest extends PostgresTestCase
 
     public function test_get_from_another_store_is_rejected(): void
     {
-        $service = $this->serviceWithNullPublisher();
+        $service = $this->serviceWithEmptyOutbox();
         $product = $this->createDrill();
         $otherStore = Store::create(['name' => 'Other']);
 
@@ -142,7 +142,7 @@ class ProductServiceTest extends PostgresTestCase
 
     public function test_update_from_another_store_is_rejected(): void
     {
-        $service = $this->serviceWithNullPublisher();
+        $service = $this->serviceWithEmptyOutbox();
         $product = $this->createDrill();
         $otherStore = Store::create(['name' => 'Other']);
 
@@ -153,7 +153,7 @@ class ProductServiceTest extends PostgresTestCase
 
     public function test_delete_from_another_store_is_rejected(): void
     {
-        $service = $this->serviceWithNullPublisher();
+        $service = $this->serviceWithEmptyOutbox();
         $product = $this->createDrill();
         $otherStore = Store::create(['name' => 'Other']);
 
@@ -164,7 +164,7 @@ class ProductServiceTest extends PostgresTestCase
 
     public function test_restore_from_another_store_is_rejected(): void
     {
-        $service = $this->serviceWithNullPublisher();
+        $service = $this->serviceWithEmptyOutbox();
         $product = $this->createDrill();
         $service->delete($this->store->id, $product->id);
         $otherStore = Store::create(['name' => 'Other']);
@@ -176,7 +176,7 @@ class ProductServiceTest extends PostgresTestCase
 
     public function test_delete_with_active_reservations_is_rejected(): void
     {
-        $service = $this->serviceWithNullPublisher();
+        $service = $this->serviceWithEmptyOutbox();
         $product = $this->createDrill();
 
         StockReservation::create([
@@ -195,9 +195,7 @@ class ProductServiceTest extends PostgresTestCase
 
     public function test_update_replaces_attributes(): void
     {
-        $publisher = Mockery::mock(EventPublisherInterface::class);
-        $publisher->shouldReceive('publish')->twice();
-        $service = $this->service($publisher);
+        $service = $this->service(new FakeOutboxWriter());
 
         $product = $service->create($this->store->id, new CreateProductData(
             name: 'Drill',
@@ -216,7 +214,7 @@ class ProductServiceTest extends PostgresTestCase
 
     public function test_update_with_another_store_category_is_rejected(): void
     {
-        $service = $this->serviceWithNullPublisher();
+        $service = $this->serviceWithEmptyOutbox();
         $product = $this->createDrill();
         $otherStore = Store::create(['name' => 'Other']);
         $otherCategory = Category::create([
@@ -230,7 +228,37 @@ class ProductServiceTest extends PostgresTestCase
         $service->update($this->store->id, $product->id, new UpdateProductData(categoryId: $otherCategory->id));
     }
 
-    private function service(EventPublisherInterface $publisher): ProductService
+    public function test_outbox_row_is_rolled_back_when_the_transaction_fails(): void
+    {
+        $outbox = new class () implements OutboxWriterInterface {
+            public function enqueue(\App\Domain\Contracts\EventInterface $event, CarbonImmutable $occurredAt): string
+            {
+                $eventId = (new OutboxWriter(new OutboxRepository()))->enqueue($event, $occurredAt);
+
+                throw new \RuntimeException('Simulated failure after the outbox insert.');
+            }
+        };
+
+        $service = $this->service($outbox);
+
+        try {
+            $service->create($this->store->id, new CreateProductData(
+                name: 'Rollback Drill',
+                slug: 'rollback-drill',
+                categoryId: $this->category->id,
+                pricePerHour: 500,
+                quantity: 1,
+            ));
+            self::fail('Expected the simulated failure.');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('Simulated failure after the outbox insert.', $exception->getMessage());
+        }
+
+        self::assertSame(0, DB::table('outbox')->count());
+        self::assertFalse(Product::withTrashed()->where('slug', 'rollback-drill')->exists());
+    }
+
+    private function service(OutboxWriterInterface $outbox): ProductService
     {
         return new ProductService(
             new ProductRepository(),
@@ -238,24 +266,19 @@ class ProductServiceTest extends PostgresTestCase
             new CategoryRepository(),
             new StockRepository(),
             new StockReservationRepository(),
-            $publisher,
+            $outbox,
             app(ProductCache::class),
         );
     }
 
-    private function serviceWithNullPublisher(): ProductService
+    private function serviceWithEmptyOutbox(): ProductService
     {
-        $publisher = Mockery::mock(EventPublisherInterface::class);
-        $publisher->shouldReceive('publish');
-
-        return $this->service($publisher);
+        return $this->service(new FakeOutboxWriter());
     }
 
     private function createDrill(): Product
     {
-        $publisher = Mockery::mock(EventPublisherInterface::class);
-        $publisher->shouldReceive('publish');
-        $service = $this->service($publisher);
+        $service = $this->service(new FakeOutboxWriter());
 
         return $service->create($this->store->id, new CreateProductData(
             name: 'Drill',

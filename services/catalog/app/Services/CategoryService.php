@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Contracts\Messaging\EventPublisherInterface;
+use App\Contracts\Outbox\OutboxWriterInterface;
 use App\Contracts\Repositories\CategoryRepositoryInterface;
 use App\Contracts\Repositories\ProductRepositoryInterface;
 use App\Contracts\Services\CategoryServiceInterface;
-use App\Domain\Contracts\EventInterface;
 use App\DTO\CreateCategoryData;
 use App\DTO\UpdateCategoryData;
 use App\Exceptions\CategoryNotFoundException;
@@ -23,6 +22,8 @@ use App\Messaging\Events\CategoryCreated;
 use App\Messaging\Events\CategoryDeleted;
 use App\Messaging\Events\CategoryUpdated;
 use App\Models\Category;
+use Carbon\CarbonImmutable;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -31,7 +32,7 @@ final class CategoryService implements CategoryServiceInterface
     public function __construct(
         private CategoryRepositoryInterface $categoryRepository,
         private ProductRepositoryInterface $productRepository,
-        private EventPublisherInterface $eventPublisher,
+        private OutboxWriterInterface $outbox,
         private readonly CategoryCache $categoryCache,
     ) {
     }
@@ -56,31 +57,45 @@ final class CategoryService implements CategoryServiceInterface
 
     public function create(string $storeId, CreateCategoryData $data): Category
     {
-        $this->assertParentBelongsToStore($data->parentId, $storeId);
+        return DB::transaction(function () use ($storeId, $data): Category {
+            $this->assertParentBelongsToStore($data->parentId, $storeId);
 
-        $category = $this->categoryRepository->createCategory($data, $storeId);
+            $category = $this->categoryRepository->createCategory($data, $storeId);
 
-        $this->afterMutation($storeId, CategoryCreated::fromModel($category));
+            $this->outbox->enqueue(
+                CategoryCreated::fromModel($category),
+                $this->modelTime($category->created_at),
+            );
 
-        return $category;
+            $this->invalidateAfterCommit($storeId);
+
+            return $category;
+        });
     }
 
     public function update(string $categoryId, string $storeId, UpdateCategoryData $data): Category
     {
-        $category = $this->findCategoryInStore($categoryId, $storeId);
+        return DB::transaction(function () use ($categoryId, $storeId, $data): Category {
+            $category = $this->findCategoryInStore($categoryId, $storeId);
 
-        $this->assertNonNullableFields($data);
+            $this->assertNonNullableFields($data);
 
-        if ($data->parentIdProvided) {
-            $this->assertParentCanBeAssigned($category, $data->parentId, $storeId);
-        }
+            if ($data->parentIdProvided) {
+                $this->assertParentCanBeAssigned($category, $data->parentId, $storeId);
+            }
 
-        $updated = $this->categoryRepository->updateCategory($categoryId, $storeId, $data)
-            ?? throw new CategoryNotFoundException($categoryId);
+            $updated = $this->categoryRepository->updateCategory($categoryId, $storeId, $data)
+                ?? throw new CategoryNotFoundException($categoryId);
 
-        $this->afterMutation($storeId, CategoryUpdated::fromModel($updated));
+            $this->outbox->enqueue(
+                CategoryUpdated::fromModel($updated),
+                $this->modelTime($updated->updated_at),
+            );
 
-        return $updated;
+            $this->invalidateAfterCommit($storeId);
+
+            return $updated;
+        });
     }
 
     public function delete(string $categoryId, string $storeId): void
@@ -97,9 +112,14 @@ final class CategoryService implements CategoryServiceInterface
                 throw new HasProductsException($categoryId);
             }
 
+            $this->outbox->enqueue(
+                CategoryDeleted::fromModel($category),
+                CarbonImmutable::now(),
+            );
+
             $this->categoryRepository->deleteCategory($categoryId, $storeId);
 
-            $this->afterMutation($storeId, CategoryDeleted::fromModel($category));
+            $this->invalidateAfterCommit($storeId);
         });
     }
 
@@ -185,11 +205,15 @@ final class CategoryService implements CategoryServiceInterface
         }
     }
 
-    private function afterMutation(string $storeId, EventInterface $event): void
+    private function invalidateAfterCommit(string $storeId): void
     {
-        DB::afterCommit(function () use ($storeId, $event): void {
+        DB::afterCommit(function () use ($storeId): void {
             $this->categoryCache->invalidateStore($storeId);
-            rescue(fn () => $this->eventPublisher->publish($event), report: true);
         });
+    }
+
+    private function modelTime(?DateTimeInterface $time): CarbonImmutable
+    {
+        return $time !== null ? CarbonImmutable::instance($time) : CarbonImmutable::now();
     }
 }

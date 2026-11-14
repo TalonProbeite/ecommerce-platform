@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Contracts\Messaging\EventPublisherInterface;
 use App\DTO\CreateProductData;
 use App\DTO\ProductFilters;
 use App\DTO\UpdateProductData;
@@ -34,6 +33,7 @@ use Ramsey\Uuid\Uuid;
 use ReflectionProperty;
 use SplFileInfo;
 use Tests\PostgresTestCase;
+use Tests\Support\Fakes\FakeOutboxWriter;
 
 class ProductCacheIntegrationTest extends PostgresTestCase
 {
@@ -42,7 +42,7 @@ class ProductCacheIntegrationTest extends PostgresTestCase
     private Store $store;
     private Category $category;
     private ProductCache $cache;
-    private EventPublisherInterface $publisher;
+    private FakeOutboxWriter $outbox;
 
     /** @var list<string> */
     private array $tempFiles = [];
@@ -64,8 +64,7 @@ class ProductCacheIntegrationTest extends PostgresTestCase
             'slug' => 'tools',
         ]);
 
-        $this->publisher = Mockery::mock(EventPublisherInterface::class);
-        $this->publisher->shouldReceive('publish');
+        $this->outbox = new FakeOutboxWriter();
 
         $this->cache = app(ProductCache::class);
     }
@@ -374,7 +373,7 @@ class ProductCacheIntegrationTest extends PostgresTestCase
             new CategoryRepository(),
             new StockRepository(),
             new StockReservationRepository(),
-            $this->publisher,
+            $this->outbox,
             $this->cache,
         );
     }
@@ -383,7 +382,7 @@ class ProductCacheIntegrationTest extends PostgresTestCase
     {
         return new StockService(
             new StockRepository(),
-            $this->publisher,
+            $this->outbox,
             $this->cache,
         );
     }

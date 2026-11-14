@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Contracts\Messaging\EventPublisherInterface;
+use Tests\Support\Fakes\FakeOutboxWriter;
 use App\Contracts\Repositories\ProductRepositoryInterface;
 use App\Contracts\Repositories\StockRepositoryInterface;
 use App\Exceptions\InsufficientStockException;
@@ -71,7 +71,7 @@ class StockServiceTest extends TestCase
     {
         $stock = $this->stock(10, 2, fn (Stock $model) => $model->forceFill(['quantity' => 7]));
         $repository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $repository->shouldReceive('lockByProductId')
             ->once()
@@ -81,80 +81,72 @@ class StockServiceTest extends TestCase
             ->once()
             ->with('stock-123', 7)
             ->andReturn(1);
-        $publisher->shouldReceive('publish')
-            ->once()
-            ->withArgs(fn (StockChanged $event): bool => $event->productId === 'product-123'
-                && $event->storeId === 'store-123'
-                && $event->quantity === 7
-                && $event->reserved === 2);
 
-        self::assertSame($stock, $this->service($repository, $publisher)->setQuantity('store-123', 'product-123', 7));
+        self::assertSame($stock, $this->service($repository, $outbox)->setQuantity('store-123', 'product-123', 7));
+        self::assertCount(1, $outbox->events());
+        self::assertInstanceOf(StockChanged::class, $outbox->events()[0]);
     }
 
     public function test_set_quantity_rejects_values_below_reserved(): void
     {
         $stock = $this->stock(10, 4);
         $repository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $repository->shouldReceive('lockByProductId')->once()->andReturn($stock);
         $repository->shouldNotReceive('setQuantityIfNotBelowReserved');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(QuantityBelowReservedException::class);
 
-        $this->service($repository, $publisher)->setQuantity('store-123', 'product-123', 3);
+        $this->service($repository, $outbox)->setQuantity('store-123', 'product-123', 3);
     }
 
     public function test_set_quantity_detects_concurrent_update(): void
     {
         $stock = $this->stock(10, 0);
         $repository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $repository->shouldReceive('lockByProductId')->once()->andReturn($stock);
         $repository->shouldReceive('setQuantityIfNotBelowReserved')
             ->once()
             ->with('stock-123', 5)
             ->andReturn(0);
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(StockConcurrencyException::class);
 
-        $this->service($repository, $publisher)->setQuantity('store-123', 'product-123', 5);
+        $this->service($repository, $outbox)->setQuantity('store-123', 'product-123', 5);
     }
 
     public function test_reserve_units_increases_reserved_and_publishes_event(): void
     {
         $stock = $this->stock(10, 1, fn (Stock $model) => $model->forceFill(['reserved' => 4]));
         $repository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $repository->shouldReceive('lockByProductId')->once()->andReturn($stock);
         $repository->shouldReceive('adjustReserved')
             ->once()
             ->with('stock-123', 3)
             ->andReturn(1);
-        $publisher->shouldReceive('publish')
-            ->once()
-            ->withArgs(fn (StockChanged $event): bool => $event->quantity === 10 && $event->reserved === 4);
 
-        self::assertSame($stock, $this->service($repository, $publisher)->reserveUnits('store-123', 'product-123', 3));
+        self::assertSame($stock, $this->service($repository, $outbox)->reserveUnits('store-123', 'product-123', 3));
+        self::assertCount(1, $outbox->events());
+        self::assertInstanceOf(StockChanged::class, $outbox->events()[0]);
     }
 
     public function test_reserve_units_rejects_insufficient_availability(): void
     {
         $stock = $this->stock(10, 8);
         $repository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $repository->shouldReceive('lockByProductId')->once()->andReturn($stock);
         $repository->shouldNotReceive('adjustReserved');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(InsufficientStockException::class);
 
-        $this->service($repository, $publisher)->reserveUnits('store-123', 'product-123', 3);
+        $this->service($repository, $outbox)->reserveUnits('store-123', 'product-123', 3);
     }
 
     public function test_reserve_rejects_a_non_positive_quantity(): void
@@ -181,7 +173,7 @@ class StockServiceTest extends TestCase
     {
         $stock = $this->stock(10, 2, fn (Stock $model) => $model->forceFill(['quantity' => 7]));
         $repository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
         $cache = $this->cache();
         $this->productCache = $cache;
 
@@ -197,9 +189,8 @@ class StockServiceTest extends TestCase
             ->once()
             ->with('stock-123', 7)
             ->andReturn(1);
-        $publisher->shouldReceive('publish')->once();
 
-        $this->service($repository, $publisher)->setQuantity('store-123', 'product-123', 7);
+        $this->service($repository, $outbox)->setQuantity('store-123', 'product-123', 7);
 
         self::assertSame('new-card', $cache->rememberCard('admin', 'product-123', fn (): string => 'new-card'));
         self::assertSame('other-card', $cache->rememberCard('admin', 'product-999', fn (): string => 'refreshed-other-card'));
@@ -210,60 +201,57 @@ class StockServiceTest extends TestCase
     {
         $stock = $this->stock(10, 4, fn (Stock $model) => $model->forceFill(['reserved' => 1]));
         $repository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $repository->shouldReceive('lockByProductId')->once()->andReturn($stock);
         $repository->shouldReceive('adjustReserved')
             ->once()
             ->with('stock-123', -3)
             ->andReturn(1);
-        $publisher->shouldReceive('publish')
-            ->once()
-            ->withArgs(fn (StockChanged $event): bool => $event->quantity === 10 && $event->reserved === 1);
 
-        self::assertSame($stock, $this->service($repository, $publisher)->releaseUnits('store-123', 'product-123', 3));
+        self::assertSame($stock, $this->service($repository, $outbox)->releaseUnits('store-123', 'product-123', 3));
+        self::assertCount(1, $outbox->events());
+        self::assertInstanceOf(StockChanged::class, $outbox->events()[0]);
     }
 
     public function test_release_units_rejects_underflow(): void
     {
         $stock = $this->stock(10, 2);
         $repository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $repository->shouldReceive('lockByProductId')->once()->andReturn($stock);
         $repository->shouldNotReceive('adjustReserved');
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(ReservedUnderflowException::class);
 
-        $this->service($repository, $publisher)->releaseUnits('store-123', 'product-123', 3);
+        $this->service($repository, $outbox)->releaseUnits('store-123', 'product-123', 3);
     }
 
     public function test_adjust_reserved_detects_concurrent_update(): void
     {
         $stock = $this->stock(10, 0);
         $repository = Mockery::mock(StockRepositoryInterface::class);
-        $publisher = Mockery::mock(EventPublisherInterface::class);
+        $outbox = new FakeOutboxWriter();
 
         $repository->shouldReceive('lockByProductId')->once()->andReturn($stock);
         $repository->shouldReceive('adjustReserved')
             ->once()
             ->with('stock-123', 2)
             ->andReturn(0);
-        $publisher->shouldNotReceive('publish');
 
         $this->expectException(StockConcurrencyException::class);
 
-        $this->service($repository, $publisher)->reserveUnits('store-123', 'product-123', 2);
+        $this->service($repository, $outbox)->reserveUnits('store-123', 'product-123', 2);
     }
 
     private function service(
         StockRepositoryInterface $repository,
-        ?EventPublisherInterface $publisher = null,
+        ?FakeOutboxWriter $outbox = null,
     ): StockService {
         return new StockService(
             $repository,
-            $publisher ?? Mockery::mock(EventPublisherInterface::class),
+            $outbox ?? new FakeOutboxWriter(),
             $this->productCache,
         );
     }

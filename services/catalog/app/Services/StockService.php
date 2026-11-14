@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Contracts\Messaging\EventPublisherInterface;
+use App\Contracts\Outbox\OutboxWriterInterface;
 use App\Contracts\Repositories\StockRepositoryInterface;
 use App\Contracts\Services\StockServiceInterface;
 use App\Exceptions\InsufficientStockException;
@@ -15,6 +15,8 @@ use App\Exceptions\StockNotFoundException;
 use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\Events\StockChanged;
 use App\Models\Stock;
+use Carbon\CarbonImmutable;
+use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -22,7 +24,7 @@ final class StockService implements StockServiceInterface
 {
     public function __construct(
         private StockRepositoryInterface $stockRepository,
-        private EventPublisherInterface $eventPublisher,
+        private OutboxWriterInterface $outbox,
         private readonly ProductCache $productCache,
     ) {
     }
@@ -98,12 +100,21 @@ final class StockService implements StockServiceInterface
     {
         $updated = $stock->refresh();
 
+        $this->outbox->enqueue(
+            StockChanged::fromModel($updated),
+            $this->modelTime($updated->updated_at),
+        );
+
         DB::afterCommit(function () use ($updated): void {
             $this->productCache->invalidateCard($updated->product_id);
-            rescue(fn () => $this->eventPublisher->publish(StockChanged::fromModel($updated)), report: true);
         });
 
         return $updated;
+    }
+
+    private function modelTime(?DateTimeInterface $time): CarbonImmutable
+    {
+        return $time !== null ? CarbonImmutable::instance($time) : CarbonImmutable::now();
     }
 
     private function assertPositive(int $quantity): void
