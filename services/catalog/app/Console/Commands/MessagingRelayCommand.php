@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Messaging\OutboundTopology;
 use App\Outbox\OutboxRelay;
 use Illuminate\Console\Command;
 
@@ -25,8 +26,10 @@ final class MessagingRelayCommand extends Command
      */
     protected $description = 'Continuously relay unpublished outbox events to RabbitMQ';
 
-    public function handle(OutboxRelay $relay): int
+    public function handle(OutboxRelay $relay, OutboundTopology $topology): int
     {
+        $topology->declare();
+
         if ($this->option('observer') || (bool) config('outbox.observer_enabled', false)) {
             $this->call(MessagingTopologyObserverCommand::class);
         }

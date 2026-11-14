@@ -6,6 +6,7 @@ namespace Tests\Feature\Messaging\Outbox;
 
 use App\Contracts\Outbox\OutboxMessagePublisherInterface;
 use App\Contracts\Outbox\OutboxRepositoryInterface;
+use App\Messaging\OutboundTopology;
 use App\Outbox\OutboxRelay;
 use Mockery;
 use Psr\Log\NullLogger;
@@ -24,6 +25,7 @@ final class MessagingRelayCommandTest extends PostgresTestCase
 
         $relay = new OutboxRelay($fakeRepo, $fakePublisher, new NullLogger());
         $this->app->instance(OutboxRelay::class, $relay);
+        $this->mock(OutboundTopology::class)->shouldReceive('declare')->once();
 
         $this->artisan('messaging:relay', ['--max-batches' => 3])
             ->assertSuccessful();

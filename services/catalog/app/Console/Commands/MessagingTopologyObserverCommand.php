@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Messaging\OutboundTopology;
 use Illuminate\Console\Command;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use Throwable;
@@ -44,13 +45,7 @@ final class MessagingTopologyObserverCommand extends Command
 
             $channel = $connection->channel();
 
-            $channel->exchange_declare(
-                $exchangeName,
-                (string) config('rabbitmq.exchange.type'),
-                false,
-                (bool) config('rabbitmq.exchange.durable'),
-                false,
-            );
+            OutboundTopology::declareExchange($channel);
 
             $channel->queue_declare(
                 $queueName,
