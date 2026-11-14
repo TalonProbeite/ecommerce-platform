@@ -1,0 +1,186 @@
+name: shop-order-prod
+
+x-order-build: &order-build
+  context: ..
+  dockerfile: order/Dockerfile
+  args:
+    COMPOSER_NO_DEV: "1"
+
+x-order-env: &order-env
+  APP_ENV: ${APP_ENV:-production}
+  APP_DEBUG: ${APP_DEBUG:-false}
+  APP_KEY: ${APP_KEY:?APP_KEY must be set in services/order/.env}
+  APP_URL: ${APP_URL:?APP_URL must be set in services/order/.env}
+  LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+  DB_CONNECTION: pgsql
+  DB_HOST: order-db
+  DB_PORT: "5432"
+  DB_DATABASE: ${DB_DATABASE:?DB_DATABASE must be set in services/order/.env}
+  DB_USERNAME: ${DB_USERNAME:?DB_USERNAME must be set in services/order/.env}
+  DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in services/order/.env}
+
+  CACHE_STORE: redis
+  REDIS_CLIENT: phpredis
+  REDIS_HOST: order-redis
+  REDIS_PORT: "6379"
+  SESSION_DRIVER: array
+  QUEUE_CONNECTION: sync
+
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+  RABBITMQ_USER: ${RABBITMQ_USER:?RABBITMQ_USER must be set in services/order/.env}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD must be set in services/order/.env}
+  RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+
+  JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?JWT_PUBLIC_KEY_B64 must be set in services/order/.env}
+
+  STRIPE_SECRET: ${STRIPE_SECRET:?STRIPE_SECRET must be set in services/order/.env}
+  STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET must be set in services/order/.env}
+
+x-order-app-prod: &order-app-prod
+  build: *order-build
+  image: shop-order-app:prod
+  restart: always
+  env_file: .env
+  environment: *order-env
+
+services:
+  order-db:
+    image: postgres:16-alpine
+    container_name: order-db-prod
+    restart: always
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:?DB_DATABASE must be set in services/order/.env}
+      POSTGRES_USER: ${DB_USERNAME:?DB_USERNAME must be set in services/order/.env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in services/order/.env}
+    volumes:
+      - order_postgres_data:/var/lib/postgresql/data
+    networks:
+      - order_internal
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  order-redis:
+    image: redis:7-alpine
+    container_name: order-redis-prod
+    restart: always
+    volumes:
+      - order_redis_data:/data
+    networks:
+      - order_internal
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  order-migrate:
+    <<: *order-app-prod
+    container_name: order-migrate-prod
+    restart: "no"
+    command: [ "php", "artisan", "migrate", "--force", "--no-interaction" ]
+    depends_on:
+      order-db:
+        condition: service_healthy
+    networks:
+      - order_internal
+
+  order-app:
+    <<: *order-app-prod
+    container_name: order-app-prod
+    depends_on:
+      order-migrate:
+        condition: service_completed_successfully
+      order-db:
+        condition: service_healthy
+      order-redis:
+        condition: service_healthy
+    networks:
+      - order_internal
+      - shop_global
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/healthz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 20s
+
+  order-relay:
+    <<: *order-app-prod
+    container_name: order-relay-prod
+    command: [ "php", "artisan", "messaging:relay" ]
+    depends_on:
+      order-migrate:
+        condition: service_completed_successfully
+      order-db:
+        condition: service_healthy
+    networks:
+      - order_internal
+      - shop_global
+    stop_grace_period: 30s
+
+  order-consumer:
+    <<: *order-app-prod
+    container_name: order-consumer-prod
+    command: [ "php", "artisan", "messaging:consume-catalog-events" ]
+    depends_on:
+      order-migrate:
+        condition: service_completed_successfully
+      order-db:
+        condition: service_healthy
+    networks:
+      - order_internal
+      - shop_global
+    stop_grace_period: 30s
+
+  order-scheduler:
+    <<: *order-app-prod
+    container_name: order-scheduler-prod
+    command: [ "sh", "-c", "while true; do php artisan schedule:run; sleep 60; done" ]
+    depends_on:
+      order-migrate:
+        condition: service_completed_successfully
+      order-db:
+        condition: service_healthy
+      order-redis:
+        condition: service_healthy
+    networks:
+      - order_internal
+
+  order-nginx:
+    image: nginx:1.28-alpine
+    container_name: order-nginx-prod
+    restart: always
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      order-app:
+        condition: service_healthy
+    networks:
+      - order_internal
+      - shop_global
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --no-check-certificate --tries=1 --spider https://localhost:443/healthz || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  order_postgres_data:
+  order_redis_data:
+
+networks:
+  order_internal:
+    driver: bridge
+  shop_global:
+    external: true
+    name: shop_global

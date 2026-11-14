@@ -1,0 +1,244 @@
+name: order-local
+
+x-order-app: &order-app
+  restart: unless-stopped
+  env_file:
+    - .env
+  environment:
+    APP_ENV: ${APP_ENV:-local}
+
+    DB_CONNECTION: pgsql
+    DB_HOST: order-db
+    DB_PORT: "5432"
+    DB_DATABASE: ${DB_DATABASE:-order_db}
+    DB_USERNAME: ${DB_USERNAME:-admin}
+    DB_PASSWORD: ${DB_PASSWORD:-secret}
+
+    CACHE_STORE: redis
+    REDIS_CLIENT: phpredis
+    REDIS_HOST: order-redis
+    REDIS_PORT: "6379"
+    SESSION_DRIVER: array
+    QUEUE_CONNECTION: sync
+
+    RABBITMQ_HOST: rabbitmq
+    RABBITMQ_PORT: "5672"
+    RABBITMQ_USER: ${RABBITMQ_USER:-order}
+    RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-order_secret}
+    RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+
+    STRIPE_SECRET: ${STRIPE_SECRET:-}
+    STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+  networks:
+    - shop_global
+    - order_internal
+
+services:
+  order-db:
+    image: postgres:16-alpine
+    container_name: order-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-order_db}
+      POSTGRES_USER: ${DB_USERNAME:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - order_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5434:5432"
+    networks:
+      - order_internal
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME:-admin} -d ${DB_DATABASE:-order_db}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  order-redis:
+    image: redis:7-alpine
+    container_name: order-redis
+    restart: unless-stopped
+    volumes:
+      - order_redis_data:/data
+    ports:
+      - "127.0.0.1:6381:6379"
+    networks:
+      - order_internal
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+
+  order-test-redis:
+    image: redis:7-alpine
+    container_name: order-test-redis
+    restart: unless-stopped
+    networks:
+      - order_internal
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+
+  rabbitmq:
+    image: ${RABBITMQ_IMAGE:-rabbitmq:4.4-management-alpine}
+    container_name: order-rabbitmq
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-order}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-order_secret}
+    volumes:
+      - order_rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "127.0.0.1:5675:5672"
+      - "127.0.0.1:15675:15672"
+    networks:
+      - shop_global
+      - order_internal
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  order-migrate:
+    <<: *order-app
+    image: order-app:local
+    pull_policy: never
+    container_name: order-migrate
+    restart: "no"
+    command: [ "php", "artisan", "migrate", "--force", "--no-interaction" ]
+    depends_on:
+      order-db:
+        condition: service_healthy
+
+  order-app:
+    <<: *order-app
+    build:
+      context: ..
+      dockerfile: order/Dockerfile
+    image: order-app:local
+    container_name: order-app
+    ports:
+      - "8082:8080"
+    depends_on:
+      order-migrate:
+        condition: service_completed_successfully
+      order-db:
+        condition: service_healthy
+      order-redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/healthz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    stop_grace_period: 20s
+
+  order-relay:
+    <<: *order-app
+    image: order-app:local
+    pull_policy: never
+    container_name: order-relay
+    command: [ "php", "artisan", "messaging:relay" ]
+    depends_on:
+      order-migrate:
+        condition: service_completed_successfully
+      order-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    stop_grace_period: 30s
+
+  order-consumer:
+    <<: *order-app
+    image: order-app:local
+    pull_policy: never
+    container_name: order-consumer
+    command: [ "php", "artisan", "messaging:consume-catalog-events" ]
+    depends_on:
+      order-migrate:
+        condition: service_completed_successfully
+      order-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    stop_grace_period: 30s
+
+  order-scheduler:
+    <<: *order-app
+    image: order-app:local
+    pull_policy: never
+    container_name: order-scheduler
+    command: [ "sh", "-c", "while true; do php artisan schedule:run; sleep 60; done" ]
+    depends_on:
+      order-migrate:
+        condition: service_completed_successfully
+      order-db:
+        condition: service_healthy
+      order-redis:
+        condition: service_healthy
+
+  order-nginx:
+    image: nginx:alpine
+    container_name: order-nginx
+    restart: unless-stopped
+    ports:
+      - "8445:443"
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      order-app:
+        condition: service_healthy
+    networks:
+      - shop_global
+      - order_internal
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-check-certificate -q --spider https://127.0.0.1/healthz || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  order-stripe-cli:
+    image: stripe/stripe-cli:latest
+    container_name: order-stripe-cli
+    restart: unless-stopped
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET:?STRIPE_SECRET must be set in services/order/.env}
+    command:
+      - listen
+      - --forward-to
+      - http://order-app:8080/webhooks/stripe
+      - --events
+      - payment_intent.succeeded,payment_intent.payment_failed,payment_intent.canceled
+    depends_on:
+      order-app:
+        condition: service_healthy
+    networks:
+      - order_internal
+
+volumes:
+  order_postgres_data:
+  order_redis_data:
+  order_rabbitmq_data:
+
+networks:
+  shop_global:
+    driver: bridge
+  order_internal:
+    driver: bridge
