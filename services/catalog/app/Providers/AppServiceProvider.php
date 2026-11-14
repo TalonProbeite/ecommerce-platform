@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Contracts\Messaging\EventPublisherInterface;
 use App\Contracts\Database\TransactionRunnerInterface;
 use App\Contracts\Outbox\OutboxMessagePublisherInterface;
 use App\Contracts\Outbox\OutboxRepositoryInterface;
@@ -33,7 +32,6 @@ use App\Messaging\Inbound\Handlers\OrderCreatedHandler;
 use App\Messaging\Inbound\Handlers\OrderIssuedHandler;
 use App\Messaging\Inbound\Handlers\OrderReturnedHandler;
 use App\Messaging\Inbound\InboundHandlerRegistry;
-use App\Messaging\RabbitMqPublisher;
 use App\Models\Category;
 use App\Observers\CategoryObserver;
 use App\Outbox\AmqpOutboxPublisher;
@@ -92,9 +90,6 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ProductServiceInterface::class, ProductService::class);
         $this->app->bind(StockServiceInterface::class, StockService::class);
         $this->app->bind(StoreServiceInterface::class, StoreService::class);
-
-        $this->app->singleton(RabbitMqPublisher::class);
-        $this->app->alias(RabbitMqPublisher::class, EventPublisherInterface::class);
 
         $this->app->tag([
             OrderCreatedHandler::class,
@@ -159,11 +154,6 @@ class AppServiceProvider extends ServiceProvider
                 $event->app->make(AmqpOutboxPublisher::class)->close();
             }
 
-            if (! $event->app->resolved(RabbitMqPublisher::class)) {
-                return;
-            }
-
-            $event->app->make(RabbitMqPublisher::class)->close();
         });
     }
 }
