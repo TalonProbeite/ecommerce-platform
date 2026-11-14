@@ -8,8 +8,9 @@ namespace App\Messaging\Inbound;
  * Shared validation rules for inbound payloads. Keep limits here so that
  * the contract is defined in exactly one place.
  *
- * Timestamps must carry an explicit numeric offset (for example +00:00).
- * The "Z" suffix and offset-less values are rejected by the contract.
+ * Timestamps must carry an explicit numeric offset (for example +00:00) and may
+ * include optional microseconds. The "Z" suffix and offset-less values are
+ * rejected by the contract.
  */
 final class InboundRules
 {
@@ -19,7 +20,7 @@ final class InboundRules
     public const EVENT_ID = ['required', 'uuid'];
     public const UUID = ['required', 'uuid'];
     public const LINE_ID = ['required', 'uuid', 'distinct'];
-    public const TIMESTAMP = ['required', 'date_format:Y-m-d\TH:i:sP'];
+    public const TIMESTAMP = ['required', 'date_format:Y-m-d\TH:i:s.uP,Y-m-d\TH:i:sP'];
     public const QUANTITY = ['required', 'integer', 'min:1', 'max:' . self::MAX_QUANTITY];
 
     /**

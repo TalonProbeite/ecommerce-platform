@@ -69,6 +69,27 @@ final class OrderCreatedDataTest extends TestCase
     }
 
     #[Test]
+    public function it_accepts_timestamps_with_microseconds(): void
+    {
+        $payload = self::payload([
+            'occurred_at' => '2026-11-20T10:00:00.123456+00:00',
+            'items' => [
+                [
+                    'rental_start_at' => '2026-11-21T09:00:00.654321+00:00',
+                    'rental_end_at' => '2026-11-23T18:00:00.000001+00:00',
+                ],
+            ],
+        ]);
+
+        $data = OrderCreatedData::fromPayload($payload);
+        $item = $data->items[0];
+
+        self::assertSame('123456', $data->occurredAt->format('u'));
+        self::assertSame('654321', $item->rentalStartAt->format('u'));
+        self::assertSame('000001', $item->rentalEndAt->format('u'));
+    }
+
+    #[Test]
     public function it_rejects_a_payload_without_line_id(): void
     {
         $payload = self::payload();

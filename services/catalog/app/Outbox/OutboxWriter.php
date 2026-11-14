@@ -10,11 +10,13 @@ use App\Domain\Contracts\EventInterface;
 use App\Messaging\RoutingKeys;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use Psr\Log\LoggerInterface;
 
 final readonly class OutboxWriter implements OutboxWriterInterface
 {
     public function __construct(
         private OutboxRepositoryInterface $repository,
+        private ?LoggerInterface $logger = null,
     ) {
     }
 
@@ -40,11 +42,36 @@ final readonly class OutboxWriter implements OutboxWriterInterface
      */
     private function aggregateKey(string $routingKey, array $payload): ?string
     {
-        return match ($routingKey) {
+        $field = match ($routingKey) {
+            RoutingKeys::PRODUCT_CREATED,
+            RoutingKeys::PRODUCT_UPDATED,
+            RoutingKeys::PRODUCT_DELETED,
+            RoutingKeys::STOCK_CHANGED => 'product_id',
+            RoutingKeys::CATEGORY_CREATED,
+            RoutingKeys::CATEGORY_UPDATED,
+            RoutingKeys::CATEGORY_DELETED => 'category_id',
             RoutingKeys::STOCK_RESERVED,
-            RoutingKeys::STOCK_RESERVATION_FAILED => isset($payload['order_id']) ? (string) $payload['order_id'] : null,
-            RoutingKeys::STOCK_CHANGED => isset($payload['product_id']) ? (string) $payload['product_id'] : null,
+            RoutingKeys::STOCK_RESERVATION_FAILED => 'order_id',
             default => null,
         };
+
+        if ($field === null) {
+            $this->logger?->warning('Cannot determine an aggregate key for the outbound event.', [
+                'routing_key' => $routingKey,
+            ]);
+
+            return null;
+        }
+
+        if (! isset($payload[$field]) || $payload[$field] === '') {
+            $this->logger?->warning('The outbound event payload is missing its aggregate key field.', [
+                'routing_key' => $routingKey,
+                'field' => $field,
+            ]);
+
+            return null;
+        }
+
+        return (string) $payload[$field];
     }
 }

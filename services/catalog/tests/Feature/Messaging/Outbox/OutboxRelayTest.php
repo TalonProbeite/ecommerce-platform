@@ -5,7 +5,18 @@ declare(strict_types=1);
 namespace Tests\Feature\Messaging\Outbox;
 
 use App\Contracts\Outbox\OutboxMessagePublisherInterface;
+use App\Domain\Contracts\EventInterface;
+use App\Messaging\Events\CategoryCreated;
+use App\Messaging\Events\CategoryDeleted;
+use App\Messaging\Events\CategoryUpdated;
+use App\Messaging\Events\ProductCreated;
+use App\Messaging\Events\ProductDeleted;
+use App\Messaging\Events\ProductUpdated;
+use App\Messaging\Events\StockChanged;
+use App\Messaging\Events\StockReservationFailed;
+use App\Messaging\Events\StockReservationFailureReason;
 use App\Messaging\Events\StockReserved;
+use App\Messaging\RoutingKeys;
 use App\Outbox\OutboxRelay;
 use App\Outbox\OutboxRepository;
 use App\Outbox\OutboxWriter;
@@ -264,7 +275,59 @@ final class OutboxRelayTest extends PostgresTestCase
     }
 
     #[Test]
-    public function relay_message_body_contains_event_id_and_occurred_at_with_offset_matching_message_id(): void
+    public function writer_assigns_the_expected_aggregate_key_for_every_routing_key(): void
+    {
+        /** @var array<string, array{EventInterface, string}> $cases */
+        $cases = [
+            RoutingKeys::PRODUCT_CREATED => [new ProductCreated('product-1', 'store-1', 'Drill', 100, 'category-1', 0, true), 'product-1'],
+            RoutingKeys::PRODUCT_UPDATED => [new ProductUpdated('product-2', 'store-1', 'Drill', 100, 'category-1', 0, true), 'product-2'],
+            RoutingKeys::PRODUCT_DELETED => [new ProductDeleted('product-3', 'store-1'), 'product-3'],
+            RoutingKeys::CATEGORY_CREATED => [new CategoryCreated('category-1', 'store-1', 'Tools', 'tools', null), 'category-1'],
+            RoutingKeys::CATEGORY_UPDATED => [new CategoryUpdated('category-2', 'store-1', 'Tools', 'tools', null), 'category-2'],
+            RoutingKeys::CATEGORY_DELETED => [new CategoryDeleted('category-3', 'store-1'), 'category-3'],
+            RoutingKeys::STOCK_CHANGED => [new StockChanged('product-4', 'store-1', 10, 2), 'product-4'],
+            RoutingKeys::STOCK_RESERVED => [new StockReserved('order-1', 'store-1'), 'order-1'],
+            RoutingKeys::STOCK_RESERVATION_FAILED => [
+                new StockReservationFailed('order-2', 'store-1', StockReservationFailureReason::InsufficientStock),
+                'order-2',
+            ],
+        ];
+
+        self::assertSame(RoutingKeys::all(), array_keys($cases));
+
+        foreach ($cases as $routingKey => [$event, $expectedAggregateKey]) {
+            $eventId = $this->writer->enqueue($event, $this->now);
+            $row = DB::table('outbox')->where('event_id', $eventId)->first();
+
+            self::assertNotNull($row);
+            self::assertSame($routingKey, $row->routing_key);
+            self::assertSame($expectedAggregateKey, $row->aggregate_key);
+        }
+    }
+
+    #[Test]
+    public function writer_logs_a_warning_and_stores_null_when_the_aggregate_key_is_missing(): void
+    {
+        $logger = new class () extends AbstractLogger {
+            /** @var list<string> */
+            public array $messages = [];
+
+            public function log($level, string|\Stringable $message, array $context = []): void
+            {
+                $this->messages[] = (string) $message;
+            }
+        };
+
+        $writer = new OutboxWriter($this->repository, $logger);
+        $event = new ProductDeleted('', 'store-1');
+        $eventId = $writer->enqueue($event, $this->now);
+
+        self::assertNull(DB::table('outbox')->where('event_id', $eventId)->value('aggregate_key'));
+        self::assertCount(1, $logger->messages);
+    }
+
+    #[Test]
+    public function relay_message_body_contains_the_full_envelope_matching_message_id(): void
     {
         $eventId = $this->writer->enqueue(new StockReserved('order-123', 'store-456'), $this->now);
 
@@ -285,10 +348,37 @@ final class OutboxRelayTest extends PostgresTestCase
 
         self::assertSame($eventId, $fakePublisher->lastMessageId);
         self::assertSame($eventId, $fakePublisher->lastBody['event_id']);
-        self::assertSame($this->now->toIso8601String(), $fakePublisher->lastBody['occurred_at']);
-        self::assertMatchesRegularExpression('/[+-]\d{2}:\d{2}$/', (string) $fakePublisher->lastBody['occurred_at']);
+        self::assertSame(1, $fakePublisher->lastBody['schema_version']);
+        self::assertSame('2026-11-20T10:00:00.000000+00:00', $fakePublisher->lastBody['occurred_at']);
+        self::assertMatchesRegularExpression('/\.\d{6}[+-]\d{2}:\d{2}$/', (string) $fakePublisher->lastBody['occurred_at']);
         self::assertSame('order-123', $fakePublisher->lastBody['order_id']);
         self::assertSame('store-456', $fakePublisher->lastBody['store_id']);
+    }
+
+    #[Test]
+    public function relay_converts_occurred_at_to_utc_before_formatting(): void
+    {
+        $eventId = $this->writer->enqueue(
+            new StockReserved('order-123', 'store-456'),
+            CarbonImmutable::parse('2026-11-20T13:00:00.123456+03:00'),
+        );
+
+        $fakePublisher = new class () implements OutboxMessagePublisherInterface {
+            /** @var array<string, mixed> */
+            public array $lastBody = [];
+
+            public function publish(string $routingKey, array $body, string $messageId): void
+            {
+                $this->lastBody = $body;
+            }
+        };
+
+        $relay = new OutboxRelay($this->repository, $fakePublisher, new NullLogger());
+        $relay->processBatch();
+
+        self::assertSame($eventId, $fakePublisher->lastBody['event_id']);
+        // The outbox column stores whole seconds, so the formatter emits .000000.
+        self::assertSame('2026-11-20T10:00:00.000000+00:00', $fakePublisher->lastBody['occurred_at']);
     }
 
     #[Test]

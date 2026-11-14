@@ -44,7 +44,8 @@ final readonly class OutboxRelay
 
                 $body = [
                     'event_id' => $row->eventId,
-                    'occurred_at' => $row->occurredAt->toIso8601String(),
+                    'schema_version' => 1,
+                    'occurred_at' => $row->occurredAt->utc()->format('Y-m-d\TH:i:s.uP'),
                     ...$row->payload,
                 ];
 
