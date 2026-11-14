@@ -25,8 +25,16 @@ class EventContractTest extends TestCase
     {
         foreach ([ProductCreated::class => 'product.created', ProductUpdated::class => 'product.updated'] as $class => $key) {
             foreach ([0, 12345] as $price) {
-                yield $key . $price => [new $class('product', 'store', 'Дрель / "Pro"', $price), $key,
-                    ['product_id' => 'product', 'store_id' => 'store', 'name' => 'Дрель / "Pro"', 'price_per_hour' => $price]];
+                yield $key . $price => [new $class('product', 'store', 'Дрель / "Pro"', $price, 'category', 5000, true), $key,
+                    [
+                        'product_id' => 'product',
+                        'store_id' => 'store',
+                        'category_id' => 'category',
+                        'name' => 'Дрель / "Pro"',
+                        'price_per_hour' => $price,
+                        'deposit_amount' => 5000,
+                        'is_active' => true,
+                    ]];
             }
         }
         yield 'product.deleted' => [new ProductDeleted('product', 'store'), 'product.deleted', ['product_id' => 'product', 'store_id' => 'store']];
