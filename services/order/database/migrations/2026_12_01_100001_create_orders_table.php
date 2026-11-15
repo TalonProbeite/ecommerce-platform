@@ -1,6 +1,5 @@
 <?php
 
-use App\Infrastructure\Persistence\SchemaValues;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -37,16 +36,11 @@ return new class () extends Migration {
         DB::statement('ALTER TABLE orders ADD CONSTRAINT orders_customer_id_idempotency_key_unique
             UNIQUE (customer_id, idempotency_key)');
 
-        DB::statement(sprintf(
-            "ALTER TABLE orders ADD CONSTRAINT orders_status_check CHECK (status IN ('%s'))",
-            SchemaValues::quotedList(SchemaValues::ORDER_STATUS),
-        ));
+        DB::statement("ALTER TABLE orders ADD CONSTRAINT orders_status_check
+            CHECK (status IN ('created', 'stock_reserved', 'payment_pending', 'paid', 'in_rental', 'completed', 'cancelled'))");
 
-        DB::statement(sprintf(
-            "ALTER TABLE orders ADD CONSTRAINT orders_cancel_reason_check
-                CHECK (cancel_reason IS NULL OR cancel_reason IN ('%s'))",
-            SchemaValues::quotedList(SchemaValues::CANCEL_REASON),
-        ));
+        DB::statement("ALTER TABLE orders ADD CONSTRAINT orders_cancel_reason_check
+            CHECK (cancel_reason IS NULL OR cancel_reason IN ('stock_unavailable', 'payment_timeout', 'customer_request', 'admin_request'))");
 
         DB::statement("ALTER TABLE orders ADD CONSTRAINT orders_currency_check CHECK (currency = 'EUR')");
         DB::statement('ALTER TABLE orders ADD CONSTRAINT orders_subtotal_amount_check CHECK (subtotal_amount >= 0)');

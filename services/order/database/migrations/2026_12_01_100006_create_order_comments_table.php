@@ -1,6 +1,5 @@
 <?php
 
-use App\Infrastructure\Persistence\SchemaValues;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -22,11 +21,8 @@ return new class () extends Migration {
                 ->references('id')->on('orders')->cascadeOnDelete();
         });
 
-        DB::statement(sprintf(
-            "ALTER TABLE order_comments ADD CONSTRAINT order_comments_author_role_check
-                CHECK (author_role IN ('%s'))",
-            SchemaValues::quotedList(SchemaValues::ACTOR_ROLE),
-        ));
+        DB::statement("ALTER TABLE order_comments ADD CONSTRAINT order_comments_author_role_check
+            CHECK (author_role IN ('customer', 'store_manager', 'admin', 'analyst', 'system', 'stripe'))");
         DB::statement('ALTER TABLE order_comments ADD CONSTRAINT order_comments_body_check
             CHECK (char_length(body) BETWEEN 1 AND 2000)');
     }

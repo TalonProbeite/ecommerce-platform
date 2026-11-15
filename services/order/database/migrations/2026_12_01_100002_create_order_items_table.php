@@ -1,6 +1,5 @@
 <?php
 
-use App\Infrastructure\Persistence\SchemaValues;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -50,11 +49,8 @@ return new class () extends Migration {
             CHECK (line_total >= 0)');
         DB::statement('ALTER TABLE order_items ADD CONSTRAINT order_items_deposit_total_check
             CHECK (deposit_total >= 0)');
-        DB::statement(sprintf(
-            "ALTER TABLE order_items ADD CONSTRAINT order_items_item_status_check
-                CHECK (item_status IN ('%s'))",
-            SchemaValues::quotedList(SchemaValues::ITEM_STATUS),
-        ));
+        DB::statement("ALTER TABLE order_items ADD CONSTRAINT order_items_item_status_check
+            CHECK (item_status IN ('reserved', 'issued', 'returned', 'cancelled'))");
         DB::statement('ALTER TABLE order_items ADD CONSTRAINT order_items_returned_requires_issued_check
             CHECK (returned_at IS NULL OR issued_at IS NOT NULL)');
         DB::statement('ALTER TABLE order_items ADD CONSTRAINT order_items_issued_requires_actor_check

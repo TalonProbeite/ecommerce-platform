@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Ports\Clock;
+use App\Application\Ports\IdGenerator;
+use App\Application\Ports\OrderRepository;
+use App\Application\Ports\ProductSnapshotRepository;
 use App\Application\Ports\TransactionRunnerInterface;
 use App\Infrastructure\Messaging\Inbound\InboundHandlerRegistry;
 use App\Infrastructure\Messaging\Inbound\InboundMessageRouter;
@@ -15,7 +19,11 @@ use App\Infrastructure\Messaging\Outbox\OutboxRepositoryInterface;
 use App\Infrastructure\Messaging\Outbox\OutboxWriter;
 use App\Infrastructure\Messaging\Outbox\OutboxWriterInterface;
 use App\Infrastructure\Messaging\Topology;
+use App\Infrastructure\Persistence\EloquentOrderRepository;
+use App\Infrastructure\Persistence\EloquentProductSnapshotRepository;
+use App\Infrastructure\Persistence\SystemClock;
 use App\Infrastructure\Persistence\Transactions\DbTransactionRunner;
+use App\Infrastructure\Persistence\UuidV7IdGenerator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
@@ -30,6 +38,12 @@ class AppServiceProvider extends ServiceProvider
     {
         // Database Transactions
         $this->app->bind(TransactionRunnerInterface::class, DbTransactionRunner::class);
+
+        // Persistence and time
+        $this->app->bind(Clock::class, SystemClock::class);
+        $this->app->bind(IdGenerator::class, UuidV7IdGenerator::class);
+        $this->app->bind(OrderRepository::class, EloquentOrderRepository::class);
+        $this->app->bind(ProductSnapshotRepository::class, EloquentProductSnapshotRepository::class);
 
         // Outbox Messaging
         $this->app->bind(OutboxRepositoryInterface::class, OutboxRepository::class);

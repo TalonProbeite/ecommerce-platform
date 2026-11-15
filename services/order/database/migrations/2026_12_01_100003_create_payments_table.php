@@ -1,6 +1,5 @@
 <?php
 
-use App\Infrastructure\Persistence\SchemaValues;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -32,10 +31,8 @@ return new class () extends Migration {
         DB::statement("ALTER TABLE payments ADD CONSTRAINT payments_provider_check CHECK (provider = 'stripe')");
         DB::statement('ALTER TABLE payments ADD CONSTRAINT payments_amount_check CHECK (amount > 0)');
         DB::statement("ALTER TABLE payments ADD CONSTRAINT payments_currency_check CHECK (currency = 'EUR')");
-        DB::statement(sprintf(
-            "ALTER TABLE payments ADD CONSTRAINT payments_status_check CHECK (status IN ('%s'))",
-            SchemaValues::quotedList(SchemaValues::PAYMENT_STATUS),
-        ));
+        DB::statement("ALTER TABLE payments ADD CONSTRAINT payments_status_check
+            CHECK (status IN ('requires_payment_method', 'requires_confirmation', 'requires_action', 'processing', 'requires_capture', 'succeeded', 'canceled'))");
     }
 
     public function down(): void

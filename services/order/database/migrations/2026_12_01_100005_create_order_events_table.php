@@ -1,6 +1,5 @@
 <?php
 
-use App\Infrastructure\Persistence\SchemaValues;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -28,21 +27,12 @@ return new class () extends Migration {
                 ->references('id')->on('order_items')->restrictOnDelete();
         });
 
-        DB::statement(sprintf(
-            "ALTER TABLE order_events ADD CONSTRAINT order_events_from_status_check
-                CHECK (from_status IS NULL OR from_status IN ('%s'))",
-            SchemaValues::quotedList(SchemaValues::ORDER_STATUS),
-        ));
-        DB::statement(sprintf(
-            "ALTER TABLE order_events ADD CONSTRAINT order_events_to_status_check
-                CHECK (to_status IN ('%s'))",
-            SchemaValues::quotedList(SchemaValues::ORDER_STATUS),
-        ));
-        DB::statement(sprintf(
-            "ALTER TABLE order_events ADD CONSTRAINT order_events_actor_role_check
-                CHECK (actor_role IN ('%s'))",
-            SchemaValues::quotedList(SchemaValues::ACTOR_ROLE),
-        ));
+        DB::statement("ALTER TABLE order_events ADD CONSTRAINT order_events_from_status_check
+            CHECK (from_status IS NULL OR from_status IN ('created', 'stock_reserved', 'payment_pending', 'paid', 'in_rental', 'completed', 'cancelled'))");
+        DB::statement("ALTER TABLE order_events ADD CONSTRAINT order_events_to_status_check
+            CHECK (to_status IN ('created', 'stock_reserved', 'payment_pending', 'paid', 'in_rental', 'completed', 'cancelled'))");
+        DB::statement("ALTER TABLE order_events ADD CONSTRAINT order_events_actor_role_check
+            CHECK (actor_role IN ('customer', 'store_manager', 'admin', 'analyst', 'system', 'stripe'))");
     }
 
     public function down(): void

@@ -325,6 +325,37 @@ Example (`order.issued`):
 }
 ```
 
+### `order.paid`
+
+Published on `order.events` and consumed by Notification. Catalog does not
+subscribe to this routing key.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `event_id` | UUID string | Event identifier. |
+| `occurred_at` | string | Event time with offset. |
+| `order_id` | UUID string | Order identifier. |
+| `store_id` | UUID string | Store identifier. |
+| `customer_id` | UUID string | Customer identifier. |
+| `amount_total` | integer | Total paid amount in EUR minor units (cents). |
+| `currency` | string | Always `EUR`. |
+| `paid_at` | string | Payment time with offset. |
+
+Example:
+
+```json
+{
+  "event_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "occurred_at": "2026-11-20T10:10:00.123456+00:00",
+  "order_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "store_id": "3d9a1c2e-4b5f-4a6d-9e8f-1a2b3c4d5e6f",
+  "customer_id": "11111111-1111-4111-8111-111111111111",
+  "amount_total": 14000,
+  "currency": "EUR",
+  "paid_at": "2026-11-20T10:10:00.123456+00:00"
+}
+```
+
 ## Contract limits
 
 - `items` contains from 1 to 100 entries.

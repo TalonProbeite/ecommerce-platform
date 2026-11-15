@@ -1,6 +1,5 @@
 <?php
 
-use App\Infrastructure\Persistence\SchemaValues;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -33,14 +32,10 @@ return new class () extends Migration {
         DB::statement('ALTER TABLE refunds ADD CONSTRAINT refunds_provider_refund_id_unique
             UNIQUE (provider_refund_id)');
         DB::statement('ALTER TABLE refunds ADD CONSTRAINT refunds_amount_check CHECK (amount > 0)');
-        DB::statement(sprintf(
-            "ALTER TABLE refunds ADD CONSTRAINT refunds_reason_check CHECK (reason IN ('%s'))",
-            SchemaValues::quotedList(SchemaValues::REFUND_REASON),
-        ));
-        DB::statement(sprintf(
-            "ALTER TABLE refunds ADD CONSTRAINT refunds_status_check CHECK (status IN ('%s'))",
-            SchemaValues::quotedList(SchemaValues::REFUND_STATUS),
-        ));
+        DB::statement("ALTER TABLE refunds ADD CONSTRAINT refunds_reason_check
+            CHECK (reason IN ('order_cancelled', 'item_returned'))");
+        DB::statement("ALTER TABLE refunds ADD CONSTRAINT refunds_status_check
+            CHECK (status IN ('pending', 'succeeded', 'failed'))");
     }
 
     public function down(): void
