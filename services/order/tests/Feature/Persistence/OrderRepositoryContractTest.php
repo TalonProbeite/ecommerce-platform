@@ -96,8 +96,8 @@ abstract class OrderRepositoryContractTest extends PersistenceTestCase
         self::assertNotNull($first);
         self::assertNotNull($stale);
 
-        $first->markStockReserved();
-        $stale->markStockReserved();
+        $first->markStockReserved(CarbonImmutable::parse('2026-11-20T10:05:00.000000+00:00'));
+        $stale->markStockReserved(CarbonImmutable::parse('2026-11-20T10:05:00.000000+00:00'));
 
         $this->repository()->save($first);
 
@@ -136,9 +136,9 @@ abstract class OrderRepositoryContractTest extends PersistenceTestCase
 
         $this->assertOutboxContains('order.created', $order->id());
 
-        $order->markStockReserved();
-        $order->markPaymentPending();
-        $order->markPaid();
+        $order->markStockReserved(CarbonImmutable::parse('2026-11-20T10:05:00.000000+00:00'));
+        $order->markPaymentPending(CarbonImmutable::parse('2026-11-20T10:06:00.000000+00:00'));
+        $order->markPaid(CarbonImmutable::parse('2026-11-20T10:07:00.000000+00:00'));
         $this->repository()->save($order);
 
         $this->assertOutboxContains('order.paid', $order->id());

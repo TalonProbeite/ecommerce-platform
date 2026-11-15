@@ -20,7 +20,7 @@ final readonly class EloquentProductSnapshotRepository implements ProductSnapsho
 
     public function findById(string $productId): ?ProductSnapshot
     {
-        $model = ProductSnapshotModel::query()->find($productId);
+        $model = ProductSnapshotModel::query()->lockForUpdate()->find($productId);
 
         return $model !== null ? $this->toDomain($model) : null;
     }

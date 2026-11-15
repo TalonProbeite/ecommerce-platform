@@ -106,22 +106,23 @@ final class SyncProductSnapshotUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function it_ignores_an_update_after_deletion(): void
+    public function it_resurrects_an_update_after_deletion(): void
     {
         $deletedAt = $this->time('2026-11-20T09:30:00+00:00');
+        $occurredAt = $this->time('2026-11-20T10:00:00+00:00');
         $this->snapshots->add($this->snapshot($this->time('2026-11-20T09:00:00+00:00'), $deletedAt));
 
         $this->useCase->upsert(
-            $this->upsert('event-4', $this->time('2026-11-20T10:00:00+00:00'), name: 'Resurrected'),
+            $this->upsert('event-4', $occurredAt, name: 'Resurrected'),
             $this->time('2026-11-20T10:01:00+00:00'),
         );
 
         $snapshot = $this->snapshots->findById(self::PRODUCT_ID);
 
         self::assertNotNull($snapshot);
-        self::assertSame('Drill', $snapshot->name);
-        self::assertNotNull($snapshot->deletedAt);
-        self::assertTrue($snapshot->deletedAt->equalTo($deletedAt));
+        self::assertSame('Resurrected', $snapshot->name);
+        self::assertNull($snapshot->deletedAt);
+        self::assertTrue($snapshot->sourceOccurredAt->equalTo($occurredAt));
     }
 
     #[Test]

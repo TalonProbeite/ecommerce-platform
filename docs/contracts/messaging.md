@@ -84,8 +84,8 @@ by Order or Notification.
 
 | Exchange | Routing key | Subscriber | Queue |
 | --- | --- | --- | --- |
-| `catalog.events` | `stock.reserved` | Order | `order.catalog-events` |
-| `catalog.events` | `stock.reservation_failed` | Order | `order.catalog-events` |
+| `catalog.events` | `stock.reserved` | Order (подписка появится в P7) | `order.catalog-events` |
+| `catalog.events` | `stock.reservation_failed` | Order (подписка появится в P7) | `order.catalog-events` |
 | `catalog.events` | `product.created` | Order | `order.catalog-events` |
 | `catalog.events` | `product.updated` | Order | `order.catalog-events` |
 | `catalog.events` | `product.deleted` | Order | `order.catalog-events` |
@@ -159,8 +159,8 @@ Both routing keys carry a **full product snapshot**.
 | `store_id` | UUID string | Store that owns the product. |
 | `category_id` | UUID string | Category identifier. |
 | `name` | string | Product name. |
-| `price_per_hour` | integer | Hourly price in EUR. |
-| `deposit_amount` | integer | Deposit amount in EUR. |
+| `price_per_hour` | integer, EUR cents (minor units) | Hourly price in minor units. |
+| `deposit_amount` | integer, EUR cents (minor units) | Deposit amount in minor units. |
 | `is_active` | boolean | Whether the product is active in the storefront. |
 
 Example:
@@ -328,7 +328,8 @@ Example (`order.issued`):
 ### `order.paid`
 
 Published on `order.events` and consumed by Notification. Catalog does not
-subscribe to this routing key.
+subscribe to this routing key. Payload не содержит персональных данных; контакт
+клиента Notification получает у Auth по `customer_id`.
 
 | Field | Type | Description |
 | --- | --- | --- |

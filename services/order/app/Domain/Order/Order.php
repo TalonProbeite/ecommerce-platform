@@ -17,7 +17,6 @@ use App\Domain\Exceptions\InvalidOrderTransition;
 use App\Domain\Exceptions\ItemNotInOrder;
 use App\Domain\Exceptions\MixedStoreOrder;
 use App\Domain\Money\Money;
-use App\Enums\Role;
 use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 
@@ -142,7 +141,7 @@ final class Order
             fromStatus: null,
             toStatus: OrderStatus::CREATED,
             actorId: $order->customerId,
-            actorRole: Role::CUSTOMER,
+            actorRole: ActorRole::CUSTOMER,
             at: $order->createdAt,
             itemIds: $order->allItemIds(),
         );
@@ -283,11 +282,10 @@ final class Order
         return $this->completedAt;
     }
 
-    public function markStockReserved(?CarbonImmutable $at = null): void
+    public function markStockReserved(CarbonImmutable $at): void
     {
         $this->assertOrderStatus([OrderStatus::CREATED], OrderStatus::STOCK_RESERVED);
         $fromStatus = $this->status;
-        $at ??= $this->updatedAt;
 
         $this->status = OrderStatus::STOCK_RESERVED;
         $this->updatedAt = $at;
@@ -298,7 +296,7 @@ final class Order
             fromStatus: $fromStatus,
             toStatus: OrderStatus::STOCK_RESERVED,
             actorId: null,
-            actorRole: Role::SYSTEM,
+            actorRole: ActorRole::SYSTEM,
             at: $at,
         );
     }
@@ -320,20 +318,19 @@ final class Order
             fromStatus: $fromStatus,
             toStatus: OrderStatus::CANCELLED,
             actorId: null,
-            actorRole: Role::SYSTEM,
+            actorRole: ActorRole::SYSTEM,
             at: $at,
             itemIds: $this->allItemIds(),
         );
     }
 
-    public function markPaymentPending(?CarbonImmutable $at = null): void
+    public function markPaymentPending(CarbonImmutable $at): void
     {
         $this->assertOrderStatus(
             [OrderStatus::STOCK_RESERVED, OrderStatus::PAYMENT_PENDING],
             OrderStatus::PAYMENT_PENDING,
         );
         $fromStatus = $this->status;
-        $at ??= $this->updatedAt;
 
         $this->status = OrderStatus::PAYMENT_PENDING;
         $this->updatedAt = $at;
@@ -344,16 +341,15 @@ final class Order
             fromStatus: $fromStatus,
             toStatus: OrderStatus::PAYMENT_PENDING,
             actorId: null,
-            actorRole: Role::CUSTOMER,
+            actorRole: ActorRole::CUSTOMER,
             at: $at,
         );
     }
 
-    public function markPaid(?CarbonImmutable $at = null): void
+    public function markPaid(CarbonImmutable $at): void
     {
         $this->assertOrderStatus([OrderStatus::PAYMENT_PENDING], OrderStatus::PAID);
         $fromStatus = $this->status;
-        $at ??= $this->updatedAt;
 
         $this->status = OrderStatus::PAID;
         $this->updatedAt = $at;
@@ -372,12 +368,12 @@ final class Order
             fromStatus: $fromStatus,
             toStatus: OrderStatus::PAID,
             actorId: null,
-            actorRole: Role::STRIPE,
+            actorRole: ActorRole::STRIPE,
             at: $at,
         );
     }
 
-    public function cancel(CancelReason $reason, Role $actor, CarbonImmutable $at): void
+    public function cancel(CancelReason $reason, ActorRole $actor, CarbonImmutable $at): void
     {
         $this->assertOrderStatus([
             OrderStatus::CREATED,
@@ -472,7 +468,7 @@ final class Order
             fromStatus: $fromStatus,
             toStatus: $this->status,
             actorId: $actorId,
-            actorRole: Role::STORE_MANAGER,
+            actorRole: ActorRole::STORE_MANAGER,
             at: $at,
             itemIds: $processed,
         );
@@ -544,7 +540,7 @@ final class Order
             fromStatus: $fromStatus,
             toStatus: $this->status,
             actorId: $actorId,
-            actorRole: Role::STORE_MANAGER,
+            actorRole: ActorRole::STORE_MANAGER,
             at: $at,
             itemIds: $processed,
         );

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Events;
 
-use App\Enums\Role;
+use App\Domain\Order\ActorRole;
 use App\Domain\Order\OrderStatus;
 
 final class OrderReturned extends OrderEvent
@@ -18,7 +18,7 @@ final class OrderReturned extends OrderEvent
         array $items,
         OrderStatus $fromStatus,
         OrderStatus $toStatus,
-        Role $actorRole = Role::STORE_MANAGER,
+        ActorRole $actorRole = ActorRole::STORE_MANAGER,
         ?string $actorId = null,
     ) {
         parent::__construct(

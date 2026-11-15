@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Events;
 
-use App\Enums\Role;
+use App\Domain\Order\ActorRole;
 use App\Domain\Order\OrderStatus;
 
 final class OrderCreated extends OrderEvent
@@ -23,7 +23,7 @@ final class OrderCreated extends OrderEvent
             storeId: $storeId,
             items: $items,
             toStatus: OrderStatus::CREATED,
-            actorRole: Role::CUSTOMER,
+            actorRole: ActorRole::CUSTOMER,
             actorId: $customerId,
         );
     }

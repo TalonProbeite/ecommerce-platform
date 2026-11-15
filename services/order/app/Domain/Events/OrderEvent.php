@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Events;
 
 use App\Domain\Contracts\EventInterface;
+use App\Domain\Order\ActorRole;
 use App\Domain\Order\OrderStatus;
-use App\Enums\Role;
 
 abstract class OrderEvent implements EventInterface
 {
@@ -18,7 +18,7 @@ abstract class OrderEvent implements EventInterface
         private readonly string $storeId,
         private readonly array $items,
         private readonly OrderStatus $toStatus,
-        private readonly Role $actorRole,
+        private readonly ActorRole $actorRole,
         private readonly ?string $actorId = null,
         private readonly ?OrderStatus $fromStatus = null,
     ) {
@@ -52,7 +52,7 @@ abstract class OrderEvent implements EventInterface
         return $this->toStatus;
     }
 
-    public function actorRole(): Role
+    public function actorRole(): ActorRole
     {
         return $this->actorRole;
     }

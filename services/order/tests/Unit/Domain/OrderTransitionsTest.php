@@ -13,11 +13,11 @@ use App\Domain\Exceptions\InvalidOrderTransition;
 use App\Domain\Exceptions\ItemNotInOrder;
 use App\Domain\Exceptions\MixedStoreOrder;
 use App\Domain\Money\Money;
+use App\Domain\Order\ActorRole;
 use App\Domain\Order\CancelReason;
 use App\Domain\Order\ItemStatus;
 use App\Domain\Order\Order;
 use App\Domain\Order\OrderStatus;
-use App\Enums\Role;
 use Carbon\CarbonImmutable;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -53,13 +53,14 @@ final class OrderTransitionsTest extends TestCase
     public function stock_can_be_reserved_only_from_created(): void
     {
         $order = $this->makeOrder();
-        $order->markStockReserved();
+        $at = $this->at();
+        $order->markStockReserved($at);
 
         self::assertSame(OrderStatus::STOCK_RESERVED, $order->status());
 
         $this->expectException(InvalidOrderTransition::class);
 
-        $order->markStockReserved();
+        $order->markStockReserved($at);
     }
 
     #[Test]
@@ -90,12 +91,13 @@ final class OrderTransitionsTest extends TestCase
     public function payment_can_be_pending_from_stock_reserved_and_retried(): void
     {
         $order = $this->makeOrder();
-        $order->markStockReserved();
+        $at = $this->at();
+        $order->markStockReserved($at);
 
-        $order->markPaymentPending();
+        $order->markPaymentPending($at->addMinute());
         self::assertSame(OrderStatus::PAYMENT_PENDING, $order->status());
 
-        $order->markPaymentPending();
+        $order->markPaymentPending($at->addMinutes(2));
         self::assertSame(OrderStatus::PAYMENT_PENDING, $order->status());
     }
 
@@ -104,7 +106,7 @@ final class OrderTransitionsTest extends TestCase
     {
         $this->expectException(InvalidOrderTransition::class);
 
-        $this->makeOrder()->markPaymentPending();
+        $this->makeOrder()->markPaymentPending($this->at());
     }
 
     #[Test]
@@ -113,7 +115,7 @@ final class OrderTransitionsTest extends TestCase
         $order = $this->paymentPendingOrder();
         $order->pullEvents();
 
-        $order->markPaid();
+        $order->markPaid($this->at('2026-11-20T10:07:00.000000+00:00'));
 
         self::assertSame(OrderStatus::PAID, $order->status());
         self::assertCount(1, $order->pendingEvents());
@@ -147,7 +149,7 @@ final class OrderTransitionsTest extends TestCase
     {
         $this->expectException(InvalidOrderTransition::class);
 
-        $this->makeOrder()->markPaid();
+        $this->makeOrder()->markPaid($this->at());
     }
 
     #[Test]
@@ -155,21 +157,21 @@ final class OrderTransitionsTest extends TestCase
     {
         $preparations = [
             'created' => static fn (Order $order): Order => $order,
-            'stock_reserved' => static function (Order $order): Order {
-                $order->markStockReserved();
+            'stock_reserved' => function (Order $order): Order {
+                $order->markStockReserved($this->at());
 
                 return $order;
             },
-            'payment_pending' => static function (Order $order): Order {
-                $order->markStockReserved();
-                $order->markPaymentPending();
+            'payment_pending' => function (Order $order): Order {
+                $order->markStockReserved($this->at());
+                $order->markPaymentPending($this->at()->addMinute());
 
                 return $order;
             },
-            'paid' => static function (Order $order): Order {
-                $order->markStockReserved();
-                $order->markPaymentPending();
-                $order->markPaid();
+            'paid' => function (Order $order): Order {
+                $order->markStockReserved($this->at());
+                $order->markPaymentPending($this->at()->addMinute());
+                $order->markPaid($this->at()->addMinutes(2));
 
                 return $order;
             },
@@ -181,7 +183,7 @@ final class OrderTransitionsTest extends TestCase
 
             $order->cancel(
                 CancelReason::CUSTOMER_REQUEST,
-                Role::CUSTOMER,
+                ActorRole::CUSTOMER,
                 $this->at('2026-11-21T09:00:00.000000+00:00'),
             );
 
@@ -202,20 +204,20 @@ final class OrderTransitionsTest extends TestCase
         $cases = [
             'reserve twice' => [
                 fn (): Order => $this->stockReservedOrder(),
-                static function (Order $order): void {
-                    $order->markStockReserved();
+                function (Order $order): void {
+                    $order->markStockReserved($this->at());
                 },
             ],
             'pay before requesting payment' => [
                 fn (): Order => $this->makeOrder(),
-                static function (Order $order): void {
-                    $order->markPaid();
+                function (Order $order): void {
+                    $order->markPaid($this->at());
                 },
             ],
             'request payment from paid' => [
                 fn (): Order => $this->paidOrder(),
-                static function (Order $order): void {
-                    $order->markPaymentPending();
+                function (Order $order): void {
+                    $order->markPaymentPending($this->at());
                 },
             ],
             'issue before payment' => [
@@ -281,7 +283,7 @@ final class OrderTransitionsTest extends TestCase
 
         $order->cancel(
             CancelReason::ADMIN_REQUEST,
-            Role::ADMIN,
+            ActorRole::ADMIN,
             $this->at('2026-11-22T09:00:00.000000+00:00'),
         );
     }
@@ -295,7 +297,7 @@ final class OrderTransitionsTest extends TestCase
 
         $order->cancel(
             CancelReason::ADMIN_REQUEST,
-            Role::ADMIN,
+            ActorRole::ADMIN,
             $this->at('2026-11-23T09:00:00.000000+00:00'),
         );
     }
@@ -451,7 +453,7 @@ final class OrderTransitionsTest extends TestCase
     private function stockReservedOrder(): Order
     {
         $order = $this->makeOrder();
-        $order->markStockReserved();
+        $order->markStockReserved($this->at());
 
         return $order;
     }
@@ -462,8 +464,8 @@ final class OrderTransitionsTest extends TestCase
             $this->makeItem('01930000-0000-7000-8000-000000000001'),
             $this->makeItem('01930000-0000-7000-8000-000000000002', productId: '44444444-4444-4444-8444-444444444444'),
         ]);
-        $order->markStockReserved();
-        $order->markPaymentPending();
+        $order->markStockReserved($this->at());
+        $order->markPaymentPending($this->at()->addMinute());
 
         return $order;
     }
@@ -471,7 +473,7 @@ final class OrderTransitionsTest extends TestCase
     private function paidOrder(): Order
     {
         $order = $this->paymentPendingOrder();
-        $order->markPaid();
+        $order->markPaid($this->at()->addMinutes(2));
 
         return $order;
     }

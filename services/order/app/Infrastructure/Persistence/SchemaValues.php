@@ -50,6 +50,7 @@ final class SchemaValues
         'pending',
         'succeeded',
         'failed',
+        'canceled',
     ];
 
     public const REFUND_REASON = [

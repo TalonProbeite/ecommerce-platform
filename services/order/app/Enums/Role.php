@@ -10,6 +10,4 @@ enum Role: string
     case STORE_MANAGER = 'store_manager';
     case CUSTOMER = 'customer';
     case ANALYST = 'analyst';
-    case SYSTEM = 'system';
-    case STRIPE = 'stripe';
 }

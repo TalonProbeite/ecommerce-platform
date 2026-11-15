@@ -35,7 +35,7 @@ return new class () extends Migration {
         DB::statement("ALTER TABLE refunds ADD CONSTRAINT refunds_reason_check
             CHECK (reason IN ('order_cancelled', 'item_returned'))");
         DB::statement("ALTER TABLE refunds ADD CONSTRAINT refunds_status_check
-            CHECK (status IN ('pending', 'succeeded', 'failed'))");
+            CHECK (status IN ('pending', 'succeeded', 'failed', 'canceled'))");
     }
 
     public function down(): void

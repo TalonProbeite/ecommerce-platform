@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Events;
 
 use App\Domain\Money\Money;
+use App\Domain\Order\ActorRole;
 use App\Domain\Order\OrderStatus;
-use App\Enums\Role;
 use Carbon\CarbonImmutable;
 
 final class OrderPaid extends OrderEvent
@@ -24,7 +24,7 @@ final class OrderPaid extends OrderEvent
             storeId: $storeId,
             items: [],
             toStatus: OrderStatus::PAID,
-            actorRole: Role::STRIPE,
+            actorRole: ActorRole::STRIPE,
             actorId: $actorId,
             fromStatus: OrderStatus::PAYMENT_PENDING,
         );
