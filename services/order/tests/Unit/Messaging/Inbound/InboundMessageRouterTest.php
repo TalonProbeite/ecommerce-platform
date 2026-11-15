@@ -186,9 +186,9 @@ final class FakeInboundHandler implements InboundHandler
         return $this->dtoClass;
     }
 
-    public function handle(object $dto, CarbonImmutable $now): mixed
+    public function handle(object $dto, CarbonImmutable $now): void
     {
-        return ($this->handle)($dto, $now);
+        ($this->handle)($dto, $now);
     }
 }
 

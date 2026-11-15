@@ -29,6 +29,11 @@ final class InMemoryProductSnapshotRepository implements ProductSnapshotReposito
         $this->snapshots[$snapshot->productId] = $snapshot;
     }
 
+    public function findById(string $productId): ?ProductSnapshot
+    {
+        return $this->snapshots[$productId] ?? null;
+    }
+
     /**
      * @param list<string> $ids
      * @return array<string, ProductSnapshot>
@@ -46,5 +51,10 @@ final class InMemoryProductSnapshotRepository implements ProductSnapshotReposito
         }
 
         return $result;
+    }
+
+    public function save(ProductSnapshot $snapshot): void
+    {
+        $this->snapshots[$snapshot->productId] = $snapshot;
     }
 }

@@ -15,5 +15,5 @@ interface InboundHandler
      */
     public function dtoClass(): string;
 
-    public function handle(object $dto, CarbonImmutable $now): mixed;
+    public function handle(object $dto, CarbonImmutable $now): void;
 }

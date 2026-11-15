@@ -26,4 +26,14 @@ final readonly class ProductSnapshot
     {
         return $this->isActive && $this->deletedAt === null;
     }
+
+    public function sourceOccurredAt(): CarbonImmutable
+    {
+        return $this->sourceOccurredAt;
+    }
+
+    public function deletedAt(): ?CarbonImmutable
+    {
+        return $this->deletedAt;
+    }
 }

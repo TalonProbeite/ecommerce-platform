@@ -76,8 +76,7 @@ final class RegistryTestHandler implements InboundHandler
         return stdClass::class;
     }
 
-    public function handle(object $dto, CarbonImmutable $now): mixed
+    public function handle(object $dto, CarbonImmutable $now): void
     {
-        return null;
     }
 }

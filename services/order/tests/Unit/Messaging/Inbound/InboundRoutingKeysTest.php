@@ -15,8 +15,6 @@ final class InboundRoutingKeysTest extends TestCase
     public function inbound_routing_keys_match_topology_bindings(): void
     {
         $expected = [
-            'stock.reserved',
-            'stock.reservation_failed',
             'product.created',
             'product.updated',
             'product.deleted',

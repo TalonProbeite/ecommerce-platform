@@ -7,8 +7,12 @@ namespace App\Providers;
 use App\Application\Ports\Clock;
 use App\Application\Ports\IdGenerator;
 use App\Application\Ports\OrderRepository;
+use App\Application\Ports\ProcessedEventStore;
 use App\Application\Ports\ProductSnapshotRepository;
 use App\Application\Ports\TransactionRunnerInterface;
+use App\Infrastructure\Messaging\Inbound\Handlers\ProductCreatedHandler;
+use App\Infrastructure\Messaging\Inbound\Handlers\ProductDeletedHandler;
+use App\Infrastructure\Messaging\Inbound\Handlers\ProductUpdatedHandler;
 use App\Infrastructure\Messaging\Inbound\InboundHandlerRegistry;
 use App\Infrastructure\Messaging\Inbound\InboundMessageRouter;
 use App\Infrastructure\Messaging\Outbox\AmqpOutboxPublisher;
@@ -20,6 +24,7 @@ use App\Infrastructure\Messaging\Outbox\OutboxWriter;
 use App\Infrastructure\Messaging\Outbox\OutboxWriterInterface;
 use App\Infrastructure\Messaging\Topology;
 use App\Infrastructure\Persistence\EloquentOrderRepository;
+use App\Infrastructure\Persistence\EloquentProcessedEventStore;
 use App\Infrastructure\Persistence\EloquentProductSnapshotRepository;
 use App\Infrastructure\Persistence\SystemClock;
 use App\Infrastructure\Persistence\Transactions\DbTransactionRunner;
@@ -44,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(IdGenerator::class, UuidV7IdGenerator::class);
         $this->app->bind(OrderRepository::class, EloquentOrderRepository::class);
         $this->app->bind(ProductSnapshotRepository::class, EloquentProductSnapshotRepository::class);
+        $this->app->bind(ProcessedEventStore::class, EloquentProcessedEventStore::class);
 
         // Outbox Messaging
         $this->app->bind(OutboxRepositoryInterface::class, OutboxRepository::class);
@@ -55,8 +61,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(Topology::class);
         $this->app->singleton(OutboxRelay::class);
 
-        // Inbound Messaging (Registration of inbound handlers is left empty: router must reject anything without handlers)
-        $this->app->tag([], 'inbound.handlers');
+        // Inbound Messaging
+        $this->app->tag([
+            ProductCreatedHandler::class,
+            ProductUpdatedHandler::class,
+            ProductDeletedHandler::class,
+        ], 'inbound.handlers');
         $this->app->singleton(InboundHandlerRegistry::class, static function ($app): InboundHandlerRegistry {
             return new InboundHandlerRegistry($app->tagged('inbound.handlers'));
         });
