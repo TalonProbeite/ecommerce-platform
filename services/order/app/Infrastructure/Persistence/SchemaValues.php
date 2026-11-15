@@ -59,7 +59,7 @@ final class SchemaValues
 
     public const ACTOR_ROLE = [
         'customer',
-        'manager',
+        'store_manager',
         'admin',
         'analyst',
         'system',

@@ -116,6 +116,29 @@ final class SchemaTest extends PersistenceTestCase
     }
 
     #[Test]
+    public function actor_and_author_role_checks_match_the_role_enum(): void
+    {
+        $expected = ['admin', 'analyst', 'customer', 'store_manager', 'stripe', 'system'];
+
+        foreach (['order_events_actor_role_check', 'order_comments_author_role_check'] as $constraint) {
+            $definition = DB::selectOne(
+                'SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint
+                 WHERE conname = ? AND connamespace = (SELECT oid FROM pg_namespace WHERE nspname = current_schema())',
+                [$constraint],
+            );
+
+            self::assertNotNull($definition, sprintf('Missing constraint %s.', $constraint));
+
+            preg_match_all("/'([^']+)'/", (string) $definition->definition, $matches);
+            $roles = array_values(array_unique($matches[1]));
+            sort($roles);
+
+            self::assertSame($expected, $roles, sprintf('Unexpected roles in %s.', $constraint));
+            self::assertNotContains('manager', $roles);
+        }
+    }
+
+    #[Test]
     public function partial_pending_outbox_index_exists(): void
     {
         $definition = DB::table('pg_indexes')

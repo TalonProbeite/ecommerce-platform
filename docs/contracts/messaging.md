@@ -1,9 +1,9 @@
 # Messaging contract
 
 This document is the source of truth for asynchronous messaging between the
-Catalog and Order services. If the implementation and this document disagree,
-fix the implementation (or this document) and record the change in the related
-report.
+Catalog, Order, and Notification services. If the implementation and this
+document disagree, fix the implementation (or this document) and record the
+change in the related report.
 
 ## Common envelope
 
@@ -57,6 +57,47 @@ Rules:
   declares Order queues.
 - The development observer queue `catalog.events.observer` is a local tool only
   and is not part of the production contract.
+- Notification declares the shared `order.events` exchange (same `topic`,
+  durable parameters), its own `order.processing.q` queue, and its
+  `dlx.exchange` dead-letter exchange. It never declares Catalog or Order
+  queues.
+
+## Queues
+
+Queue names are owned by the consuming service. Dead-letter exchanges are
+per-consumer; routing keys are prefixed with the owning service.
+
+| Queue | Type | Durable | DLX | DL routing key | `x-delivery-limit` | `x-dead-letter-strategy` | `x-overflow` | Consumer |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `order.catalog-events` | quorum | yes | `order.catalog-events.dlx` | `order.catalog-events` | 5 | `at-least-once` | `reject-publish` | Order |
+| `order.catalog-events.dead` | quorum | yes | — | — | — | — | — | Order DLQ (operator/replay) |
+| `catalog.order-events` | quorum | yes | `catalog.order-events.dlx` | `catalog.order-events` | 5 | `at-least-once` | `reject-publish` | Catalog |
+| `catalog.order-events.dead` | quorum | yes | — | — | — | — | — | Catalog DLQ (operator/replay) |
+| `order.processing.q` | quorum | yes | `dlx.exchange` (fanout) | — | 5 | — (not set) | — (not set) | Notification |
+| `failed.messages` | classic | yes | — | — | — | — | — | Notification DLQ (operator/replay) |
+
+## Subscribers
+
+Every outbound routing key has an explicit owner of its bindings. A routing key
+without a subscriber is still published for observability but is not consumed
+by Order or Notification.
+
+| Exchange | Routing key | Subscriber | Queue |
+| --- | --- | --- | --- |
+| `catalog.events` | `stock.reserved` | Order | `order.catalog-events` |
+| `catalog.events` | `stock.reservation_failed` | Order | `order.catalog-events` |
+| `catalog.events` | `product.created` | Order | `order.catalog-events` |
+| `catalog.events` | `product.updated` | Order | `order.catalog-events` |
+| `catalog.events` | `product.deleted` | Order | `order.catalog-events` |
+| `catalog.events` | `stock.changed` | — | — |
+| `catalog.events` | `category.created` | — | — |
+| `catalog.events` | `category.updated` | — | — |
+| `catalog.events` | `category.deleted` | — | — |
+| `order.events` | `order.created` | Catalog | `catalog.order-events` |
+| `order.events` | `order.cancelled` | Catalog, Notification | `catalog.order-events`, `order.processing.q` |
+| `order.events` | `order.issued` | Catalog | `catalog.order-events` |
+| `order.events` | `order.returned` | Catalog | `catalog.order-events` |
+| `order.events` | `order.paid` | Notification | `order.processing.q` |
 
 ## Catalog → Order (`catalog.events`)
 
@@ -199,6 +240,10 @@ Catalog subscribes to these routing keys:
 - `order.cancelled`
 - `order.issued`
 - `order.returned`
+
+Order also publishes `order.paid` on `order.events`. It is consumed by
+Notification (`order.processing.q`), not by Catalog. See the subscriber table
+above for the full mapping.
 
 All timestamps are ISO 8601 with an explicit numeric offset (for example
 `+00:00`). The `Z` suffix and offset-less values are rejected. Microseconds are

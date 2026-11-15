@@ -148,7 +148,7 @@ services/order/
 
 4. **refunds**: `id`, `order_id` (FK), `order_item_id` (null, FK), `payment_id` (FK), `provider_refund_id` (unique, null до ответа Stripe), `amount` (> 0), `reason` (`order_cancelled`, `item_returned`), `status`, timestamps. Ключ идемпотентности для Stripe: `order:{id}:refund:{item_or_all}`.
 
-5. **order_events**: append-only журнал. `id` bigint identity, `order_id` (FK), `order_item_id` (null, FK), `from_status`, `to_status`, `actor_id` (null), `actor_role` (check: `customer`, `manager`, `admin`, `analyst`, `system`, `stripe`), `payload` jsonb, `occurred_at`. Индекс `(order_id, occurred_at)`.
+5. **order_events**: append-only журнал. `id` bigint identity, `order_id` (FK), `order_item_id` (null, FK), `from_status`, `to_status`, `actor_id` (null), `actor_role` (check: `customer`, `store_manager`, `admin`, `analyst`, `system`, `stripe`), `payload` jsonb, `occurred_at`. Индекс `(order_id, occurred_at)`.
 
 6. **order_comments** (опционально): `id`, `order_id` (FK, cascade), `author_id`, `author_role`, `body` (check длины 1..2000), `created_at`.
 
@@ -174,9 +174,9 @@ services/order/
 | RequestPaymentIntent | HTTP, customer | Создаёт или переиспользует PaymentIntent, переводит в `payment_pending`, возвращает `client_secret` | нет |
 | OnPaymentSucceeded | webhook | `payment_pending → paid`. Если заказ уже отменён, полный возврат, событие не публикуется | `order.paid` |
 | OnPaymentFailed | webhook | Фиксирует попытку в `payments`, статус заказа не меняет | нет |
-| CancelOrder | HTTP (customer, manager, admin) или таймер | Проверяет переход, отменяет открытый PaymentIntent, возвращает оплату если она прошла | `order.cancelled` |
-| IssueItems | HTTP, manager, admin | Переводит выбранные позиции в `issued`, заказ в `in_rental` | `order.issued` (только выбранные позиции) |
-| ReturnItems | HTTP, manager, admin | Переводит в `returned`, возвращает залог по позициям. Все вернули, заказ в `completed` | `order.returned` (только выбранные позиции) |
+| CancelOrder | HTTP (customer, store_manager, admin) или таймер | Проверяет переход, отменяет открытый PaymentIntent, возвращает оплату если она прошла | `order.cancelled` |
+| IssueItems | HTTP, store_manager, admin | Переводит выбранные позиции в `issued`, заказ в `in_rental` | `order.issued` (только выбранные позиции) |
+| ReturnItems | HTTP, store_manager, admin | Переводит в `returned`, возвращает залог по позициям. Все вернули, заказ в `completed` | `order.returned` (только выбранные позиции) |
 | ExpireUnpaidOrders | scheduler | Заказы в `stock_reserved` или `payment_pending` старше 30 минут вызывают CancelOrder с причиной `payment_timeout` | `order.cancelled` на каждый заказ |
 | SyncProductSnapshot | consumer | Обновляет снапшот, если `occurred_at` новее. Для `product.deleted` ставит `deleted_at` | нет |
 | ListOrders, GetOrder, ListOverdueRentals | HTTP | Только чтение | нет |
@@ -211,12 +211,12 @@ services/order/
 | Метод | Путь | Роли | Примечание |
 |---|---|---|---|
 | POST | `/api/v1/orders` | customer | Обязателен `Idempotency-Key`. 201, 200 при повторе, 409 при параллельном |
-| GET | `/api/v1/orders` | customer (свои), manager (свой магазин), admin, analyst (все) | Фильтры `status`, `store_id`. Курсорная пагинация |
-| GET | `/api/v1/orders/{order}` | владелец, manager своего магазина, admin, analyst | Чужой заказ: 404 |
+| GET | `/api/v1/orders` | customer (свои), store_manager (свой магазин), admin, analyst (все) | Фильтры `status`, `store_id`. Курсорная пагинация |
+| GET | `/api/v1/orders/{order}` | владелец, store_manager своего магазина, admin, analyst | Чужой заказ: 404 |
 | POST | `/api/v1/orders/{order}/payment-intent` | customer (владелец) | Только в `stock_reserved` и `payment_pending` |
-| POST | `/api/v1/orders/{order}/cancel` | customer (владелец), manager (свой магазин), admin | Только до первой выдачи |
-| POST | `/api/v1/orders/{order}/issue` | manager (свой магазин), admin | Тело: `item_ids` |
-| POST | `/api/v1/orders/{order}/return` | manager (свой магазин), admin | Тело: `item_ids` |
+| POST | `/api/v1/orders/{order}/cancel` | customer (владелец), store_manager (свой магазин), admin | Только до первой выдачи |
+| POST | `/api/v1/orders/{order}/issue` | store_manager (свой магазин), admin | Тело: `item_ids` |
+| POST | `/api/v1/orders/{order}/return` | store_manager (свой магазин), admin | Тело: `item_ids` |
 | GET | `/api/v1/analytics/overdue-rentals` | analyst, admin | Позиции в `issued` с `rental_end_at` в прошлом |
 | POST | `/webhooks/stripe` | Stripe, без JWT | Проверка подписи на сыром теле |
 | GET | `/healthz`, `/readyz` | публично | Readiness: PostgreSQL, Redis, RabbitMQ |
@@ -229,7 +229,7 @@ services/order/
 
 **ABAC в `OrderPolicy`:**
 
-| Действие | customer | manager | admin | analyst |
+| Действие | customer | store_manager | admin | analyst |
 |---|---|---|---|---|
 | view своего заказа | да | — | да | да |
 | view чужого заказа | 404 | если тот же магазин, иначе 404 | да | да |
