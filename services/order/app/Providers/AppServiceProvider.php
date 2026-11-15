@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Application\Ports\TransactionRunnerInterface as PortTransactionRunnerInterface;
-use App\Contracts\Database\TransactionRunnerInterface;
+use App\Application\Ports\TransactionRunnerInterface;
 use App\Infrastructure\Messaging\Inbound\InboundHandlerRegistry;
 use App\Infrastructure\Messaging\Inbound\InboundMessageRouter;
 use App\Infrastructure\Messaging\Outbox\AmqpOutboxPublisher;
@@ -30,7 +29,6 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         // Database Transactions
-        $this->app->bind(PortTransactionRunnerInterface::class, DbTransactionRunner::class);
         $this->app->bind(TransactionRunnerInterface::class, DbTransactionRunner::class);
 
         // Outbox Messaging

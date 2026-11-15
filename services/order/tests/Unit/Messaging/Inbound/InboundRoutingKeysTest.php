@@ -29,4 +29,13 @@ final class InboundRoutingKeysTest extends TestCase
         self::assertSame('product.updated', InboundRoutingKeys::PRODUCT_UPDATED);
         self::assertSame('product.deleted', InboundRoutingKeys::PRODUCT_DELETED);
     }
+
+    #[Test]
+    public function inbound_routing_keys_match_topology_binding_constants(): void
+    {
+        self::assertSame(
+            InboundRoutingKeys::all(),
+            Topology::INBOUND_BINDING_ROUTING_KEYS,
+        );
+    }
 }

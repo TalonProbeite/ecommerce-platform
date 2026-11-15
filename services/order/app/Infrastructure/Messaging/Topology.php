@@ -47,6 +47,19 @@ final class Topology
     public const OVERFLOW = 'reject-publish';
 
     /**
+     * Routing keys the inbound queue is bound to on catalog.events.
+     *
+     * @var list<string>
+     */
+    public const INBOUND_BINDING_ROUTING_KEYS = [
+        InboundRoutingKeys::STOCK_RESERVED,
+        InboundRoutingKeys::STOCK_RESERVATION_FAILED,
+        InboundRoutingKeys::PRODUCT_CREATED,
+        InboundRoutingKeys::PRODUCT_UPDATED,
+        InboundRoutingKeys::PRODUCT_DELETED,
+    ];
+
+    /**
      * Declare the full topology via an active AMQP channel.
      */
     public static function declareAll(AMQPChannel $channel): void
@@ -139,7 +152,7 @@ final class Topology
         );
 
         // 6. Bind inbound queue to catalog.events for all subscribed routing keys.
-        foreach (InboundRoutingKeys::all() as $routingKey) {
+        foreach (self::INBOUND_BINDING_ROUTING_KEYS as $routingKey) {
             $channel->queue_bind($queue, $exchange, $routingKey);
         }
     }
