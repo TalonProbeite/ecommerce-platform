@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Messaging\Inbound;
 
+use App\Application\Saga\Commands\StockReservedCommand;
 use App\Application\Saga\OnStockReserved;
 use App\Domain\Order\OrderStatus;
-use App\Infrastructure\Messaging\Inbound\Data\StockReservedData;
 use App\Infrastructure\Messaging\Outbox\OutboxRepository;
 use App\Infrastructure\Messaging\Outbox\OutboxWriter;
 use App\Infrastructure\Persistence\EloquentOrderRepository;
@@ -109,9 +109,9 @@ final class OnStockReservedPostgresTest extends PostgresTestCase
         $this->orders->save($order);
     }
 
-    private function data(): StockReservedData
+    private function data(): StockReservedCommand
     {
-        return new StockReservedData(
+        return new StockReservedCommand(
             eventId: self::EVENT_ID,
             occurredAt: $this->now,
             orderId: self::ORDER_ID,

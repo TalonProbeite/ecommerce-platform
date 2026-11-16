@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog;
 
+use App\Application\Catalog\SyncProductSnapshot\Commands\ProductDeleteCommand;
+use App\Application\Catalog\SyncProductSnapshot\Commands\ProductUpsertCommand;
 use App\Application\Catalog\SyncProductSnapshot\SyncProductSnapshotUseCase;
 use App\Domain\Catalog\ProductSnapshot;
 use App\Domain\Money\Money;
-use App\Infrastructure\Messaging\Inbound\Data\ProductDeletedData;
-use App\Infrastructure\Messaging\Inbound\Data\ProductUpsertData;
 use App\Infrastructure\Messaging\Inbound\InboundRoutingKeys;
 use Carbon\CarbonImmutable;
 use PHPUnit\Framework\Attributes\Test;
@@ -216,8 +216,8 @@ final class SyncProductSnapshotUseCaseTest extends TestCase
         string $name = 'Drill',
         int $pricePerHour = 1500,
         bool $isActive = true,
-    ): ProductUpsertData {
-        return new ProductUpsertData(
+    ): ProductUpsertCommand {
+        return new ProductUpsertCommand(
             eventId: $eventId,
             occurredAt: $occurredAt,
             productId: self::PRODUCT_ID,
@@ -230,9 +230,9 @@ final class SyncProductSnapshotUseCaseTest extends TestCase
         );
     }
 
-    private function deleted(string $eventId, CarbonImmutable $occurredAt): ProductDeletedData
+    private function deleted(string $eventId, CarbonImmutable $occurredAt): ProductDeleteCommand
     {
-        return new ProductDeletedData(
+        return new ProductDeleteCommand(
             eventId: $eventId,
             occurredAt: $occurredAt,
             productId: self::PRODUCT_ID,

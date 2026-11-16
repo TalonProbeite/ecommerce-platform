@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Messaging\Inbound;
 
+use App\Application\Catalog\SyncProductSnapshot\Commands\ProductUpsertCommand;
 use App\Application\Catalog\SyncProductSnapshot\SyncProductSnapshotUseCase;
-use App\Infrastructure\Messaging\Inbound\Data\ProductUpsertData;
 use App\Infrastructure\Messaging\Inbound\InboundRoutingKeys;
 use App\Infrastructure\Persistence\EloquentProcessedEventStore;
 use App\Infrastructure\Persistence\EloquentProductSnapshotRepository;
@@ -97,8 +97,8 @@ final class SyncProductSnapshotPostgresTest extends PostgresTestCase
         string $eventId,
         CarbonImmutable $occurredAt,
         string $name = 'Drill',
-    ): ProductUpsertData {
-        return new ProductUpsertData(
+    ): ProductUpsertCommand {
+        return new ProductUpsertCommand(
             eventId: $eventId,
             occurredAt: $occurredAt,
             productId: self::PRODUCT_ID,

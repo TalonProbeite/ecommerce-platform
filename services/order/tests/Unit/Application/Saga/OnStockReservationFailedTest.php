@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Saga;
 
+use App\Application\Exceptions\OrderNotFound;
+use App\Application\Exceptions\StoreMismatch;
+use App\Application\Saga\Commands\StockReservationFailedCommand;
 use App\Application\Saga\OnStockReservationFailed;
+use App\Application\Saga\StockRejectionReason;
 use App\Domain\Order\ActorRole;
 use App\Domain\Order\CancelReason;
 use App\Domain\Order\Order;
 use App\Domain\Order\OrderStatus;
-use App\Infrastructure\Messaging\Inbound\Data\StockReservationFailedData;
-use App\Infrastructure\Messaging\Inbound\Exceptions\InvalidMessageException;
 use Carbon\CarbonImmutable;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\Fakes\FakeOutboxWriter;
@@ -115,22 +117,47 @@ final class OnStockReservationFailedTest extends TestCase
         self::assertSame($paidVersion, $loaded->version());
         self::assertCount(0, $this->orders->journal());
         self::assertCount(0, $this->outbox->events());
-        self::assertTrue($this->logger->hasLevel('info'));
+        self::assertTrue($this->logger->hasLevel('warning'));
+        self::assertFalse($this->logger->hasLevel('info'));
     }
 
     #[Test]
-    public function it_rejects_a_failure_for_a_missing_order(): void
+    public function it_throws_order_not_found_for_a_missing_order(): void
     {
-        $this->expectException(InvalidMessageException::class);
+        $this->expectException(OrderNotFound::class);
+
+        $this->useCase->handle(
+            $this->data(orderId: '99999999-9999-4999-8999-999999999999'),
+            $this->now,
+        );
+    }
+
+    #[Test]
+    public function it_does_not_change_the_order_or_journal_when_the_store_does_not_match(): void
+    {
+        $order = $this->seedOrder();
 
         try {
             $this->useCase->handle(
-                $this->data(orderId: '99999999-9999-4999-8999-999999999999'),
+                $this->data(storeId: '99999999-9999-4999-8999-999999999999'),
                 $this->now,
             );
-        } finally {
-            self::assertTrue($this->logger->hasLevel('error'));
+
+            self::fail('Expected StoreMismatch.');
+        } catch (StoreMismatch $e) {
+            self::assertSame(self::ORDER_ID, $e->orderId);
+            self::assertSame(self::STORE_ID, $e->expectedStoreId);
+            self::assertSame('99999999-9999-4999-8999-999999999999', $e->actualStoreId);
         }
+
+        $loaded = $this->orders->findById(self::ORDER_ID);
+
+        self::assertNotNull($loaded);
+        self::assertSame($order->status(), $loaded->status());
+        self::assertSame($order->version(), $loaded->version());
+        self::assertCount(0, $this->orders->journal());
+        self::assertCount(0, $this->outbox->events());
+        self::assertFalse($this->processedEvents->wasProcessed(self::EVENT_ID));
     }
 
     #[Test]
@@ -163,13 +190,14 @@ final class OnStockReservationFailedTest extends TestCase
     private function data(
         string $eventId = self::EVENT_ID,
         string $orderId = self::ORDER_ID,
-    ): StockReservationFailedData {
-        return new StockReservationFailedData(
+        string $storeId = self::STORE_ID,
+    ): StockReservationFailedCommand {
+        return new StockReservationFailedCommand(
             eventId: $eventId,
             occurredAt: $this->now,
             orderId: $orderId,
-            storeId: self::STORE_ID,
-            reason: 'insufficient_stock',
+            storeId: $storeId,
+            reason: StockRejectionReason::InsufficientStock,
         );
     }
 }

@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace App\Application\Catalog\SyncProductSnapshot;
 
+use App\Application\Catalog\SyncProductSnapshot\Commands\ProductDeleteCommand;
+use App\Application\Catalog\SyncProductSnapshot\Commands\ProductUpsertCommand;
 use App\Application\Ports\ProcessedEventStore;
 use App\Application\Ports\ProductSnapshotRepository;
 use App\Application\Ports\TransactionRunnerInterface;
 use App\Domain\Catalog\ProductSnapshot;
 use App\Domain\Money\Money;
-use App\Infrastructure\Messaging\Inbound\Data\ProductDeletedData;
-use App\Infrastructure\Messaging\Inbound\Data\ProductUpsertData;
-use App\Infrastructure\Messaging\Inbound\InboundRoutingKeys;
 use Carbon\CarbonImmutable;
 use Psr\Log\LoggerInterface;
 
@@ -25,50 +24,50 @@ final readonly class SyncProductSnapshotUseCase
     ) {}
 
     public function upsert(
-        ProductUpsertData $data,
+        ProductUpsertCommand $command,
         CarbonImmutable $now,
-        string $routingKey = InboundRoutingKeys::PRODUCT_CREATED,
+        string $routingKey = 'product.created',
     ): void {
-        $this->transactions->run(function () use ($data, $now, $routingKey): void {
-            if (! $this->processedEvents->markProcessed($data->eventId, $routingKey, $now)) {
+        $this->transactions->run(function () use ($command, $now, $routingKey): void {
+            if (! $this->processedEvents->markProcessed($command->eventId, $routingKey, $now)) {
                 return;
             }
 
-            $existing = $this->snapshots->findById($data->productId);
+            $existing = $this->snapshots->findById($command->productId);
 
-            if ($existing !== null && $this->isStale($existing->sourceOccurredAt, $data->occurredAt)) {
-                $this->logStale('product upsert', $data->productId, $data->eventId, $data->occurredAt, $existing->sourceOccurredAt);
+            if ($existing !== null && $this->isStale($existing->sourceOccurredAt, $command->occurredAt)) {
+                $this->logStale('product upsert', $command->productId, $command->eventId, $command->occurredAt, $existing->sourceOccurredAt);
 
                 return;
             }
 
             // A newer upsert after a deletion resurrects the snapshot: the version check
             // already rejects older messages, so no separate "deleted" guard is needed.
-            $this->snapshots->save($this->fromUpsert($data));
+            $this->snapshots->save($this->fromUpsert($command));
         });
     }
 
-    public function delete(ProductDeletedData $data, CarbonImmutable $now): void
+    public function delete(ProductDeleteCommand $command, CarbonImmutable $now): void
     {
-        $this->transactions->run(function () use ($data, $now): void {
-            if (! $this->processedEvents->markProcessed($data->eventId, InboundRoutingKeys::PRODUCT_DELETED, $now)) {
+        $this->transactions->run(function () use ($command, $now): void {
+            if (! $this->processedEvents->markProcessed($command->eventId, 'product.deleted', $now)) {
                 return;
             }
 
-            $existing = $this->snapshots->findById($data->productId);
+            $existing = $this->snapshots->findById($command->productId);
 
             if ($existing === null) {
                 // No tombstone: ordering is guaranteed by a single relay and a single queue.
                 $this->logger->info('Ignoring product deletion: snapshot does not exist.', [
-                    'product_id' => $data->productId,
-                    'event_id' => $data->eventId,
+                    'product_id' => $command->productId,
+                    'event_id' => $command->eventId,
                 ]);
 
                 return;
             }
 
-            if ($this->isStale($existing->sourceOccurredAt, $data->occurredAt)) {
-                $this->logStale('product deletion', $data->productId, $data->eventId, $data->occurredAt, $existing->sourceOccurredAt);
+            if ($this->isStale($existing->sourceOccurredAt, $command->occurredAt)) {
+                $this->logStale('product deletion', $command->productId, $command->eventId, $command->occurredAt, $existing->sourceOccurredAt);
 
                 return;
             }
@@ -77,7 +76,7 @@ final readonly class SyncProductSnapshotUseCase
                 return;
             }
 
-            $this->snapshots->save($this->markDeleted($existing, $data->occurredAt, $now));
+            $this->snapshots->save($this->markDeleted($existing, $command->occurredAt, $now));
         });
     }
 
@@ -86,17 +85,17 @@ final readonly class SyncProductSnapshotUseCase
         return $incomingOccurredAt->lessThanOrEqualTo($sourceOccurredAt);
     }
 
-    private function fromUpsert(ProductUpsertData $data): ProductSnapshot
+    private function fromUpsert(ProductUpsertCommand $command): ProductSnapshot
     {
         return new ProductSnapshot(
-            productId: $data->productId,
-            storeId: $data->storeId,
-            categoryId: $data->categoryId,
-            name: $data->name,
-            pricePerHour: Money::fromMinorUnits($data->pricePerHour),
-            depositPerUnit: Money::fromMinorUnits($data->depositAmount),
-            isActive: $data->isActive,
-            sourceOccurredAt: $data->occurredAt,
+            productId: $command->productId,
+            storeId: $command->storeId,
+            categoryId: $command->categoryId,
+            name: $command->name,
+            pricePerHour: Money::fromMinorUnits($command->pricePerHour),
+            depositPerUnit: Money::fromMinorUnits($command->depositAmount),
+            isActive: $command->isActive,
+            sourceOccurredAt: $command->occurredAt,
             deletedAt: null,
         );
     }

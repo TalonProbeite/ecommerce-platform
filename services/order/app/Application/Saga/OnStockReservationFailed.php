@@ -4,18 +4,20 @@ declare(strict_types=1);
 
 namespace App\Application\Saga;
 
+use App\Application\Exceptions\OrderNotFound;
+use App\Application\Exceptions\StoreMismatch;
 use App\Application\Ports\OrderRepository;
 use App\Application\Ports\ProcessedEventStore;
 use App\Application\Ports\TransactionRunnerInterface;
+use App\Application\Saga\Commands\StockReservationFailedCommand;
 use App\Domain\Order\OrderStatus;
-use App\Infrastructure\Messaging\Inbound\Data\StockReservationFailedData;
-use App\Infrastructure\Messaging\Inbound\Exceptions\InvalidMessageException;
-use App\Infrastructure\Messaging\Inbound\InboundRoutingKeys;
 use Carbon\CarbonImmutable;
 use Psr\Log\LoggerInterface;
 
 final readonly class OnStockReservationFailed
 {
+    private const string ROUTING_KEY = 'stock.reservation_failed';
+
     public function __construct(
         private TransactionRunnerInterface $transactions,
         private ProcessedEventStore $processedEvents,
@@ -24,37 +26,35 @@ final readonly class OnStockReservationFailed
     ) {
     }
 
-    public function handle(StockReservationFailedData $data, CarbonImmutable $now): void
+    public function handle(StockReservationFailedCommand $command, CarbonImmutable $now): void
     {
-        $this->transactions->run(function () use ($data, $now): void {
+        $this->transactions->run(function () use ($command, $now): void {
+            $order = $this->orders->findByIdForUpdate($command->orderId);
+
+            if ($order === null) {
+                throw new OrderNotFound($command->orderId);
+            }
+
+            if ($order->storeId() !== $command->storeId) {
+                throw new StoreMismatch($order->id(), $order->storeId(), $command->storeId);
+            }
+
             if (! $this->processedEvents->markProcessed(
-                $data->eventId,
-                InboundRoutingKeys::STOCK_RESERVATION_FAILED,
+                $command->eventId,
+                self::ROUTING_KEY,
                 $now,
             )) {
                 return;
             }
 
-            $order = $this->orders->findByIdForUpdate($data->orderId);
-
-            if ($order === null) {
-                $this->logger->error('Stock reservation failure received for a missing order.', [
-                    'order_id' => $data->orderId,
-                    'event_id' => $data->eventId,
-                ]);
-
-                throw new InvalidMessageException(
-                    ['order_id' => ['The order does not exist.']],
-                    'Stock reservation failure received for a missing order.',
-                );
-            }
-
             if ($order->status() !== OrderStatus::CREATED) {
-                $this->logger->info('Ignoring stock reservation failure for an order in a non-created status.', [
+                $level = $order->status() === OrderStatus::PAID ? 'warning' : 'info';
+
+                $this->logger->log($level, 'Ignoring stock reservation failure for an order in a non-created status.', [
                     'order_id' => $order->id(),
-                    'event_id' => $data->eventId,
+                    'event_id' => $command->eventId,
                     'status' => $order->status()->value,
-                    'reason' => $data->reason,
+                    'reason' => $command->reason->value,
                 ]);
 
                 return;
