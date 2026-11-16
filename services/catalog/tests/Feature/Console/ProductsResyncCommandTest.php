@@ -7,6 +7,7 @@ namespace Tests\Feature\Console;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Store;
+use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
@@ -53,6 +54,30 @@ final class ProductsResyncCommandTest extends PostgresTestCase
             $this->sortedIds([$first->id, $second->id, $first->id, $second->id]),
             $this->sortedIds(array_column($payloads, 'product_id')),
         );
+    }
+
+    #[Test]
+    public function the_event_occurred_at_is_the_product_updated_at(): void
+    {
+        [$product] = $this->products();
+        $updatedAt = CarbonImmutable::parse('2026-05-01T12:34:56.123456+00:00');
+
+        DB::table('products')
+            ->where('id', $product->id)
+            ->update(['updated_at' => $updatedAt->format('Y-m-d H:i:s.uP')]);
+
+        $this->artisan('catalog:products:resync', ['--chunk' => 1])
+            ->assertExitCode(Command::SUCCESS);
+
+        $occurredAt = DB::table('outbox')
+            ->where('aggregate_key', $product->id)
+            ->value('occurred_at');
+
+        self::assertNotNull($occurredAt);
+        $actual = CarbonImmutable::parse((string) $occurredAt);
+
+        self::assertTrue($actual->equalTo($updatedAt));
+        self::assertSame('123456', $actual->format('u'));
     }
 
     /**
