@@ -80,7 +80,7 @@ final class Order
         $this->assertSingleStore($storeId, $items);
         $this->status = $status;
         $this->cancelReason = $cancelReason;
-        $this->items = array_values($items);
+        $this->items = $items;
         $this->subtotal = $subtotal;
         $this->deposit = $deposit;
         $this->version = $version;
@@ -699,12 +699,6 @@ final class Order
 
         if (count($items) > 100) {
             throw InvalidOrderItems::tooMany(count($items));
-        }
-
-        foreach ($items as $item) {
-            if (! $item instanceof OrderItem) {
-                throw new InvalidArgumentException('Every order item must be an OrderItem instance.');
-            }
         }
     }
 

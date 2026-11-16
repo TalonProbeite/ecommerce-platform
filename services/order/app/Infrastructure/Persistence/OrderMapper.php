@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Persistence;
 
-use App\Application\Ports\Clock;
 use App\Domain\Events\OrderStatusChanged;
 use App\Domain\Money\Money;
 use App\Domain\Order\CancelReason;
@@ -21,13 +20,13 @@ final readonly class OrderMapper
 {
     private const string TIMESTAMP_FORMAT = 'Y-m-d H:i:s.uP';
 
-    public function __construct(private Clock $clock)
-    {
-    }
-
     public function toAggregate(OrderModel $model): Order
     {
-        $itemModels = $model->items()->orderBy('created_at')->orderBy('id')->get();
+        $itemModels = OrderItemModel::query()
+            ->where('order_id', $model->id)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
         $storeId = (string) $model->store_id;
 
         $items = [];

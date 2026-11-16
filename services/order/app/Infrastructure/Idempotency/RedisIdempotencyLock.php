@@ -28,11 +28,11 @@ LUA;
         return $result === true
             || $result === 1
             || $result === 'OK'
-            || (is_object($result) && (string) $result === 'OK');
+            || ($result instanceof \Stringable && (string) $result === 'OK');
     }
 
     public function release(string $key, string $token): void
     {
-        $this->connection->eval(self::RELEASE_SCRIPT, 1, $key, $token);
+        $this->connection->command('eval', [self::RELEASE_SCRIPT, [$key, $token], 1]);
     }
 }

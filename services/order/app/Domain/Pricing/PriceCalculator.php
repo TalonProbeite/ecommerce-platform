@@ -23,10 +23,6 @@ final class PriceCalculator
         $deposit = Money::zero();
 
         foreach ($lines as $line) {
-            if (! $line instanceof PriceLine) {
-                throw new InvalidArgumentException('Every price line must be a PriceLine instance.');
-            }
-
             $billedHours = $line->rentalPeriod->billedHours();
             $lineTotal = $line->pricePerHour->multiply($billedHours)->multiply($line->quantity);
             $depositTotal = $line->depositPerUnit->multiply($line->quantity);

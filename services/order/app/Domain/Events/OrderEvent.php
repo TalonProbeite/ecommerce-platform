@@ -63,7 +63,7 @@ abstract class OrderEvent implements EventInterface
     }
 
     /**
-     * @return array{order_id: string, store_id: string, items: list<array<string, mixed>>}
+     * @return array<string, mixed>
      */
     public function toArray(): array
     {

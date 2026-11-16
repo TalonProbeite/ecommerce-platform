@@ -61,7 +61,7 @@ final readonly class EloquentProductSnapshotRepository implements ProductSnapsho
         if ($model === null) {
             $model = new ProductSnapshotModel();
             $model->product_id = $snapshot->productId;
-            $model->created_at = $now;
+            $model->created_at = $now->format('Y-m-d H:i:s.uP');
         }
 
         $model->store_id = $snapshot->storeId;
@@ -70,9 +70,9 @@ final readonly class EloquentProductSnapshotRepository implements ProductSnapsho
         $model->price_per_hour = $snapshot->pricePerHour->amount();
         $model->deposit_amount = $snapshot->depositPerUnit->amount();
         $model->is_active = $snapshot->isActive;
-        $model->source_occurred_at = $snapshot->sourceOccurredAt;
-        $model->deleted_at = $snapshot->deletedAt;
-        $model->updated_at = $now;
+        $model->source_occurred_at = $snapshot->sourceOccurredAt->format('Y-m-d H:i:s.uP');
+        $model->deleted_at = $snapshot->deletedAt?->format('Y-m-d H:i:s.uP');
+        $model->updated_at = $now->format('Y-m-d H:i:s.uP');
 
         $model->save();
     }

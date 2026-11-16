@@ -7,8 +7,12 @@ parameters:
         - config/
         - routes/
         - database/
-    level: 7
+    level: 8
     excludePaths:
         - vendor/*
         - storage/*
         - bootstrap/cache/*
+    ignoreErrors:
+        -
+            identifier: missingType.generics
+            path: app/Infrastructure/Persistence/Models/*
