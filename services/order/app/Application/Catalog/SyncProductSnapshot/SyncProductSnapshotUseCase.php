@@ -10,6 +10,7 @@ use App\Application\Ports\ProcessedEventStore;
 use App\Application\Ports\ProductSnapshotRepository;
 use App\Application\Ports\TransactionRunnerInterface;
 use App\Domain\Catalog\ProductSnapshot;
+use App\Domain\Messaging\RoutingKeys;
 use App\Domain\Money\Money;
 use Carbon\CarbonImmutable;
 use Psr\Log\LoggerInterface;
@@ -26,7 +27,7 @@ final readonly class SyncProductSnapshotUseCase
     public function upsert(
         ProductUpsertCommand $command,
         CarbonImmutable $now,
-        string $routingKey = 'product.created',
+        string $routingKey = RoutingKeys::PRODUCT_CREATED,
     ): void {
         $this->transactions->run(function () use ($command, $now, $routingKey): void {
             if (! $this->processedEvents->markProcessed($command->eventId, $routingKey, $now)) {
@@ -50,7 +51,7 @@ final readonly class SyncProductSnapshotUseCase
     public function delete(ProductDeleteCommand $command, CarbonImmutable $now): void
     {
         $this->transactions->run(function () use ($command, $now): void {
-            if (! $this->processedEvents->markProcessed($command->eventId, 'product.deleted', $now)) {
+            if (! $this->processedEvents->markProcessed($command->eventId, RoutingKeys::PRODUCT_DELETED, $now)) {
                 return;
             }
 

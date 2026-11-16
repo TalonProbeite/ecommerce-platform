@@ -10,13 +10,14 @@ use App\Application\Ports\OrderRepository;
 use App\Application\Ports\ProcessedEventStore;
 use App\Application\Ports\TransactionRunnerInterface;
 use App\Application\Saga\Commands\StockReservedCommand;
+use App\Domain\Messaging\RoutingKeys;
 use App\Domain\Order\OrderStatus;
 use Carbon\CarbonImmutable;
 use Psr\Log\LoggerInterface;
 
 final readonly class OnStockReserved
 {
-    private const string ROUTING_KEY = 'stock.reserved';
+    private const string ROUTING_KEY = RoutingKeys::STOCK_RESERVED;
 
     public function __construct(
         private TransactionRunnerInterface $transactions,

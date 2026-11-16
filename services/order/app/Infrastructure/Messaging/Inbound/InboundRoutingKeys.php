@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Messaging\Inbound;
 
+use App\Domain\Messaging\RoutingKeys;
+
 final class InboundRoutingKeys
 {
-    public const STOCK_RESERVED = 'stock.reserved';
-    public const STOCK_RESERVATION_FAILED = 'stock.reservation_failed';
-    public const PRODUCT_CREATED = 'product.created';
-    public const PRODUCT_UPDATED = 'product.updated';
-    public const PRODUCT_DELETED = 'product.deleted';
+    public const STOCK_RESERVED = RoutingKeys::STOCK_RESERVED;
+    public const STOCK_RESERVATION_FAILED = RoutingKeys::STOCK_RESERVATION_FAILED;
+    public const PRODUCT_CREATED = RoutingKeys::PRODUCT_CREATED;
+    public const PRODUCT_UPDATED = RoutingKeys::PRODUCT_UPDATED;
+    public const PRODUCT_DELETED = RoutingKeys::PRODUCT_DELETED;
 
     /**
      * Routing keys that have registered handlers in Order.
@@ -19,13 +21,7 @@ final class InboundRoutingKeys
      */
     public static function all(): array
     {
-        return [
-            self::PRODUCT_CREATED,
-            self::PRODUCT_UPDATED,
-            self::PRODUCT_DELETED,
-            self::STOCK_RESERVED,
-            self::STOCK_RESERVATION_FAILED,
-        ];
+        return RoutingKeys::inbound();
     }
 
     private function __construct()
