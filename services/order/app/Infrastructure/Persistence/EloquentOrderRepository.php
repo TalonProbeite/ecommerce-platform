@@ -33,6 +33,13 @@ final readonly class EloquentOrderRepository implements OrderRepository
         return $model !== null ? $this->mapper->toAggregate($model) : null;
     }
 
+    public function findByIdForUpdate(string $id): ?Order
+    {
+        $model = OrderModel::query()->lockForUpdate()->find($id);
+
+        return $model !== null ? $this->mapper->toAggregate($model) : null;
+    }
+
     public function findByIdempotencyKey(string $customerId, string $key): ?Order
     {
         $model = OrderModel::query()

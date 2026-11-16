@@ -18,6 +18,8 @@ final class InboundRoutingKeysTest extends TestCase
             'product.created',
             'product.updated',
             'product.deleted',
+            'stock.reserved',
+            'stock.reservation_failed',
         ];
 
         self::assertSame($expected, InboundRoutingKeys::all());

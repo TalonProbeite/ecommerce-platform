@@ -48,7 +48,6 @@ final class Topology
 
     /**
      * Routing keys the inbound queue is bound to on catalog.events.
-     * Stock events are handled by P7 and are intentionally not bound yet.
      *
      * @var list<string>
      */
@@ -56,6 +55,8 @@ final class Topology
         InboundRoutingKeys::PRODUCT_CREATED,
         InboundRoutingKeys::PRODUCT_UPDATED,
         InboundRoutingKeys::PRODUCT_DELETED,
+        InboundRoutingKeys::STOCK_RESERVED,
+        InboundRoutingKeys::STOCK_RESERVATION_FAILED,
     ];
 
     /**

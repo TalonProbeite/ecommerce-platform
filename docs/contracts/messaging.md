@@ -84,8 +84,8 @@ by Order or Notification.
 
 | Exchange | Routing key | Subscriber | Queue |
 | --- | --- | --- | --- |
-| `catalog.events` | `stock.reserved` | Order (подписка появится в P7) | `order.catalog-events` |
-| `catalog.events` | `stock.reservation_failed` | Order (подписка появится в P7) | `order.catalog-events` |
+| `catalog.events` | `stock.reserved` | Order | `order.catalog-events` |
+| `catalog.events` | `stock.reservation_failed` | Order | `order.catalog-events` |
 | `catalog.events` | `product.created` | Order | `order.catalog-events` |
 | `catalog.events` | `product.updated` | Order | `order.catalog-events` |
 | `catalog.events` | `product.deleted` | Order | `order.catalog-events` |

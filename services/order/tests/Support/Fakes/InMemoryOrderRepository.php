@@ -39,6 +39,11 @@ final class InMemoryOrderRepository implements OrderRepository
         return isset($this->orders[$id]) ? $this->orders[$id]->copy() : null;
     }
 
+    public function findByIdForUpdate(string $id): ?Order
+    {
+        return $this->findById($id);
+    }
+
     public function findByIdempotencyKey(string $customerId, string $key): ?Order
     {
         $indexKey = $this->indexKey($customerId, $key);
@@ -86,6 +91,11 @@ final class InMemoryOrderRepository implements OrderRepository
     public function journal(): array
     {
         return $this->journal;
+    }
+
+    public function resetJournal(): void
+    {
+        $this->journal = [];
     }
 
     private function indexKey(string $customerId, string $key): string

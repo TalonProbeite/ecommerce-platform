@@ -21,6 +21,11 @@ final class RaceSimulatingOrderRepository implements OrderRepository
         return $id === $this->existing->id() ? $this->existing->copy() : null;
     }
 
+    public function findByIdForUpdate(string $id): ?Order
+    {
+        return $this->findById($id);
+    }
+
     public function findByIdempotencyKey(string $customerId, string $key): ?Order
     {
         $this->lookups++;

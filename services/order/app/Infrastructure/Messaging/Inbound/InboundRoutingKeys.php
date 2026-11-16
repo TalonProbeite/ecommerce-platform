@@ -13,8 +13,7 @@ final class InboundRoutingKeys
     public const PRODUCT_DELETED = 'product.deleted';
 
     /**
-     * Routing keys that have registered handlers in Order. Stock handlers are
-     * added in P7, so the inbound queue must not be bound to them yet.
+     * Routing keys that have registered handlers in Order.
      *
      * @return list<string>
      */
@@ -24,6 +23,8 @@ final class InboundRoutingKeys
             self::PRODUCT_CREATED,
             self::PRODUCT_UPDATED,
             self::PRODUCT_DELETED,
+            self::STOCK_RESERVED,
+            self::STOCK_RESERVATION_FAILED,
         ];
     }
 

@@ -17,6 +17,8 @@ use App\Infrastructure\Idempotency\RedisIdempotencyLock;
 use App\Infrastructure\Messaging\Inbound\Handlers\ProductCreatedHandler;
 use App\Infrastructure\Messaging\Inbound\Handlers\ProductDeletedHandler;
 use App\Infrastructure\Messaging\Inbound\Handlers\ProductUpdatedHandler;
+use App\Infrastructure\Messaging\Inbound\Handlers\StockReservationFailedHandler;
+use App\Infrastructure\Messaging\Inbound\Handlers\StockReservedHandler;
 use App\Infrastructure\Messaging\Inbound\InboundHandlerRegistry;
 use App\Infrastructure\Messaging\Inbound\InboundMessageRouter;
 use App\Infrastructure\Messaging\Outbox\AmqpOutboxPublisher;
@@ -79,6 +81,8 @@ class AppServiceProvider extends ServiceProvider
             ProductCreatedHandler::class,
             ProductUpdatedHandler::class,
             ProductDeletedHandler::class,
+            StockReservedHandler::class,
+            StockReservationFailedHandler::class,
         ], 'inbound.handlers');
         $this->app->singleton(InboundHandlerRegistry::class, static function ($app): InboundHandlerRegistry {
             return new InboundHandlerRegistry($app->tagged('inbound.handlers'));
