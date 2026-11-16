@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
+use RuntimeException;
 use Throwable;
 
 final class ReadinessChecker
@@ -26,6 +27,7 @@ final class ReadinessChecker
     {
         return [
             'database' => $this->probe(true, fn () => DB::select('select 1')),
+            'jwt' => $this->probe(true, fn () => $this->checkJwtPublicKey()),
             'redis' => $this->probe(false, fn () => Redis::connection()->ping()),
             'rabbitmq' => $this->probe(false, fn () => $this->checkRabbitMq()),
         ];
@@ -71,6 +73,25 @@ final class ReadinessChecker
             'critical' => $critical,
             'latency_ms' => round((hrtime(true) - $started) / 1e6, 1),
         ];
+    }
+
+    private function checkJwtPublicKey(): void
+    {
+        $encoded = config('jwt.public_key_b64');
+
+        if (! is_string($encoded) || $encoded === '') {
+            throw new RuntimeException('The JWT public key is not configured.');
+        }
+
+        $decoded = base64_decode($encoded, true);
+
+        if ($decoded === false || $decoded === '') {
+            throw new RuntimeException('The JWT public key is not valid base64.');
+        }
+
+        if (openssl_pkey_get_public($decoded) === false) {
+            throw new RuntimeException('The JWT public key is not a valid public key.');
+        }
     }
 
     private function checkRabbitMq(): void

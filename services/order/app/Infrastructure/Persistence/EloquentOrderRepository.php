@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Persistence;
 
+use App\Application\Exceptions\IdempotencyKeyAlreadyExists;
 use App\Application\Exceptions\OptimisticLockException;
 use App\Application\Ports\Clock;
 use App\Application\Ports\OrderRepository;
@@ -13,6 +14,7 @@ use App\Infrastructure\Messaging\Outbox\OutboxWriterInterface;
 use App\Infrastructure\Persistence\Models\OrderEventModel;
 use App\Infrastructure\Persistence\Models\OrderItemModel;
 use App\Infrastructure\Persistence\Models\OrderModel;
+use Illuminate\Database\QueryException;
 
 final readonly class EloquentOrderRepository implements OrderRepository
 {
@@ -49,7 +51,19 @@ final readonly class EloquentOrderRepository implements OrderRepository
 
             if ($existing === null) {
                 $model = new OrderModel($this->mapper->orderAttributes($order, $now));
-                $model->save();
+
+                try {
+                    $model->save();
+                } catch (QueryException $exception) {
+                    if ($this->isIdempotencyKeyConflict($exception)) {
+                        throw new IdempotencyKeyAlreadyExists(
+                            $order->customerId(),
+                            $order->idempotencyKey(),
+                        );
+                    }
+
+                    throw $exception;
+                }
             } else {
                 $expectedVersion = $order->persistedVersion();
                 $attributes = $this->mapper->orderAttributes($order, $now);
@@ -88,5 +102,19 @@ final readonly class EloquentOrderRepository implements OrderRepository
 
             $order->markPersisted();
         });
+    }
+
+    private function isIdempotencyKeyConflict(QueryException $exception): bool
+    {
+        $sqlState = $exception->errorInfo[0] ?? null;
+
+        if ($sqlState !== '23505' && $sqlState !== '23000') {
+            return false;
+        }
+
+        $message = $exception->getMessage();
+
+        return str_contains($message, 'orders_customer_id_idempotency_key_unique')
+            || (str_contains($message, 'customer_id') && str_contains($message, 'idempotency_key'));
     }
 }

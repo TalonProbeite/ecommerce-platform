@@ -33,6 +33,9 @@ return new class () extends Migration {
         DB::statement('CREATE INDEX orders_customer_id_created_at_index
             ON orders (customer_id, created_at DESC)');
 
+        DB::statement('CREATE INDEX orders_created_id_idx
+            ON orders (created_at DESC, id DESC)');
+
         DB::statement('ALTER TABLE orders ADD CONSTRAINT orders_customer_id_idempotency_key_unique
             UNIQUE (customer_id, idempotency_key)');
 
