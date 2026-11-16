@@ -182,5 +182,5 @@ networks:
   order_internal:
     driver: bridge
   shop_global:
-    external: true
     name: shop_global
+    driver: bridge

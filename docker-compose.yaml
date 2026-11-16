@@ -4,6 +4,7 @@ include:
   - services/auth/docker-compose.prod.yaml
   - services/notification/docker-compose.prod.yaml
   - services/catalog/docker-compose.prod.yaml
+  - services/order/docker-compose.prod.yaml
   - frontend/docker-compose.prod.yaml
 
 services:
@@ -25,6 +26,8 @@ services:
       notification-nginx:
         condition: service_healthy
       catalog-nginx:
+        condition: service_healthy
+      order-nginx:
         condition: service_healthy
     networks:
       - shop_global
