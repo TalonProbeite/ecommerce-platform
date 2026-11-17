@@ -73,7 +73,7 @@ final class CreateOrderHttpTest extends ApiTestCase
         $this->postJson('/api/v1/orders', $this->payload(), $headers)
             ->assertStatus(201);
 
-        $this->postJson('/api/v1/orders', $this->payload(quantity: 2), $headers)
+        $this->postJson('/api/v1/orders', $this->payload(quantity: 1), $headers)
             ->assertStatus(422);
     }
 
