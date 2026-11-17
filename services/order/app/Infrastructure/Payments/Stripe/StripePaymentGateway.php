@@ -72,15 +72,31 @@ final readonly class StripePaymentGateway implements PaymentGateway
 
     private function mapIntent(PaymentIntent $intent): ProviderPaymentIntent
     {
+        $status = match ($intent->status) {
+            PaymentIntent::STATUS_REQUIRES_PAYMENT_METHOD => PaymentStatus::REQUIRES_PAYMENT_METHOD,
+            PaymentIntent::STATUS_REQUIRES_CONFIRMATION => PaymentStatus::REQUIRES_CONFIRMATION,
+            PaymentIntent::STATUS_REQUIRES_ACTION => PaymentStatus::REQUIRES_ACTION,
+            PaymentIntent::STATUS_PROCESSING => PaymentStatus::PROCESSING,
+            PaymentIntent::STATUS_REQUIRES_CAPTURE => PaymentStatus::REQUIRES_CAPTURE,
+            PaymentIntent::STATUS_SUCCEEDED => PaymentStatus::SUCCEEDED,
+            PaymentIntent::STATUS_CANCELED => PaymentStatus::CANCELED,
+            default => throw new PaymentProviderUnavailable(sprintf(
+                'Stripe returned an unsupported PaymentIntent status "%s".',
+                $intent->status,
+            )),
+        };
+
         return new ProviderPaymentIntent(
             providerId: $intent->id,
-            status: PaymentStatus::isAllowed($intent->status)
-                ? $intent->status
-                : PaymentStatus::REQUIRES_PAYMENT_METHOD,
+            status: $status,
             clientSecret: $intent->client_secret,
         );
     }
 
+    /**
+     * Stripe refund statuses are pending, requires_action, succeeded, failed and canceled.
+     * pending and requires_action both map to RefundStatus::PENDING.
+     */
     private function mapRefundStatus(Refund $refund): string
     {
         $status = $refund->status;

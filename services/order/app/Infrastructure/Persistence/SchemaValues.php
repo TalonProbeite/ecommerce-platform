@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Persistence;
 
+use App\Application\Payments\PaymentStatus;
+use App\Application\Payments\RefundStatus;
+
 final class SchemaValues
 {
     public const ORDER_STATUS = [
@@ -31,27 +34,15 @@ final class SchemaValues
     ];
 
     /**
-     * не сверено с Stripe API, проверить перед фазой P8
+     * Сверено со stripe/stripe-php 23.0.0 (API 2026-10-28.endive).
      */
-    public const PAYMENT_STATUS = [
-        'requires_payment_method',
-        'requires_confirmation',
-        'requires_action',
-        'processing',
-        'requires_capture',
-        'succeeded',
-        'canceled',
-    ];
+    public const array PAYMENT_STATUS = PaymentStatus::ALL;
 
     /**
-     * не сверено с Stripe API, проверить перед фазой P8
+     * Сверено со stripe/stripe-php 23.0.0 (API 2026-10-28.endive).
+     * requires_action из Stripe приводится к pending.
      */
-    public const REFUND_STATUS = [
-        'pending',
-        'succeeded',
-        'failed',
-        'canceled',
-    ];
+    public const array REFUND_STATUS = RefundStatus::ALL;
 
     public const REFUND_REASON = [
         'order_cancelled',
