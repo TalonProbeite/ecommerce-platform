@@ -8,12 +8,14 @@ COMPOSE_FILE := docker-compose.local.yaml
 COMPOSE := $(DOCKER) compose -f $(COMPOSE_FILE)
 APP := order-app
 TEST_DATABASE ?= order_test
+DOCS_DIR ?= $(CURDIR)/../../docs
 
 TEST_DB_ENV := -e APP_ENV=testing \
 	-e DB_CONNECTION=pgsql \
 	-e DB_HOST=order-db \
 	-e DB_PORT=5432 \
 	-e DB_DATABASE="$(TEST_DATABASE)" \
+	-e ORDER_TEST_DATABASE="$(TEST_DATABASE)" \
 	-e DB_URL= \
 	-e BROADCAST_CONNECTION=null \
 	-e MAIL_MAILER=array \
@@ -80,6 +82,8 @@ test-unit:
 test-feature: test-services
 	$(COMPOSE) build $(APP)
 	$(COMPOSE) run --rm --no-deps $(FEATURE_TEST_ENV) \
+		-v "$(DOCS_DIR):/docs:ro" \
+		-e MESSAGING_CONTRACT_PATH=/docs/contracts/messaging.md \
 		$(APP) php vendor/bin/phpunit --testsuite Feature --do-not-cache-result $(PHPUNIT_ARGS)
 
 test-integration: test-feature
@@ -89,6 +93,8 @@ test-docker: test-services
 	$(COMPOSE) run --rm --no-deps $(UNIT_TEST_ENV) \
 		$(APP) php vendor/bin/phpunit --testsuite Unit --do-not-cache-result
 	$(COMPOSE) run --rm --no-deps $(FEATURE_TEST_ENV) \
+		-v "$(DOCS_DIR):/docs:ro" \
+		-e MESSAGING_CONTRACT_PATH=/docs/contracts/messaging.md \
 		$(APP) php vendor/bin/phpunit --testsuite Feature --do-not-cache-result $(PHPUNIT_ARGS)
 
 test-services: test-db test-redis

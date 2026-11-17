@@ -9,6 +9,7 @@ use App\Infrastructure\Messaging\Inbound\Data\ProductUpsertData;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
 use ReflectionProperty;
+use Tests\Support\MessagingContract;
 use Tests\TestCase;
 
 final class ProductPayloadContractTest extends TestCase
@@ -43,8 +44,7 @@ final class ProductPayloadContractTest extends TestCase
 
     private function contractSection(string $heading, string $nextHeading): string
     {
-        $path = dirname(__DIR__, 5) . '/docs/contracts/messaging.md';
-        self::assertFileExists($path);
+        $path = MessagingContract::path();
 
         $document = (string) file_get_contents($path);
         $start = strpos($document, $heading);

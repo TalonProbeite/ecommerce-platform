@@ -36,7 +36,7 @@ final class PayloadValidatorTest extends TestCase
             self::assertSame(['name', 'quantity'], array_keys($exception->errors));
             self::assertArrayHasKey('name', $exception->errors);
             self::assertArrayHasKey('quantity', $exception->errors);
-            self::assertContainsOnly('string', $exception->errors['name']);
+            self::assertContainsOnlyString($exception->errors['name']);
 
             return;
         }

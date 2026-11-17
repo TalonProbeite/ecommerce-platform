@@ -7,6 +7,7 @@ namespace Tests\Feature\Contract;
 use App\Domain\Events\OrderPaid;
 use Carbon\CarbonImmutable;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\MessagingContract;
 use Tests\TestCase;
 
 final class OrderPaidPayloadContractTest extends TestCase
@@ -36,8 +37,7 @@ final class OrderPaidPayloadContractTest extends TestCase
 
     private function contractSection(string $heading, string $nextHeading): string
     {
-        $path = dirname(__DIR__, 5) . '/docs/contracts/messaging.md';
-        self::assertFileExists($path);
+        $path = MessagingContract::path();
 
         $document = (string) file_get_contents($path);
         $start = strpos($document, $heading);
