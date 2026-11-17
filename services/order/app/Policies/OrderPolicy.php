@@ -23,4 +23,9 @@ final class OrderPolicy
     {
         return $user->role === Role::CUSTOMER;
     }
+
+    public function pay(AuthUser $user, Order $order): bool
+    {
+        return $user->role === Role::CUSTOMER && $order->customerId() === $user->id;
+    }
 }

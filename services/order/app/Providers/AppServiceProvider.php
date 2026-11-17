@@ -4,14 +4,22 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Application\Exceptions\PaymentProviderUnavailable;
+use App\Application\Payments\Webhooks\HandleStripeEvent;
+use App\Application\Payments\Webhooks\OnPaymentFailed;
+use App\Application\Payments\Webhooks\OnPaymentSucceeded;
 use App\Application\Ports\Clock;
 use App\Application\Ports\IdempotencyLock;
 use App\Application\Ports\IdGenerator;
 use App\Application\Ports\OrderReadRepository;
 use App\Application\Ports\OrderRepository;
+use App\Application\Ports\PaymentGateway;
+use App\Application\Ports\PaymentRepository;
 use App\Application\Ports\ProcessedEventStore;
 use App\Application\Ports\ProductSnapshotRepository;
+use App\Application\Ports\StripeEventStore;
 use App\Application\Ports\TransactionRunnerInterface;
+use App\Application\Ports\WebhookSignatureVerifier;
 use App\Http\Auth\AuthUser;
 use App\Infrastructure\Idempotency\RedisIdempotencyLock;
 use App\Infrastructure\Messaging\Inbound\Handlers\ProductCreatedHandler;
@@ -29,10 +37,14 @@ use App\Infrastructure\Messaging\Outbox\OutboxRepositoryInterface;
 use App\Infrastructure\Messaging\Outbox\OutboxWriter;
 use App\Infrastructure\Messaging\Outbox\OutboxWriterInterface;
 use App\Infrastructure\Messaging\Topology;
+use App\Infrastructure\Payments\Stripe\StripePaymentGateway;
+use App\Infrastructure\Payments\Stripe\StripeWebhookSignatureVerifier;
 use App\Infrastructure\Persistence\EloquentOrderReadRepository;
 use App\Infrastructure\Persistence\EloquentOrderRepository;
+use App\Infrastructure\Persistence\EloquentPaymentRepository;
 use App\Infrastructure\Persistence\EloquentProcessedEventStore;
 use App\Infrastructure\Persistence\EloquentProductSnapshotRepository;
+use App\Infrastructure\Persistence\EloquentStripeEventStore;
 use App\Infrastructure\Persistence\SystemClock;
 use App\Infrastructure\Persistence\Transactions\DbTransactionRunner;
 use App\Infrastructure\Persistence\UuidV7IdGenerator;
@@ -43,6 +55,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Octane\Events\WorkerStopping;
+use Stripe\StripeClient;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -61,6 +74,30 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(OrderReadRepository::class, EloquentOrderReadRepository::class);
         $this->app->bind(ProductSnapshotRepository::class, EloquentProductSnapshotRepository::class);
         $this->app->bind(ProcessedEventStore::class, EloquentProcessedEventStore::class);
+        $this->app->bind(PaymentRepository::class, EloquentPaymentRepository::class);
+        $this->app->bind(StripeEventStore::class, EloquentStripeEventStore::class);
+
+        $this->app->singleton(StripeClient::class, static function (): StripeClient {
+            $secret = config('stripe.secret');
+
+            if (! is_string($secret) || $secret === '') {
+                throw new PaymentProviderUnavailable('Stripe secret key is not configured.');
+            }
+
+            $config = ['api_key' => $secret];
+            $apiVersion = config('stripe.api_version');
+
+            if (is_string($apiVersion) && $apiVersion !== '') {
+                $config['stripe_version'] = $apiVersion;
+            }
+
+            return new StripeClient($config);
+        });
+        $this->app->bind(PaymentGateway::class, StripePaymentGateway::class);
+        $this->app->bind(WebhookSignatureVerifier::class, StripeWebhookSignatureVerifier::class);
+        $this->app->singleton(OnPaymentSucceeded::class);
+        $this->app->singleton(OnPaymentFailed::class);
+        $this->app->singleton(HandleStripeEvent::class);
 
         $this->app->bind(IdempotencyLock::class, static function ($app): IdempotencyLock {
             return new RedisIdempotencyLock($app->make('redis')->connection());
@@ -101,6 +138,14 @@ class AppServiceProvider extends ServiceProvider
             $user = $request->attributes->get(AuthUser::ATTRIBUTE);
 
             return Limit::perMinute(30)->by(
+                $user instanceof AuthUser ? 'user:' . $user->id : (string) $request->ip(),
+            );
+        });
+
+        RateLimiter::for('payments-intent', static function (Request $request): Limit {
+            $user = $request->attributes->get(AuthUser::ATTRIBUTE);
+
+            return Limit::perMinute(20)->by(
                 $user instanceof AuthUser ? 'user:' . $user->id : (string) $request->ip(),
             );
         });

@@ -14,7 +14,8 @@
         "php-amqplib/php-amqplib": "^3.7",
         "predis/predis": "^3.7",
         "spiral/roadrunner-cli": "^3.1",
-        "spiral/roadrunner-http": "^4.2"
+        "spiral/roadrunner-http": "^4.2",
+        "stripe/stripe-php": "^23.0"
     },
     "require-dev": {
         "deptrac/deptrac": "^4.7",

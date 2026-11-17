@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\PaymentIntentController;
 use App\Http\Middleware\Authenticate;
 use Illuminate\Support\Facades\Route;
 
@@ -20,4 +21,8 @@ Route::middleware(Authenticate::class)->prefix('v1')->group(function (): void {
 
     Route::get('/orders/{order}', [OrderController::class, 'show'])
         ->name('orders.show');
+
+    Route::post('/orders/{order}/payment-intent', [PaymentIntentController::class, 'store'])
+        ->middleware('throttle:payments-intent')
+        ->name('orders.payment-intent');
 });

@@ -351,3 +351,11 @@ Octane: claims и текущий пользователь не хранятся 
 2. Точные роли в `Enums/Role` Catalog. Сверить в P0.
 3. Версия Stripe API и SDK. Зафиксировать в P0.
 4. Перенос JWT-мидлвари: найти исходный код, он не был в выгрузке.
+
+## P8. Stripe и оплата
+
+| № | Тема | Решение | Статус | Дата |
+|---|---|---|---|---|
+| P8-1 | Сумма PaymentIntent | Сумма платежа равна `subtotal_amount + deposit_amount` заказа и передаётся в Stripe одной суммой | Принято | 2026-11-17 |
+| P8-2 | Повтор `payment-intent` | Если по заказу есть открытый платёж (`requires_payment_method`, `requires_action`, `processing`, `requires_confirmation`), возвращается его `client_secret` через `retrieveIntent`; новый PaymentIntent не создаётся | Принято | 2026-11-17 |
+| P8-3 | Расхождение суммы в webhook | Если `amount_received` или валюта в `payment_intent.succeeded` не совпадают с записью платежа, пишется `critical`, состояние не меняется, ответ Stripe — 200 без ретрая; требуется ручная проверка | Принято | 2026-11-17 |

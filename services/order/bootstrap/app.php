@@ -25,6 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
             ThrottleRequests::class,
             Authenticate::class,
         );
+
+        $middleware->validateCsrfTokens(except: ['webhooks/stripe']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
