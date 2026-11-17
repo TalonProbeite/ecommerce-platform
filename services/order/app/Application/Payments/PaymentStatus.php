@@ -47,9 +47,10 @@ final class PaymentStatus
     {
         return [
             self::REQUIRES_PAYMENT_METHOD,
+            self::REQUIRES_CONFIRMATION,
             self::REQUIRES_ACTION,
             self::PROCESSING,
-            self::REQUIRES_CONFIRMATION,
+            self::REQUIRES_CAPTURE,
         ];
     }
 

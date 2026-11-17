@@ -31,11 +31,20 @@ final class FakePaymentGateway implements PaymentGateway
 
     public ProviderPaymentIntent $retrievedIntent;
 
+    public ProviderPaymentIntent $cancelledIntent;
+
     public ProviderRefund $refund;
+
+    /**
+     * @var list<array{providerId: string, idempotencyKey: string}>
+     */
+    public array $cancelCalls = [];
 
     public ?PaymentProviderUnavailable $createFailure = null;
 
     public ?PaymentProviderUnavailable $retrieveFailure = null;
+
+    public ?PaymentProviderUnavailable $cancelFailure = null;
 
     public ?PaymentProviderUnavailable $refundFailure = null;
 
@@ -43,6 +52,7 @@ final class FakePaymentGateway implements PaymentGateway
     {
         $this->intent = new ProviderPaymentIntent('pi_test_1', 'requires_payment_method', 'cs_test_1');
         $this->retrievedIntent = $this->intent;
+        $this->cancelledIntent = new ProviderPaymentIntent('pi_test_1', 'canceled', null);
         $this->refund = new ProviderRefund('re_test_1', 'succeeded');
     }
 
@@ -66,6 +76,20 @@ final class FakePaymentGateway implements PaymentGateway
         }
 
         return $this->retrievedIntent;
+    }
+
+    public function cancelIntent(string $providerId, string $idempotencyKey): ProviderPaymentIntent
+    {
+        $this->cancelCalls[] = [
+            'providerId' => $providerId,
+            'idempotencyKey' => $idempotencyKey,
+        ];
+
+        if ($this->cancelFailure !== null) {
+            throw $this->cancelFailure;
+        }
+
+        return $this->cancelledIntent;
     }
 
     public function refund(string $providerPaymentId, int $amount, string $idempotencyKey): ProviderRefund

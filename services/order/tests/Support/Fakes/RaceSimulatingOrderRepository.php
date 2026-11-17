@@ -7,6 +7,7 @@ namespace Tests\Support\Fakes;
 use App\Application\Exceptions\IdempotencyKeyAlreadyExists;
 use App\Application\Ports\OrderRepository;
 use App\Domain\Order\Order;
+use Carbon\CarbonImmutable;
 
 final class RaceSimulatingOrderRepository implements OrderRepository
 {
@@ -24,6 +25,14 @@ final class RaceSimulatingOrderRepository implements OrderRepository
     public function findByIdForUpdate(string $id): ?Order
     {
         return $this->findById($id);
+    }
+
+    /**
+     * @return list<Order>
+     */
+    public function lockExpiredUnpaidForUpdate(CarbonImmutable $createdBefore, int $limit): array
+    {
+        return [];
     }
 
     public function findByIdempotencyKey(string $customerId, string $key): ?Order

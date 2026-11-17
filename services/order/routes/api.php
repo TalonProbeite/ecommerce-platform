@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\OrderActionController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentIntentController;
 use App\Http\Middleware\Authenticate;
@@ -25,4 +26,14 @@ Route::middleware(Authenticate::class)->prefix('v1')->group(function (): void {
     Route::post('/orders/{order}/payment-intent', [PaymentIntentController::class, 'store'])
         ->middleware('throttle:payments-intent')
         ->name('orders.payment-intent');
+
+    Route::post('/orders/{order}/cancel', [OrderActionController::class, 'cancel'])
+        ->middleware('throttle:orders-cancel')
+        ->name('orders.cancel');
+
+    Route::post('/orders/{order}/issue', [OrderActionController::class, 'issue'])
+        ->name('orders.issue');
+
+    Route::post('/orders/{order}/return', [OrderActionController::class, 'return'])
+        ->name('orders.return');
 });

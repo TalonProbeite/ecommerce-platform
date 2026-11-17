@@ -22,4 +22,14 @@ final readonly class AuthUser implements AuthenticatedUser
     {
         return $this->id;
     }
+
+    public function role(): Role
+    {
+        return $this->role;
+    }
+
+    public function storeId(): ?string
+    {
+        return $this->storeId;
+    }
 }

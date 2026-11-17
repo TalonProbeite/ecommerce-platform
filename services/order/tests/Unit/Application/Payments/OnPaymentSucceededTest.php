@@ -7,6 +7,7 @@ namespace Tests\Unit\Application\Payments;
 use App\Application\Exceptions\RetryableException;
 use App\Application\Payments\PaymentRecord;
 use App\Application\Payments\PaymentStatus;
+use App\Application\Payments\RefundRecord;
 use App\Application\Payments\RefundStatus;
 use App\Application\Payments\StripeEvent;
 use App\Application\Payments\Webhooks\OnPaymentSucceeded;
@@ -122,6 +123,35 @@ final class OnPaymentSucceededTest extends TestCase
         self::assertSame(RefundStatus::SUCCEEDED, $refunds[0]->status);
         self::assertSame('re_test_1', $refunds[0]->providerRefundId);
         self::assertSame(7000, $refunds[0]->amount);
+    }
+
+    #[Test]
+    public function it_does_not_create_a_second_refund_for_a_cancelled_order(): void
+    {
+        $this->seedOrder(OrderStatus::CANCELLED);
+        $this->seedPayment(PaymentStatus::PROCESSING);
+        $this->payments->insertRefund(new RefundRecord(
+            id: '01930000-0000-7000-8000-0000000000e1',
+            orderId: self::ORDER_ID,
+            orderItemId: null,
+            paymentId: '01930000-0000-7000-8000-0000000000f1',
+            providerRefundId: 're_existing',
+            amount: 7000,
+            reason: 'order_cancelled',
+            status: RefundStatus::SUCCEEDED,
+            createdAt: $this->now,
+            updatedAt: $this->now,
+        ));
+
+        $this->useCase->handle($this->event(eventId: 'evt_duplicate_refund'), $this->now);
+
+        $order = $this->orders->findById(self::ORDER_ID);
+
+        self::assertNotNull($order);
+        self::assertSame(OrderStatus::CANCELLED, $order->status());
+        self::assertCount(0, $this->outbox->eventsOf(OrderPaid::class));
+        self::assertCount(0, $this->gateway->refundCalls);
+        self::assertCount(1, $this->payments->refunds());
     }
 
     #[Test]

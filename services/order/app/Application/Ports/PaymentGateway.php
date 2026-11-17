@@ -22,6 +22,15 @@ interface PaymentGateway
     public function retrieveIntent(string $providerId): ProviderPaymentIntent;
 
     /**
+     * Cancel a PaymentIntent. When Stripe reports that the intent is already in
+     * a final state (succeeded or canceled), the actual intent is retrieved
+     * instead of raising an exception.
+     *
+     * @throws PaymentProviderUnavailable
+     */
+    public function cancelIntent(string $providerId, string $idempotencyKey): ProviderPaymentIntent;
+
+    /**
      * @throws PaymentProviderUnavailable
      */
     public function refund(string $providerPaymentId, int $amount, string $idempotencyKey): ProviderRefund;

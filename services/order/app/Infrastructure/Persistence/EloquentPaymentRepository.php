@@ -7,6 +7,7 @@ namespace App\Infrastructure\Persistence;
 use App\Application\Payments\PaymentRecord;
 use App\Application\Payments\PaymentStatus;
 use App\Application\Payments\RefundRecord;
+use App\Application\Payments\RefundStatus;
 use App\Application\Ports\PaymentRepository;
 use App\Infrastructure\Persistence\Models\PaymentModel;
 use App\Infrastructure\Persistence\Models\RefundModel;
@@ -41,6 +42,44 @@ final readonly class EloquentPaymentRepository implements PaymentRepository
             ->first();
 
         return $model !== null ? $this->toRecord($model) : null;
+    }
+
+    public function findLatestSucceededByOrderId(string $orderId): ?PaymentRecord
+    {
+        $model = PaymentModel::query()
+            ->where('order_id', $orderId)
+            ->where('status', PaymentStatus::SUCCEEDED)
+            ->orderByDesc('succeeded_at')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+
+        return $model !== null ? $this->toRecord($model) : null;
+    }
+
+    public function succeededTotalByOrderId(string $orderId): int
+    {
+        return (int) PaymentModel::query()
+            ->where('order_id', $orderId)
+            ->where('status', PaymentStatus::SUCCEEDED)
+            ->sum('amount');
+    }
+
+    public function refundedTotalByOrderId(string $orderId): int
+    {
+        return (int) RefundModel::query()
+            ->where('order_id', $orderId)
+            ->whereIn('status', [RefundStatus::PENDING, RefundStatus::SUCCEEDED])
+            ->sum('amount');
+    }
+
+    public function hasRefundWithReason(string $orderId, string $reason, array $statuses): bool
+    {
+        return RefundModel::query()
+            ->where('order_id', $orderId)
+            ->where('reason', $reason)
+            ->whereIn('status', $statuses)
+            ->exists();
     }
 
     public function insert(PaymentRecord $payment): void

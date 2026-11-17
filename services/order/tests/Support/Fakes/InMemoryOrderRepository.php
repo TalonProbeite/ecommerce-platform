@@ -9,7 +9,9 @@ use App\Application\Ports\Clock;
 use App\Application\Ports\OrderRepository;
 use App\Domain\Events\OrderStatusChanged;
 use App\Domain\Order\Order;
+use App\Domain\Order\OrderStatus;
 use App\Infrastructure\Messaging\Outbox\OutboxWriterInterface;
+use Carbon\CarbonImmutable;
 
 final class InMemoryOrderRepository implements OrderRepository
 {
@@ -42,6 +44,32 @@ final class InMemoryOrderRepository implements OrderRepository
     public function findByIdForUpdate(string $id): ?Order
     {
         return $this->findById($id);
+    }
+
+    /**
+     * @return list<Order>
+     */
+    public function lockExpiredUnpaidForUpdate(CarbonImmutable $createdBefore, int $limit): array
+    {
+        $orders = array_values(array_filter(
+            $this->orders,
+            static fn (Order $order): bool => in_array(
+                $order->status(),
+                [OrderStatus::STOCK_RESERVED, OrderStatus::PAYMENT_PENDING],
+                true,
+            ) && $order->createdAt()->lessThan($createdBefore),
+        ));
+
+        usort(
+            $orders,
+            static fn (Order $left, Order $right): int => [$left->createdAt()->getTimestamp(), $left->id()]
+                <=> [$right->createdAt()->getTimestamp(), $right->id()],
+        );
+
+        return array_map(
+            static fn (Order $order): Order => $order->copy(),
+            array_slice($orders, 0, $limit),
+        );
     }
 
     public function findByIdempotencyKey(string $customerId, string $key): ?Order

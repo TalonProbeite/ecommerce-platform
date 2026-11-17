@@ -150,6 +150,14 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
+        RateLimiter::for('orders-cancel', static function (Request $request): Limit {
+            $user = $request->attributes->get(AuthUser::ATTRIBUTE);
+
+            return Limit::perMinute(30)->by(
+                $user instanceof AuthUser ? 'user:' . $user->id : (string) $request->ip(),
+            );
+        });
+
         Event::listen(WorkerStopping::class, static function (WorkerStopping $event): void {
             if ($event->app->resolved(AmqpOutboxPublisher::class)) {
                 $event->app->make(AmqpOutboxPublisher::class)->close();

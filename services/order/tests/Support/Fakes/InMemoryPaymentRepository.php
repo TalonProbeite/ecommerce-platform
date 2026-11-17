@@ -7,6 +7,7 @@ namespace Tests\Support\Fakes;
 use App\Application\Payments\PaymentRecord;
 use App\Application\Payments\PaymentStatus;
 use App\Application\Payments\RefundRecord;
+use App\Application\Payments\RefundStatus;
 use App\Application\Ports\PaymentRepository;
 use Carbon\CarbonImmutable;
 
@@ -50,6 +51,61 @@ final class InMemoryPaymentRepository implements PaymentRepository
         }
 
         return null;
+    }
+
+    public function findLatestSucceededByOrderId(string $orderId): ?PaymentRecord
+    {
+        foreach (array_reverse($this->payments, true) as $payment) {
+            if ($payment->orderId === $orderId && $payment->status === PaymentStatus::SUCCEEDED) {
+                return $payment;
+            }
+        }
+
+        return null;
+    }
+
+    public function succeededTotalByOrderId(string $orderId): int
+    {
+        $total = 0;
+
+        foreach ($this->payments as $payment) {
+            if ($payment->orderId === $orderId && $payment->status === PaymentStatus::SUCCEEDED) {
+                $total += $payment->amount;
+            }
+        }
+
+        return $total;
+    }
+
+    public function refundedTotalByOrderId(string $orderId): int
+    {
+        $total = 0;
+
+        foreach ($this->refunds as $refund) {
+            if (
+                $refund->orderId === $orderId
+                && in_array($refund->status, [RefundStatus::PENDING, RefundStatus::SUCCEEDED], true)
+            ) {
+                $total += $refund->amount;
+            }
+        }
+
+        return $total;
+    }
+
+    public function hasRefundWithReason(string $orderId, string $reason, array $statuses): bool
+    {
+        foreach ($this->refunds as $refund) {
+            if (
+                $refund->orderId === $orderId
+                && $refund->reason === $reason
+                && in_array($refund->status, $statuses, true)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function insert(PaymentRecord $payment): void

@@ -91,6 +91,14 @@ final readonly class OnPaymentSucceeded
 
     private function refundCancelledOrder(Order $order, PaymentRecord $payment, CarbonImmutable $now): void
     {
+        if ($this->payments->hasRefundWithReason(
+            $order->id(),
+            'order_cancelled',
+            [RefundStatus::PENDING, RefundStatus::SUCCEEDED],
+        )) {
+            return;
+        }
+
         $refundId = $this->ids->next();
 
         $this->payments->insertRefund(new RefundRecord(

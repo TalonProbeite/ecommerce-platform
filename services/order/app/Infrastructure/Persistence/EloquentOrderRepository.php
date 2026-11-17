@@ -10,10 +10,12 @@ use App\Application\Ports\Clock;
 use App\Application\Ports\OrderRepository;
 use App\Application\Ports\TransactionRunnerInterface;
 use App\Domain\Order\Order;
+use App\Domain\Order\OrderStatus;
 use App\Infrastructure\Messaging\Outbox\OutboxWriterInterface;
 use App\Infrastructure\Persistence\Models\OrderEventModel;
 use App\Infrastructure\Persistence\Models\OrderItemModel;
 use App\Infrastructure\Persistence\Models\OrderModel;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 
 final readonly class EloquentOrderRepository implements OrderRepository
@@ -38,6 +40,29 @@ final readonly class EloquentOrderRepository implements OrderRepository
         $model = OrderModel::query()->lockForUpdate()->find($id);
 
         return $model !== null ? $this->mapper->toAggregate($model) : null;
+    }
+
+    /**
+     * @return list<Order>
+     */
+    public function lockExpiredUnpaidForUpdate(CarbonImmutable $createdBefore, int $limit): array
+    {
+        $models = OrderModel::query()
+            ->whereIn('status', [OrderStatus::STOCK_RESERVED->value, OrderStatus::PAYMENT_PENDING->value])
+            ->where('created_at', '<', $createdBefore->format('Y-m-d H:i:s.uP'))
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->limit($limit)
+            ->lock('FOR UPDATE SKIP LOCKED')
+            ->get();
+
+        $orders = [];
+
+        foreach ($models as $model) {
+            $orders[] = $this->mapper->toAggregate($model);
+        }
+
+        return $orders;
     }
 
     public function findByIdempotencyKey(string $customerId, string $key): ?Order

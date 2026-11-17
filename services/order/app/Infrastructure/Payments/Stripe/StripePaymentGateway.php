@@ -11,6 +11,7 @@ use App\Application\Payments\ProviderPaymentIntent;
 use App\Application\Payments\ProviderRefund;
 use App\Application\Payments\RefundStatus;
 use App\Application\Ports\PaymentGateway;
+use Stripe\ErrorObject;
 use Stripe\Exception\ApiErrorException;
 use Stripe\PaymentIntent;
 use Stripe\Refund;
@@ -51,6 +52,23 @@ final readonly class StripePaymentGateway implements PaymentGateway
         return $this->mapIntent($intent);
     }
 
+    public function cancelIntent(string $providerId, string $idempotencyKey): ProviderPaymentIntent
+    {
+        try {
+            $intent = $this->client->paymentIntents->cancel($providerId, [], [
+                'idempotency_key' => $idempotencyKey,
+            ]);
+        } catch (ApiErrorException $exception) {
+            if ($this->isAlreadyFinalState($exception)) {
+                return $this->retrieveIntent($providerId);
+            }
+
+            throw new PaymentProviderUnavailable('Stripe PaymentIntent cancellation failed.', $exception);
+        }
+
+        return $this->mapIntent($intent);
+    }
+
     public function refund(string $providerPaymentId, int $amount, string $idempotencyKey): ProviderRefund
     {
         try {
@@ -68,6 +86,20 @@ final readonly class StripePaymentGateway implements PaymentGateway
             providerId: $refund->id,
             status: $this->mapRefundStatus($refund),
         );
+    }
+
+    private function isAlreadyFinalState(ApiErrorException $exception): bool
+    {
+        $error = $exception->getError();
+
+        if ($error !== null && $error->code === ErrorObject::CODE_PAYMENT_INTENT_UNEXPECTED_STATE) {
+            return true;
+        }
+
+        $message = $exception->getMessage();
+
+        return str_contains($message, 'status of succeeded')
+            || str_contains($message, 'status of canceled');
     }
 
     private function mapIntent(PaymentIntent $intent): ProviderPaymentIntent
