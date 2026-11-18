@@ -13,6 +13,7 @@ use App\Application\Ports\IdempotencyLock;
 use App\Application\Ports\IdGenerator;
 use App\Application\Ports\OrderReadRepository;
 use App\Application\Ports\OrderRepository;
+use App\Application\Ports\OverdueRentalReadRepository;
 use App\Application\Ports\PaymentGateway;
 use App\Application\Ports\PaymentRepository;
 use App\Application\Ports\ProcessedEventStore;
@@ -41,6 +42,7 @@ use App\Infrastructure\Payments\Stripe\StripePaymentGateway;
 use App\Infrastructure\Payments\Stripe\StripeWebhookSignatureVerifier;
 use App\Infrastructure\Persistence\EloquentOrderReadRepository;
 use App\Infrastructure\Persistence\EloquentOrderRepository;
+use App\Infrastructure\Persistence\EloquentOverdueRentalReadRepository;
 use App\Infrastructure\Persistence\EloquentPaymentRepository;
 use App\Infrastructure\Persistence\EloquentProcessedEventStore;
 use App\Infrastructure\Persistence\EloquentProductSnapshotRepository;
@@ -72,6 +74,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(IdGenerator::class, UuidV7IdGenerator::class);
         $this->app->bind(OrderRepository::class, EloquentOrderRepository::class);
         $this->app->bind(OrderReadRepository::class, EloquentOrderReadRepository::class);
+        $this->app->bind(OverdueRentalReadRepository::class, EloquentOverdueRentalReadRepository::class);
         $this->app->bind(ProductSnapshotRepository::class, EloquentProductSnapshotRepository::class);
         $this->app->bind(ProcessedEventStore::class, EloquentProcessedEventStore::class);
         $this->app->bind(PaymentRepository::class, EloquentPaymentRepository::class);
@@ -154,6 +157,14 @@ class AppServiceProvider extends ServiceProvider
             $user = $request->attributes->get(AuthUser::ATTRIBUTE);
 
             return Limit::perMinute(30)->by(
+                $user instanceof AuthUser ? 'user:' . $user->id : (string) $request->ip(),
+            );
+        });
+
+        RateLimiter::for('analytics-read', static function (Request $request): Limit {
+            $user = $request->attributes->get(AuthUser::ATTRIBUTE);
+
+            return Limit::perMinute(60)->by(
                 $user instanceof AuthUser ? 'user:' . $user->id : (string) $request->ip(),
             );
         });

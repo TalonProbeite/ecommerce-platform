@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Application\Ports\AuthenticatedUser;
 use App\Domain\Order\Order;
 use App\Enums\Role;
 use App\Http\Auth\AuthUser;
@@ -16,6 +17,14 @@ final class OrderPolicy
             Role::CUSTOMER => $order->customerId() === $user->id,
             Role::STORE_MANAGER => $user->storeId !== null && $order->storeId() === $user->storeId,
             Role::ADMIN, Role::ANALYST => true,
+        };
+    }
+
+    public function viewOverdue(AuthenticatedUser $user): bool
+    {
+        return match ($user->role()) {
+            Role::ADMIN, Role::ANALYST => true,
+            default => false,
         };
     }
 

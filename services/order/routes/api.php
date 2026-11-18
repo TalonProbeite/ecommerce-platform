@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\AnalyticsController;
 use App\Http\Controllers\Api\V1\OrderActionController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentIntentController;
@@ -36,4 +37,8 @@ Route::middleware(Authenticate::class)->prefix('v1')->group(function (): void {
 
     Route::post('/orders/{order}/return', [OrderActionController::class, 'return'])
         ->name('orders.return');
+
+    Route::get('/analytics/overdue-rentals', [AnalyticsController::class, 'overdueRentals'])
+        ->middleware('throttle:analytics-read')
+        ->name('analytics.overdue-rentals');
 });

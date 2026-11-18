@@ -57,6 +57,9 @@ return new class () extends Migration {
             CHECK (issued_at IS NULL OR issued_by IS NOT NULL)');
         DB::statement('ALTER TABLE order_items ADD CONSTRAINT order_items_returned_requires_actor_check
             CHECK (returned_at IS NULL OR returned_by IS NOT NULL)');
+        DB::statement("CREATE INDEX order_items_overdue_idx
+            ON order_items (rental_end_at, id)
+            WHERE item_status = 'issued' AND returned_at IS NULL");
     }
 
     public function down(): void
