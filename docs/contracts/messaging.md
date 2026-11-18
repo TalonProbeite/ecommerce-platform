@@ -1,9 +1,11 @@
 # Messaging contract
 
-This document is the source of truth for asynchronous messaging between the
-Catalog, Order, and Notification services. If the implementation and this
-document disagree, fix the implementation (or this document) and record the
-change in the related report.
+This document describes asynchronous messaging between the Catalog, Order, and
+Notification services. The implementation is the source of truth for each
+message a service emits or accepts. This document was synchronized with the
+Order code in `services/order` during P12. If this document and the Order code
+disagree, fix this document or record the difference as a P12 gap; do not change
+application code as part of a documentation task.
 
 ## Common envelope
 
@@ -41,10 +43,15 @@ not carry a currency field; every monetary value is expressed in EUR.
 
 ## Exchanges and topology
 
-| Exchange | Type | Declared by | Purpose |
-| --- | --- | --- | --- |
-| `catalog.events` | `topic`, durable | Catalog | Outbound Catalog events consumed by Order. |
-| `order.events` | `topic`, durable | Order | Outbound Order events consumed by Catalog. |
+| Exchange | Type | Durable | `auto_delete` | `internal` | Arguments | Declared by | Purpose |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `catalog.events` | `topic` | yes | no | no | none (empty table) | Catalog; Order declares it identically | Outbound Catalog events consumed by Order. |
+| `order.events` | `topic` | yes | no | no | none (empty table) | Order, Catalog and Notification declare it identically | Outbound Order events consumed by Catalog and Notification. |
+
+Order-side source of truth: `App\Infrastructure\Messaging\Topology`
+(`OUTBOUND_*` and `INBOUND_*` constants). Both exchanges are declared with
+`exchange_declare(name, type, passive=false, durable=true, auto_delete=false,
+internal=false)` and no argument table.
 
 Rules:
 
@@ -76,6 +83,22 @@ per-consumer; routing keys are prefixed with the owning service.
 | `order.processing.q` | quorum | yes | `dlx.exchange` (fanout) | — | 5 | — (not set) | — (not set) | Notification |
 | `failed.messages` | classic | yes | — | — | — | — | — | Notification DLQ (operator/replay) |
 
+Order-side queue parameters (`App\Infrastructure\Messaging\Topology`):
+
+- `order.catalog-events`: `x-queue-type=quorum`, durable, not exclusive, not
+  auto-delete, `x-dead-letter-exchange=order.catalog-events.dlx`,
+  `x-dead-letter-routing-key=order.catalog-events`, `x-delivery-limit=5`,
+  `x-dead-letter-strategy=at-least-once`, `x-overflow=reject-publish`.
+  Consumer: `php artisan messaging:consume-catalog-events`.
+- `order.catalog-events.dead`: `x-queue-type=quorum`, durable, not exclusive,
+  not auto-delete, no DLX and no `x-delivery-limit`/strategy/overflow
+  arguments. It is bound to the direct DLX exchange `order.catalog-events.dlx`
+  with routing key `order.catalog-events` (the inbound queue name). Consumer:
+  operator/replay only.
+
+`x-delivery-limit` comes from `INBOUND_DELIVERY_LIMIT` / `config/inbound.php`
+(default `5`). Queue names come from `INBOUND_*` config with the same defaults.
+
 ## Subscribers
 
 Every outbound routing key has an explicit owner of its bindings. A routing key
@@ -98,6 +121,24 @@ by Order or Notification.
 | `order.events` | `order.issued` | Catalog | `catalog.order-events` |
 | `order.events` | `order.returned` | Catalog | `catalog.order-events` |
 | `order.events` | `order.paid` | Notification | `order.processing.q` |
+
+The Notification service is outside `services/order`. Its queue
+`order.processing.q`, the `dlx.exchange` dead-letter exchange and the
+`failed.messages` queue are an **external contract and are not verified by this
+repository**. The Order side only guarantees that `order.paid` is published on
+`order.events` with the payload below.
+
+Order does **not** publish `order.confirmed`, although the TZ lists it and
+Notification consumes it. This is a deviation from the TZ and is recorded in
+`docs/order/tz-checklist.md`. The complete set of outbound keys in code is
+`order.created`, `order.cancelled`, `order.issued`, `order.returned`,
+`order.paid` (`App\Domain\Messaging\RoutingKeys::outbound()`).
+
+The TZ also lists `order.payment_failed` and `stock.release_requested`; neither
+exists in the Order code. A failed payment keeps the order in `payment_pending`
+(the next PaymentIntent attempt is allowed), and cancellation publishes
+`order.cancelled`, which Catalog uses to release the reservation. These are
+recorded as TZ deviations, not as changes to the code.
 
 ## Catalog → Order (`catalog.events`)
 
@@ -234,6 +275,23 @@ subscribe to them. Their aggregate key is `category_id`.
 
 ## Order → Catalog (`order.events`)
 
+Every outbound Order message is written to the outbox as the event payload and
+published by the relay with the common envelope added:
+
+```json
+{
+  "event_id": "<outbox event_id, also AMQP message_id>",
+  "schema_version": 1,
+  "occurred_at": "<outbox occurred_at, UTC, Y-m-d\\TH:i:s.uP>"
+}
+```
+
+The payload fields below are exactly what `toArray()` adds after the envelope.
+`OrderEvent::toArray()` (used by `order.created`, `order.cancelled`,
+`order.issued`, `order.returned`) returns `order_id`, `store_id`, `items`.
+`OrderPaid::toArray()` returns `order_id`, `store_id`, `customer_id`,
+`amount_total`, `currency`, `paid_at`.
+
 Catalog subscribes to these routing keys:
 
 - `order.created`
@@ -253,8 +311,6 @@ optional inbound (`Y-m-d\TH:i:s.uP` or `Y-m-d\TH:i:sP`).
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `event_id` | UUID string | Event identifier. |
-| `occurred_at` | string | Event time with offset. |
 | `order_id` | UUID string | Order identifier. |
 | `store_id` | UUID string | Store identifier. |
 | `items` | array | 1 to 100 order lines. |
@@ -274,6 +330,7 @@ Example:
 ```json
 {
   "event_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "schema_version": 1,
   "occurred_at": "2026-11-20T10:00:00.123456+00:00",
   "order_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
   "store_id": "3d9a1c2e-4b5f-4a6d-9e8f-1a2b3c4d5e6f",
@@ -293,8 +350,6 @@ Example:
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `event_id` | UUID string | Event identifier. |
-| `occurred_at` | string | Event time with offset. |
 | `order_id` | UUID string | Order identifier. |
 | `store_id` | UUID string | Store identifier. |
 | `items` | array | 1 to 100 order lines. |
@@ -312,6 +367,7 @@ Example (`order.issued`):
 ```json
 {
   "event_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "schema_version": 1,
   "occurred_at": "2026-11-21T09:00:00.123456+00:00",
   "order_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
   "store_id": "3d9a1c2e-4b5f-4a6d-9e8f-1a2b3c4d5e6f",
@@ -333,8 +389,6 @@ subscribe to this routing key. Payload не содержит персональ�
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `event_id` | UUID string | Event identifier. |
-| `occurred_at` | string | Event time with offset. |
 | `order_id` | UUID string | Order identifier. |
 | `store_id` | UUID string | Store identifier. |
 | `customer_id` | UUID string | Customer identifier. |
@@ -347,6 +401,7 @@ Example:
 ```json
 {
   "event_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "schema_version": 1,
   "occurred_at": "2026-11-20T10:10:00.123456+00:00",
   "order_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
   "store_id": "3d9a1c2e-4b5f-4a6d-9e8f-1a2b3c4d5e6f",
