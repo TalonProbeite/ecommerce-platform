@@ -28,6 +28,14 @@ final class OrderPolicy
         };
     }
 
+    public function viewEvents(AuthenticatedUser $user): bool
+    {
+        return match ($user->role()) {
+            Role::ADMIN, Role::ANALYST => true,
+            default => false,
+        };
+    }
+
     public function create(AuthUser $user): bool
     {
         return $user->role === Role::CUSTOMER;

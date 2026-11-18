@@ -11,42 +11,96 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getCategoryLabel, getEquipmentById } from '@/data/equipment'
 import { addDaysISO, calculateTotals, formatCurrency, rentalDays, todayISO } from '@/lib/pricing'
+import { formatEurCents } from '@/lib/money'
+import { billedHours, defaultRentalEnd, defaultRentalStart, isValidRentalRange, localInputToIso, toDateTimeInput } from '@/lib/rental'
 import { storeFor, toEquipment } from '@/lib/catalog-mapping'
 import { useCartStore } from '@/store/cart-store'
+import { useRentalCartStore } from '@/store/rental-cart-store'
 import { useAuthStore } from '@/store/auth-store'
-import { isMockApi } from '@/api/client'
 import { LIVE_CATALOG, useCatalogProduct, useCatalogStores } from '@/hooks/use-catalog-data'
 import type { Equipment } from '@/types'
 
-function EquipmentDetail({ item, image, canBook, isGuest }: { item: Equipment; image: string; canBook: boolean; isGuest: boolean }) {
+interface LiveBooking {
+  storeId: string
+  storeName: string
+  pricePerHourCents: number
+  depositPerUnitCents: number
+}
+
+function EquipmentDetail({ item, image, canBook, isGuest, booking }: { item: Equipment; image: string; canBook: boolean; isGuest: boolean; booking?: LiveBooking }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const addItem = useCartStore((state) => state.addItem)
+  const addMockItem = useCartStore((state) => state.addItem)
+  const addRentalItem = useRentalCartStore((state) => state.addItem)
+  const rentalCartItems = useRentalCartStore((state) => state.items)
+  const live = booking !== undefined
 
   const today = todayISO()
   const [startDate, setStartDate] = useState(addDaysISO(today, 1))
   const [endDate, setEndDate] = useState(addDaysISO(today, 3))
+  const [startInput, setStartInput] = useState(() => defaultRentalStart())
+  const [endInput, setEndInput] = useState(() => defaultRentalEnd(defaultRentalStart()))
+  const [quantity, setQuantity] = useState(1)
 
   const days = rentalDays(startDate, endDate)
-  const datesValid = days > 0 && startDate >= today
-  const { subtotal, serviceFee, total } = calculateTotals(days * item.pricePerDay)
-  const unit = item.priceUnit ?? 'day'
+  const startIso = localInputToIso(startInput)
+  const endIso = localInputToIso(endInput)
+  const hours = startIso && endIso ? billedHours(startIso, endIso) : 0
+  const datesValid = live
+    ? Boolean(startIso && endIso && isValidRentalRange(startIso, endIso))
+    : days > 0 && startDate >= today
+  const unit = live ? 'hour' : (item.priceUnit ?? 'day')
+  const safeQuantity = Math.min(1000, Math.max(1, Number.isFinite(quantity) ? Math.trunc(quantity) : 1))
+  const subtotalCents = live ? hours * (booking?.pricePerHourCents ?? 0) * safeQuantity : 0
+  const depositCents = live ? (booking?.depositPerUnitCents ?? 0) * safeQuantity : 0
+  const mockTotals = calculateTotals(days * item.pricePerDay)
 
   function handleStartChange(value: string) {
     setStartDate(value)
     if (endDate < value) setEndDate(value)
   }
 
+  function handleLiveStartChange(value: string) {
+    setStartInput(value)
+    if (endInput <= value) setEndInput(defaultRentalEnd(value))
+  }
+
   function handleBook() {
     if (!canBook || !datesValid) return
-    addItem({ equipmentId: item.id, startDate, endDate })
-    toast.success(`${item.name} added to your cart.`)
+    if (live && booking) {
+      if (!startIso || !endIso) return
+      if (rentalCartItems.length > 0 && rentalCartItems[0].storeId !== booking.storeId) {
+        const clear = window.confirm('Your cart already contains equipment from another store. Clear the cart and add this item?')
+        if (!clear) return
+      }
+      const result = addRentalItem({
+        productId: item.id,
+        name: item.name,
+        image,
+        storeId: booking.storeId,
+        storeName: booking.storeName,
+        location: item.location,
+        pricePerHourCents: booking.pricePerHourCents,
+        depositPerUnitCents: booking.depositPerUnitCents,
+        quantity: safeQuantity,
+        rentalStartAt: startIso,
+        rentalEndAt: endIso,
+      })
+      if (result === 'replaced') toast.message('Your cart was cleared because it contained equipment from another store.')
+      else toast.success(`${item.name} added to your cart.`)
+    } else {
+      addMockItem({ equipmentId: item.id, startDate, endDate })
+      toast.success(`${item.name} added to your cart.`)
+    }
     navigate(ROUTES.checkout)
   }
 
   function handleSignIn() {
     navigate(ROUTES.login, { state: { from: `${location.pathname}${location.search}` } })
   }
+
+  const pricePerHour = live ? (booking?.pricePerHourCents ?? 0) : item.pricePerDay
+  const totalDisplay = live ? formatEurCents(subtotalCents) : formatCurrency(mockTotals.subtotal)
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -110,42 +164,82 @@ function EquipmentDetail({ item, image, canBook, isGuest }: { item: Equipment; i
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="rounded-3xl border bg-card p-6 shadow-xl shadow-primary/5">
             <p>
-              <span className="text-3xl font-extrabold">{formatCurrency(item.pricePerDay)}</span>
+              <span className="text-3xl font-extrabold">{live ? formatEurCents(pricePerHour) : formatCurrency(pricePerHour)}</span>
               <span className="text-muted-foreground"> / {unit}</span>
             </p>
 
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="start-date">Start</Label>
-                <Input id="start-date" type="date" min={today} value={startDate} onChange={(event) => handleStartChange(event.target.value)} className="h-10" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="end-date">End</Label>
-                <Input id="end-date" type="date" min={startDate || today} value={endDate} onChange={(event) => setEndDate(event.target.value)} className="h-10" />
-              </div>
-            </div>
+            {live ? (
+              <>
+                <div className="mt-5 space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rental-start">Start</Label>
+                    <Input id="rental-start" type="datetime-local" min={toDateTimeInput(new Date())} value={startInput} onChange={(event) => handleLiveStartChange(event.target.value)} className="h-10" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rental-end">End</Label>
+                    <Input id="rental-end" type="datetime-local" min={startInput} value={endInput} onChange={(event) => setEndInput(event.target.value)} className="h-10" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rental-quantity">Quantity</Label>
+                    <Input id="rental-quantity" type="number" inputMode="numeric" min={1} max={1000} value={quantity} onChange={(event) => setQuantity(Number(event.target.value) || 1)} className="h-10" />
+                  </div>
+                </div>
 
-            {!datesValid ? (
-              <p className="mt-3 text-sm text-destructive" role="alert">
-                Choose a start date from today and an end date on or after it.
-              </p>
+                {!datesValid ? (
+                  <p className="mt-3 text-sm text-destructive" role="alert">Choose a future start and an end after the start.</p>
+                ) : (
+                  <dl className="mt-5 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">{formatEurCents(pricePerHour)} × {hours} {hours === 1 ? 'hour' : 'hours'} × {safeQuantity}</dt>
+                      <dd>{formatEurCents(subtotalCents)}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Refundable deposit</dt>
+                      <dd>{formatEurCents(depositCents)}</dd>
+                    </div>
+                    <div className="flex justify-between border-t pt-3 text-base font-bold">
+                      <dt>Total</dt>
+                      <dd>{formatEurCents(subtotalCents + depositCents)}</dd>
+                    </div>
+                  </dl>
+                )}
+              </>
             ) : (
-              <dl className="mt-5 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">
-                    {formatCurrency(item.pricePerDay)} &times; {days} {days === 1 ? unit : `${unit}s`}
-                  </dt>
-                  <dd>{formatCurrency(subtotal)}</dd>
+              <>
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="start-date">Start</Label>
+                    <Input id="start-date" type="date" min={today} value={startDate} onChange={(event) => handleStartChange(event.target.value)} className="h-10" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="end-date">End</Label>
+                    <Input id="end-date" type="date" min={startDate || today} value={endDate} onChange={(event) => setEndDate(event.target.value)} className="h-10" />
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Service fee</dt>
-                  <dd>{formatCurrency(serviceFee)}</dd>
-                </div>
-                <div className="flex justify-between border-t pt-3 text-base font-bold">
-                  <dt>Total</dt>
-                  <dd>{formatCurrency(total)}</dd>
-                </div>
-              </dl>
+
+                {!datesValid ? (
+                  <p className="mt-3 text-sm text-destructive" role="alert">
+                    Choose a start date from today and an end date on or after it.
+                  </p>
+                ) : (
+                  <dl className="mt-5 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">
+                        {formatCurrency(item.pricePerDay)} &times; {days} {days === 1 ? unit : `${unit}s`}
+                      </dt>
+                      <dd>{formatCurrency(mockTotals.subtotal)}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Service fee</dt>
+                      <dd>{formatCurrency(mockTotals.serviceFee)}</dd>
+                    </div>
+                    <div className="flex justify-between border-t pt-3 text-base font-bold">
+                      <dt>Total</dt>
+                      <dd>{formatCurrency(mockTotals.total)}</dd>
+                    </div>
+                  </dl>
+                )}
+              </>
             )}
 
             <Button
@@ -154,11 +248,13 @@ function EquipmentDetail({ item, image, canBook, isGuest }: { item: Equipment; i
               disabled={!isGuest && (!canBook || !datesValid)}
               onClick={isGuest ? handleSignIn : handleBook}
             >
-              {isGuest ? 'Sign in to reserve' : 'Reserve now'}
+              {isGuest ? 'Sign in to reserve' : canBook ? 'Reserve now' : 'Customer accounts only'}
             </Button>
             <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
               <ShieldCheck className="size-4" aria-hidden="true" />
-              {formatCurrency(item.deposit)} refundable deposit held until return
+              {live
+                ? `${formatEurCents(depositCents)} refundable deposit for this rental`
+                : `${formatCurrency(item.deposit)} refundable deposit held until return`}
             </p>
           </div>
         </aside>
@@ -185,7 +281,7 @@ function MockEquipmentPage() {
     )
   }
 
-  return <EquipmentDetail item={item} image={item.image} canBook={isMockApi && Boolean(user)} isGuest={!user} />
+  return <EquipmentDetail item={item} image={item.image} canBook={Boolean(user)} isGuest={!user} />
 }
 
 function LiveEquipmentPage() {
@@ -230,10 +326,24 @@ function LiveEquipmentPage() {
   }
 
   const storeList = stores.state.status === 'success' ? stores.state.data : []
-  const item = toEquipment(product.state.data, storeFor(product.state.data, storeList))
+  const store = storeFor(product.state.data, storeList)
+  const item = toEquipment(product.state.data, store)
   const image = product.state.data.main_image_url || item.image
 
-  return <EquipmentDetail item={item} image={image} canBook={false} isGuest={!user} />
+  return (
+    <EquipmentDetail
+      item={item}
+      image={image}
+      canBook={user?.role === 'customer'}
+      isGuest={!user}
+      booking={{
+        storeId: product.state.data.store_id,
+        storeName: store?.name ?? 'Equipment provider',
+        pricePerHourCents: product.state.data.price_per_hour,
+        depositPerUnitCents: product.state.data.deposit_amount,
+      }}
+    />
+  )
 }
 
 export function EquipmentPage() {

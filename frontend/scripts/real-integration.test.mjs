@@ -313,9 +313,14 @@ test('REAL order history refuses fixtures instead of presenting them as live ord
     const { loadRentalHistory } = await server.ssrLoadModule('/src/services/rental-history.ts')
     await assert.rejects(loadRentalHistory('u-user'), /unavailable/i)
     const { OrdersPage } = await server.ssrLoadModule('/src/pages/orders-page.tsx')
+    const { useAuthStore } = await server.ssrLoadModule('/src/store/auth-store.ts')
+    useAuthStore.getInitialState().user = { id: 'u-user', role: 'customer' }
     const html = renderToStaticMarkup(createElement(MemoryRouter, null, createElement(OrdersPage)))
-    assert.match(html, /Rental history unavailable/)
+    assert.match(html, /Loading rentals/)
     assert.doesNotMatch(html, /No rentals yet/)
+    useAuthStore.getInitialState().user = { id: 'u-admin', role: 'admin' }
+    const staff = renderToStaticMarkup(createElement(MemoryRouter, null, createElement(OrdersPage)))
+    assert.match(staff, /being prepared|workspace for staff|arrive/i)
   } finally { await server.close() }
 })
 

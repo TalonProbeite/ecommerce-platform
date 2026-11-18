@@ -20,7 +20,7 @@ servers:
     description: Gateway prefix `/order` (docker/nginx/conf.d/default.conf rewrites `/order/(.*)` to the Order nginx)
 
 security:
-  - bearerAuth: []
+  - cookieAuth: []
 
 paths:
   /orders:
@@ -159,6 +159,59 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           description: The order does not exist or is not visible to the caller.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /orders/{order}/events:
+    get:
+      tags: [Orders]
+      summary: List order status events
+      description: |
+        Returns the append-only status history of an order in ascending
+        `(occurred_at, id)` order. Available only to `admin` and `analyst`.
+        `actor_id` and `payload` are intentionally not exposed.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque cursor from `meta.next_cursor` of the previous page.
+          schema:
+            type: string
+            maxLength: 512
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: A page of order events.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderEventListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The caller is neither `admin` nor `analyst`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The order does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Invalid `cursor` or `limit`.
           content:
             application/problem+json:
               schema:
@@ -458,7 +511,7 @@ paths:
       summary: Stripe webhook
       x-internal: true
       description: |
-        Internal Stripe callback. No bearer token. The body is the raw request
+        Internal Stripe callback. No authentication. The body is the raw request
         payload exactly as sent by Stripe; the application verifies
         `Stripe-Signature` against the raw body (`Stripe\Webhook::constructEvent`).
         A missing or invalid signature returns `400`. A retryable processing
@@ -506,12 +559,15 @@ paths:
 
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
       description: |
-        JWT signed with RS256 and verified with the configured public key.
+        HttpOnly `access_token` cookie set by the Auth service. The cookie
+        contains an RS256 JWT verified with the configured public key. The
+        frontend never reads or stores the token; the browser sends the cookie
+        automatically. Bearer headers are not accepted.
 
         Claims read by `App\Http\Middleware\Authenticate`:
         - `user_id` (required): UUID string.
@@ -520,7 +576,7 @@ components:
         - `exp` (required): numeric expiration; an expired token is rejected.
 
         Authentication errors:
-        - `401` when the Bearer token is missing, invalid/expired, `user_id` is not
+        - `401` when the `access_token` cookie is missing, invalid/expired, `user_id` is not
           a UUID, or `role` is missing/unknown.
         - `403` when `role` is `store_manager` and `store_id` is missing.
         - `500` when the JWT public key is not configured.
@@ -568,7 +624,7 @@ components:
 
   responses:
     Unauthorized:
-      description: Missing, invalid or expired Bearer token, invalid `user_id`, or missing/unknown `role`.
+      description: Missing, invalid or expired `access_token` cookie, invalid `user_id`, or missing/unknown `role`.
       content:
         application/problem+json:
           schema:
@@ -927,6 +983,48 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Order'
+        meta:
+          type: object
+          required: [next_cursor, limit]
+          properties:
+            next_cursor:
+              type: [string, 'null']
+            limit:
+              type: integer
+              minimum: 1
+              maximum: 100
+
+    OrderEvent:
+      type: object
+      required: [id, from_status, to_status, order_item_id, actor_role, occurred_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        from_status:
+          type: [string, 'null']
+          enum: [created, stock_reserved, payment_pending, paid, in_rental, completed, cancelled, null]
+        to_status:
+          type: string
+          enum: [created, stock_reserved, payment_pending, paid, in_rental, completed, cancelled]
+        order_item_id:
+          type: [string, 'null']
+          format: uuid
+        actor_role:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+          description: UTC timestamp with microsecond precision.
+
+    OrderEventListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderEvent'
         meta:
           type: object
           required: [next_cursor, limit]

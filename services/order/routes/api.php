@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AnalyticsController;
 use App\Http\Controllers\Api\V1\OrderActionController;
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\OrderEventController;
 use App\Http\Controllers\Api\V1\PaymentIntentController;
 use App\Http\Middleware\Authenticate;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +24,9 @@ Route::middleware(Authenticate::class)->prefix('v1')->group(function (): void {
 
     Route::get('/orders/{order}', [OrderController::class, 'show'])
         ->name('orders.show');
+
+    Route::get('/orders/{order}/events', [OrderEventController::class, 'index'])
+        ->name('orders.events.index');
 
     Route::post('/orders/{order}/payment-intent', [PaymentIntentController::class, 'store'])
         ->middleware('throttle:payments-intent')

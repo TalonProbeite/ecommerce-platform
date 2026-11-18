@@ -22,13 +22,13 @@ final class Authenticate
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $token = $request->bearerToken();
+        $token = $request->cookie('access_token');
 
         if (! is_string($token) || $token === '') {
             return ProblemResponse::make(
                 Response::HTTP_UNAUTHORIZED,
                 'Unauthorized',
-                'A Bearer token is required.',
+                'An access_token cookie is required.',
             );
         }
 

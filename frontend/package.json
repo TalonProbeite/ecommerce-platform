@@ -9,7 +9,10 @@
     "dev:real": "vite --mode real",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "node scripts/run-tests.mjs && node --test --test-concurrency=1 scripts/*.test.mjs",
+    "test:unit": "node scripts/run-tests.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

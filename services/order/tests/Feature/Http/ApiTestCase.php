@@ -204,10 +204,10 @@ abstract class ApiTestCase extends TestCase
      */
     protected function headers(string $token): array
     {
-        return [
-            'Accept' => 'application/json',
-            'Authorization' => 'Bearer ' . $token,
-        ];
+        $this->withCredentials();
+        $this->withUnencryptedCookie('access_token', $token);
+
+        return ['Accept' => 'application/json'];
     }
 
     private function encodeJson(mixed $value): string

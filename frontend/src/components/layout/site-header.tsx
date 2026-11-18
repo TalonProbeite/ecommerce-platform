@@ -22,12 +22,16 @@ import { cn } from '@/lib/utils'
 import { NAV_BY_ROLE, fullName, initials } from '@/lib/roles'
 import { useAuthStore } from '@/store/auth-store'
 import { useCartStore } from '@/store/cart-store'
+import { cartQuantity, useRentalCartStore } from '@/store/rental-cart-store'
+import { IS_ORDER_LIVE } from '@/api/endpoints'
 
 export function SiteHeader() {
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.status === 'authenticated' ? state.user : null)
   const logout = useAuthStore((state) => state.logout)
-  const cartCount = useCartStore((state) => state.items.length)
+  const mockCartCount = useCartStore((state) => state.items.length)
+  const rentalCartCount = useRentalCartStore((state) => cartQuantity(state.items))
+  const cartCount = IS_ORDER_LIVE ? rentalCartCount : mockCartCount
   const [query, setQuery] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)

@@ -47,10 +47,10 @@ test('profile rental history shares orders, isolates users and renders its state
     assert.match(error, /Try again/)
     // Zustand's SSR snapshot normally holds the initial (signed-out) state.
     useOrdersStore.getInitialState().orders = useOrdersStore.getState().orders
-    useAuthStore.getInitialState().user = { id: 'u-user' }
+    useAuthStore.getInitialState().user = { id: 'u-user', role: 'customer' }
     const history = renderToStaticMarkup(createElement(MemoryRouter, null, createElement(OrdersPage)))
     assert.match(history, /RNT-NEW/)
-    useAuthStore.getInitialState().user = { id: 'u-google' }
+    useAuthStore.getInitialState().user = { id: 'u-google', role: 'customer' }
     assert.doesNotMatch(renderToStaticMarkup(createElement(MemoryRouter, null, createElement(OrdersPage))), /RNT-NEW/)
   } finally {
     await server.close()

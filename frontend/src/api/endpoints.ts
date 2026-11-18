@@ -57,16 +57,16 @@ export interface ApiEndpoints {
   orderApiEnabled: boolean
 }
 
-function resolveGlobalCatalogBase(env: EndpointEnvironment): string {
+function resolveGlobalBase(env: EndpointEnvironment, prefix: string): string {
   const apiOrigin = normalizeBaseUrl(env.VITE_API_URL)
 
-  if (apiOrigin) return `${apiOrigin}/catalog`
+  if (apiOrigin) return `${apiOrigin}${prefix}`
 
   if (env.VITE_API_MODE?.trim() === 'real') {
-    throw new Error('REAL API mode requires VITE_API_URL so the catalog gateway origin can be resolved.')
+    throw new Error(`REAL API mode requires VITE_API_URL so the ${prefix} gateway origin can be resolved.`)
   }
 
-  return `${DEFAULT_GLOBAL_ORIGIN}/catalog`
+  return `${DEFAULT_GLOBAL_ORIGIN}${prefix}`
 }
 
 export function resolveApiEndpoints(env: EndpointEnvironment): ApiEndpoints {
@@ -74,10 +74,10 @@ export function resolveApiEndpoints(env: EndpointEnvironment): ApiEndpoints {
   const catalogOverride = normalizeBaseUrl(env.NEXT_PUBLIC_CATALOG_BASE_URL)
   const orderOverride = normalizeBaseUrl(env.NEXT_PUBLIC_ORDER_BASE_URL)
 
-  const catalogBase = catalogOverride ?? (mode === 'global' ? resolveGlobalCatalogBase(env) : LOCAL_CATALOG_BASE)
-  // No order gateway exists in the compose stack yet. Orders stay on mocks
-  // until NEXT_PUBLIC_ORDER_BASE_URL explicitly enables the real transport.
-  const orderBase = orderOverride
+  const catalogBase = catalogOverride ?? (mode === 'global' ? resolveGlobalBase(env, '/catalog') : LOCAL_CATALOG_BASE)
+  // The global gateway exposes the Order service under /order. A local order
+  // service has no stable default port, so it must be configured explicitly.
+  const orderBase = orderOverride ?? (mode === 'global' ? resolveGlobalBase(env, '/order') : undefined)
 
   return {
     mode,
@@ -85,9 +85,7 @@ export function resolveApiEndpoints(env: EndpointEnvironment): ApiEndpoints {
     orderBase,
     catalogApi: `${catalogBase}${API_PREFIX}`,
     orderApi: orderBase ? `${orderBase}${API_PREFIX}` : undefined,
-    // Order Service does not exist yet: stay on the draft mock transport until
-    // an explicit override confirms a real address.
-    orderApiEnabled: orderOverride !== undefined,
+    orderApiEnabled: orderBase !== undefined,
   }
 }
 
@@ -105,7 +103,19 @@ export const IS_ORDER_API_ENABLED = endpoints.orderApiEnabled
 export const IS_CATALOG_LIVE =
   import.meta.env.VITE_API_MODE === 'real' || Boolean(import.meta.env.NEXT_PUBLIC_API_MODE?.trim())
 
-// Real checkout is opt-in: the Order Service contract is still a draft.
+// Real checkout follows the real API transport unless it is explicitly
+// disabled. Mock mode still uses the local fixtures.
+const RAW_API_MODE = import.meta.env.VITE_API_MODE?.trim()
+const MOCK_MODE =
+  RAW_API_MODE === 'mock' ||
+  (RAW_API_MODE === undefined && !import.meta.env.VITE_API_URL)
+
+export const IS_ORDER_LIVE = !MOCK_MODE && IS_ORDER_API_ENABLED
+
 export const ENABLE_REAL_CHECKOUT =
-  import.meta.env.VITE_ENABLE_REAL_CHECKOUT === 'true' ||
-  import.meta.env.NEXT_PUBLIC_ENABLE_REAL_CHECKOUT === 'true'
+  IS_ORDER_LIVE &&
+  import.meta.env.VITE_ENABLE_REAL_CHECKOUT !== 'false' &&
+  import.meta.env.NEXT_PUBLIC_ENABLE_REAL_CHECKOUT !== 'false'
+
+export const STRIPE_PUBLISHABLE_KEY =
+  import.meta.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() ?? ''

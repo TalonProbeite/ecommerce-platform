@@ -18,6 +18,18 @@ final class AuthenticationTest extends ApiTestCase
     }
 
     #[Test]
+    public function it_does_not_authenticate_from_the_authorization_header(): void
+    {
+        $token = $this->tokenFor(Role::CUSTOMER);
+
+        $this->getJson('/api/v1/orders', [
+            'Accept' => 'application/json',
+            'Authorization' => 'Bearer ' . $token,
+        ])->assertStatus(401)
+            ->assertHeader('Content-Type', 'application/problem+json');
+    }
+
+    #[Test]
     public function it_rejects_a_token_with_an_invalid_user_id(): void
     {
         $token = $this->tokenFor(Role::CUSTOMER, userId: 'not-a-uuid');

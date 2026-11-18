@@ -116,10 +116,10 @@ final class PaymentIntentPostgresTest extends PostgresTestCase
      */
     private function headers(string $token): array
     {
-        return [
-            'Accept' => 'application/json',
-            'Authorization' => 'Bearer ' . $token,
-        ];
+        $this->withCredentials();
+        $this->withUnencryptedCookie('access_token', $token);
+
+        return ['Accept' => 'application/json'];
     }
 
     private function token(string $userId): string

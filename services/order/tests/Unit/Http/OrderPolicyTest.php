@@ -98,6 +98,32 @@ final class OrderPolicyTest extends TestCase
     }
 
     /**
+     * @return array<string, array{0: Role, 1: ?string, 2: bool}>
+     */
+    public static function viewEventsMatrix(): array
+    {
+        return [
+            'customer' => [Role::CUSTOMER, null, false],
+            'manager with store' => [Role::STORE_MANAGER, self::STORE_ID, false],
+            'manager without store' => [Role::STORE_MANAGER, null, false],
+            'analyst' => [Role::ANALYST, null, true],
+            'admin' => [Role::ADMIN, null, true],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('viewEventsMatrix')]
+    public function it_applies_the_view_events_matrix(Role $role, ?string $storeId, bool $expected): void
+    {
+        $policy = new OrderPolicy();
+
+        self::assertSame(
+            $expected,
+            $policy->viewEvents(new AuthUser('11111111-1111-4111-8111-999999999999', $role, $storeId)),
+        );
+    }
+
+    /**
      * @return array<string, array{0: Role, 1: string, 2: ?string, 3: bool}>
      */
     public static function cancelMatrix(): array

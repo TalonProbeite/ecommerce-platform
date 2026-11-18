@@ -9,6 +9,8 @@ export const ROUTES = {
   checkoutDelivery: '/checkout/delivery',
   checkoutSuccess: (id: string) => `/checkout/success?order=${encodeURIComponent(id)}`,
   orders: '/orders',
+  order: (id: string) => `/orders/${encodeURIComponent(id)}`,
+  orderPayment: (id: string) => `/orders/${encodeURIComponent(id)}/pay`,
   profile: '/profile',
   login: '/login',
   register: '/register',

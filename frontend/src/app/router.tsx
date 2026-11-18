@@ -28,10 +28,12 @@ export const router = createBrowserRouter([
       { path: '/catalog', element: <LegacyCatalogRedirect /> },
       { path: '/catalog/*', element: <LegacyCatalogRedirect /> },
       {
-        element: <ProtectedRoute roles={['customer']} />,
+        element: <ProtectedRoute />,
         children: [
           { path: `${ROUTES.checkout}/*`, lazy: async () => ({ Component: (await import('@/pages/checkout-page')).CheckoutPage }) },
           { path: ROUTES.orders, lazy: async () => ({ Component: (await import('@/pages/orders-page')).OrdersPage }) },
+          { path: `${ROUTES.orders}/:id`, lazy: async () => ({ Component: (await import('@/pages/order-detail-page')).OrderDetailPage }) },
+          { path: `${ROUTES.orders}/:id/pay`, lazy: async () => ({ Component: (await import('@/pages/order-payment-page')).OrderPaymentPage }) },
         ],
       },
       {
