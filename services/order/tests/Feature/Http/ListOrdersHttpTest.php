@@ -148,4 +148,16 @@ final class ListOrdersHttpTest extends ApiTestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', self::ORDER_3);
     }
+
+    #[Test]
+    public function it_rejects_an_invalid_cursor(): void
+    {
+        $this->getJson(
+            '/api/v1/orders?cursor=not-a-cursor',
+            $this->headers($this->tokenFor(Role::ADMIN)),
+        )->assertStatus(422)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('status', 422)
+            ->assertJsonPath('title', 'Unprocessable Entity');
+    }
 }

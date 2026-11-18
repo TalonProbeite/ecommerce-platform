@@ -149,8 +149,8 @@ final class OrderController extends Controller
             ));
         } catch (InvalidCursor $exception) {
             return ProblemResponse::make(
-                Response::HTTP_BAD_REQUEST,
-                'Bad Request',
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                'Unprocessable Entity',
                 $exception->getMessage(),
             );
         }
