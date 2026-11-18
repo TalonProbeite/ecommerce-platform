@@ -35,8 +35,11 @@ final class PaymentIntentPostgresTest extends PostgresTestCase
         self::assertIsArray($details);
         self::assertIsString($details['key'] ?? null);
 
-        $this->privateKeyPem = $details['key'];
-        config(['jwt.public_key_b64' => base64_encode($this->privateKeyPem), 'jwt.algo' => 'RS256']);
+        $privateKeyPem = '';
+        self::assertTrue(openssl_pkey_export($privateKey, $privateKeyPem));
+
+        $this->privateKeyPem = $privateKeyPem;
+        config(['jwt.public_key_b64' => base64_encode($details['key']), 'jwt.algo' => 'RS256']);
 
         $this->gateway = new FakePaymentGateway();
         $this->app->instance(PaymentGateway::class, $this->gateway);

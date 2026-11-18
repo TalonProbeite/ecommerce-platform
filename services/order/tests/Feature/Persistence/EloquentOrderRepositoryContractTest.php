@@ -14,7 +14,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Fakes\FixedClock;
 
-final class EloquentOrderRepositoryContractTest extends OrderRepositoryContractTest
+final class EloquentOrderRepositoryContractTest extends OrderRepositoryContractTestCase
 {
     private FixedClock $clock;
 

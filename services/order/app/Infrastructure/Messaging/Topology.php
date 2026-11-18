@@ -10,7 +10,7 @@ use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Wire\AMQPTable;
 use Throwable;
 
-final class Topology
+class Topology
 {
     public const OUTBOUND_EXCHANGE_NAME = 'order.events';
     public const OUTBOUND_EXCHANGE_TYPE = 'topic';

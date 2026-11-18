@@ -10,7 +10,7 @@ use Tests\Support\Fakes\FakeOutboxWriter;
 use Tests\Support\Fakes\FixedClock;
 use Tests\Support\Fakes\InMemoryOrderRepository;
 
-final class InMemoryOrderRepositoryContractTest extends OrderRepositoryContractTest
+final class InMemoryOrderRepositoryContractTest extends OrderRepositoryContractTestCase
 {
     private FakeOutboxWriter $outbox;
 

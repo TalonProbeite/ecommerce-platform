@@ -14,7 +14,7 @@ use App\Domain\Rental\RentalPeriod;
 use Carbon\CarbonImmutable;
 use PHPUnit\Framework\Attributes\Test;
 
-abstract class OrderRepositoryContractTest extends PersistenceTestCase
+abstract class OrderRepositoryContractTestCase extends PersistenceTestCase
 {
     private const string ORDER_ID = '018f3c52-6b0e-7f5a-9c1d-2f3a4b5c6d7e';
     private const string CUSTOMER_ID = '11111111-1111-4111-8111-111111111111';
