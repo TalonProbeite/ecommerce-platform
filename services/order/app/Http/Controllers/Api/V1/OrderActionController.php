@@ -129,8 +129,8 @@ final class OrderActionController extends Controller
             );
         } catch (RefundExceedsPayment $exception) {
             return ProblemResponse::make(
-                Response::HTTP_UNPROCESSABLE_ENTITY,
-                'Unprocessable Entity',
+                Response::HTTP_CONFLICT,
+                'Conflict',
                 $exception->getMessage(),
             );
         } catch (PaymentProviderUnavailable) {

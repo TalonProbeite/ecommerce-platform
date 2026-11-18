@@ -22,7 +22,8 @@ final readonly class SyncProductSnapshotUseCase
         private ProductSnapshotRepository $snapshots,
         private ProcessedEventStore $processedEvents,
         private LoggerInterface $logger,
-    ) {}
+    ) {
+    }
 
     public function upsert(
         ProductUpsertCommand $command,

@@ -38,9 +38,13 @@ final readonly class CancelOrder
     ) {
     }
 
-    public function execute(AuthenticatedUser $user, string $orderId, CancelReason $reason): CancelOrderResult
-    {
-        return $this->transactions->run(function () use ($user, $orderId, $reason): CancelOrderResult {
+    public function execute(
+        AuthenticatedUser $user,
+        string $orderId,
+        CancelReason $reason,
+        bool $onlyIfUnpaid = false,
+    ): CancelOrderResult {
+        return $this->transactions->run(function () use ($user, $orderId, $reason, $onlyIfUnpaid): CancelOrderResult {
             $order = $this->orders->findByIdForUpdate($orderId);
 
             if ($order === null || ! $this->canCancel($user, $order)) {
@@ -51,25 +55,30 @@ final readonly class CancelOrder
                 $order,
                 $reason,
                 ActorRole::fromRole($user->role()),
+                $onlyIfUnpaid,
             );
         });
     }
 
-    public function executeAsSystem(string $orderId, CancelReason $reason): CancelOrderResult
+    public function executeAsSystem(string $orderId, CancelReason $reason, bool $onlyIfUnpaid = false): CancelOrderResult
     {
-        return $this->transactions->run(function () use ($orderId, $reason): CancelOrderResult {
+        return $this->transactions->run(function () use ($orderId, $reason, $onlyIfUnpaid): CancelOrderResult {
             $order = $this->orders->findByIdForUpdate($orderId);
 
             if ($order === null) {
                 throw new OrderNotFound($orderId);
             }
 
-            return $this->cancel($order, $reason, ActorRole::SYSTEM);
+            return $this->cancel($order, $reason, ActorRole::SYSTEM, $onlyIfUnpaid);
         });
     }
 
-    private function cancel(Order $order, CancelReason $reason, ActorRole $actorRole): CancelOrderResult
-    {
+    private function cancel(
+        Order $order,
+        CancelReason $reason,
+        ActorRole $actorRole,
+        bool $onlyIfUnpaid,
+    ): CancelOrderResult {
         $status = $order->status();
 
         if ($status === OrderStatus::CANCELLED) {
@@ -78,6 +87,10 @@ final readonly class CancelOrder
 
         if ($status === OrderStatus::IN_RENTAL || $status === OrderStatus::COMPLETED) {
             throw new InvalidOrderTransition($status, OrderStatus::CANCELLED);
+        }
+
+        if ($onlyIfUnpaid && $status === OrderStatus::PAID) {
+            return new CancelOrderResult($order, false);
         }
 
         $now = $this->clock->now();

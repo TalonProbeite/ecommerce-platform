@@ -9,18 +9,18 @@ use App\Application\Payments\PaymentIntentRequest;
 use App\Application\Payments\PaymentStatus;
 use App\Application\Payments\ProviderPaymentIntent;
 use App\Application\Payments\ProviderRefund;
-use App\Application\Payments\RefundStatus;
 use App\Application\Ports\PaymentGateway;
 use Stripe\ErrorObject;
 use Stripe\Exception\ApiErrorException;
 use Stripe\PaymentIntent;
-use Stripe\Refund;
 use Stripe\StripeClient;
 
 final readonly class StripePaymentGateway implements PaymentGateway
 {
-    public function __construct(private StripeClient $client)
-    {
+    public function __construct(
+        private StripeClient $client,
+        private RefundStatusMapper $refundStatuses,
+    ) {
     }
 
     public function createIntent(PaymentIntentRequest $request, string $idempotencyKey): ProviderPaymentIntent
@@ -82,9 +82,11 @@ final readonly class StripePaymentGateway implements PaymentGateway
             throw new PaymentProviderUnavailable('Stripe refund creation failed.', $exception);
         }
 
+        $status = $refund->status;
+
         return new ProviderRefund(
             providerId: $refund->id,
-            status: $this->mapRefundStatus($refund),
+            status: $this->refundStatuses->map(is_string($status) ? $status : null, $refund->id),
         );
     }
 
@@ -123,18 +125,5 @@ final readonly class StripePaymentGateway implements PaymentGateway
             status: $status,
             clientSecret: $intent->client_secret,
         );
-    }
-
-    /**
-     * Stripe refund statuses are pending, requires_action, succeeded, failed and canceled.
-     * pending and requires_action both map to RefundStatus::PENDING.
-     */
-    private function mapRefundStatus(Refund $refund): string
-    {
-        $status = $refund->status;
-
-        return is_string($status) && RefundStatus::isAllowed($status)
-            ? $status
-            : RefundStatus::PENDING;
     }
 }

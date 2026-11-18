@@ -114,6 +114,41 @@ final class CancelOrderTest extends OrderApplicationTestCase
     }
 
     #[Test]
+    public function it_skips_a_paid_order_when_only_if_unpaid_is_requested(): void
+    {
+        $this->seedOrder(OrderStatus::PAID);
+        $this->seedPayment(self::ORDER_ID, PaymentStatus::SUCCEEDED);
+
+        $result = $this->useCase->executeAsSystem(
+            self::ORDER_ID,
+            CancelReason::PAYMENT_TIMEOUT,
+            onlyIfUnpaid: true,
+        );
+
+        self::assertFalse($result->changed);
+        self::assertSame(OrderStatus::PAID, $result->order->status());
+        self::assertCount(0, $this->gateway->refundCalls);
+        self::assertCount(0, $this->payments->refunds());
+        self::assertCount(0, $this->outbox->eventsOf(OrderCancelled::class));
+    }
+
+    #[Test]
+    public function it_cancels_and_refunds_a_paid_order_when_only_if_unpaid_is_false(): void
+    {
+        $this->seedOrder(OrderStatus::PAID);
+        $this->seedPayment(self::ORDER_ID, PaymentStatus::SUCCEEDED);
+
+        $result = $this->useCase->executeAsSystem(self::ORDER_ID, CancelReason::PAYMENT_TIMEOUT);
+
+        self::assertTrue($result->changed);
+        self::assertSame(OrderStatus::CANCELLED, $result->order->status());
+        self::assertCount(1, $this->gateway->refundCalls);
+        self::assertSame(7000, $this->gateway->refundCalls[0]['amount']);
+        self::assertCount(1, $this->payments->refunds());
+        self::assertCount(1, $this->outbox->eventsOf(OrderCancelled::class));
+    }
+
+    #[Test]
     public function it_returns_conflict_without_changes_when_the_payment_is_processing(): void
     {
         $this->seedOrder(OrderStatus::PAYMENT_PENDING);

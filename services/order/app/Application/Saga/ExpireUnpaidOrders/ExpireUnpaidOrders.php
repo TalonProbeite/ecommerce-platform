@@ -10,6 +10,7 @@ use App\Application\Ports\OrderRepository;
 use App\Application\Ports\TransactionRunnerInterface;
 use App\Domain\Order\CancelReason;
 use App\Domain\Order\Order;
+use App\Domain\Order\OrderStatus;
 use Carbon\CarbonImmutable;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -42,10 +43,18 @@ final readonly class ExpireUnpaidOrders
 
         foreach ($expired as $order) {
             try {
-                $result = $this->cancelOrder->executeAsSystem($order->id(), CancelReason::PAYMENT_TIMEOUT);
+                $result = $this->cancelOrder->executeAsSystem(
+                    $order->id(),
+                    CancelReason::PAYMENT_TIMEOUT,
+                    onlyIfUnpaid: true,
+                );
 
                 if ($result->changed) {
                     $cancelled++;
+                } elseif ($result->order->status() === OrderStatus::PAID) {
+                    $this->logger->info('Skipped expiring an order that was paid after selection.', [
+                        'order_id' => $order->id(),
+                    ]);
                 }
             } catch (Throwable $exception) {
                 $failed++;
