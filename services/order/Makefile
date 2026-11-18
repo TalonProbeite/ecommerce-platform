@@ -31,11 +31,12 @@ FEATURE_TEST_ENV := $(TEST_DB_ENV) \
 	-e REDIS_PORT=6379 \
 	-e REDIS_PASSWORD=null \
 	-e REDIS_DB=2 \
-	-e REDIS_CACHE_DB=2
+	-e REDIS_CACHE_DB=2 \
+	-e RUN_RABBITMQ_TESTS=1
 
 .PHONY: help \
-	test test-docker test-unit test-feature test-integration \
-	test-services test-db test-redis \
+	test test-docker test-unit test-feature test-integration test-rabbitmq \
+	test-services test-broker test-db test-redis \
 	lint format analyse check \
 	up down restart build logs ps \
 	exec sh artisan migrate seed
@@ -45,11 +46,13 @@ help:
 		'Tests:' \
 		'  test / test-docker Run unit tests on array and feature tests on Redis in Docker' \
 		'  test-unit         Run unit tests on host (SQLite, array cache)' \
-		'  test-feature      Run feature/integration tests in Docker against Redis' \
+		'  test-feature      Run all feature/integration tests (PostgreSQL, Redis, RabbitMQ)' \
 		'  test-integration  Alias for test-feature' \
-		'  test-services     Start order-db and order-test-redis' \
+		'  test-rabbitmq     Run only RabbitMQ integration tests' \
+		'  test-services     Start order-db, order-test-redis and order-rabbitmq' \
 		'  test-db           Start order-db and ensure test database exists' \
 		'  test-redis        Start order-test-redis and wait for health' \
+		'  test-broker       Start order-rabbitmq and wait for health' \
 		'' \
 		'Local development tools:' \
 		'  lint              Check PHP syntax on host' \
@@ -88,6 +91,13 @@ test-feature: test-services
 
 test-integration: test-feature
 
+test-rabbitmq: test-services
+	$(COMPOSE) build $(APP)
+	$(COMPOSE) run --rm --no-deps $(FEATURE_TEST_ENV) \
+		-v "$(DOCS_DIR):/docs:ro" \
+		-e MESSAGING_CONTRACT_PATH=/docs/contracts/messaging.md \
+		$(APP) php vendor/bin/phpunit --testsuite Feature --filter RabbitMq --do-not-cache-result $(PHPUNIT_ARGS)
+
 test-docker: test-services
 	$(COMPOSE) build $(APP)
 	$(COMPOSE) run --rm --no-deps $(UNIT_TEST_ENV) \
@@ -97,7 +107,7 @@ test-docker: test-services
 		-e MESSAGING_CONTRACT_PATH=/docs/contracts/messaging.md \
 		$(APP) php vendor/bin/phpunit --testsuite Feature --do-not-cache-result $(PHPUNIT_ARGS)
 
-test-services: test-db test-redis
+test-services: test-db test-redis test-broker
 
 test-db:
 	$(COMPOSE) up -d --wait order-db
@@ -106,6 +116,9 @@ test-db:
 
 test-redis:
 	$(COMPOSE) up -d --wait order-test-redis
+
+test-broker:
+	$(COMPOSE) up -d --wait rabbitmq
 
 lint:
 	find app bootstrap config database routes tests \
