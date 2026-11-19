@@ -23,7 +23,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { to: ROUTES.notifications, label: 'Notifications' },
   ],
   store_manager: [
-    { to: ROUTES.admin, label: 'Store admin' },
+    { to: ROUTES.manageCatalog, label: 'Store catalog' },
     { to: ROUTES.manageOrders, label: 'Store orders' },
     { to: ROUTES.catalog, label: 'Equipment' },
   ],
@@ -46,7 +46,7 @@ export function loginDestination(role: Role | undefined, from?: string): string 
         || (role === 'analyst' && (pathname === ROUTES.analytics || pathname.startsWith(`${ROUTES.analyticsOrders}`) || pathname === ROUTES.analyticsOverdue))
         || (role === 'admin' && ([ROUTES.admin, ROUTES.adminOrders, ROUTES.analytics, ROUTES.analyticsOrders, ROUTES.analyticsOverdue] as string[]).includes(pathname))
         || (role === 'admin' && (pathname.startsWith(`${ROUTES.adminOrders}/`) || pathname.startsWith(`${ROUTES.analyticsOrders}/`)))
-        || (role === 'store_manager' && ([ROUTES.admin, ROUTES.manageOrders] as string[]).includes(pathname))
+        || (role === 'store_manager' && ([ROUTES.admin, ROUTES.manageCatalog, ROUTES.manageOrders] as string[]).includes(pathname))
         || (role === 'store_manager' && pathname.startsWith(`${ROUTES.manageOrders}/`)))
   return allowed ? from : roleHome(role)
 }

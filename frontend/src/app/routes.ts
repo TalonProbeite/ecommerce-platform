@@ -13,6 +13,7 @@ export const ROUTES = {
   orderPayment: (id: string) => `/orders/${encodeURIComponent(id)}/pay`,
   manageOrders: '/manage/orders',
   manageOrder: (id: string) => `/manage/orders/${encodeURIComponent(id)}`,
+  manageCatalog: '/manage/catalog',
   profile: '/profile',
   login: '/login',
   register: '/register',
