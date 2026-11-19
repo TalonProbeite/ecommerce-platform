@@ -9,7 +9,7 @@ use App\Application\Query\ListOrderEvents\OrderEventPage;
 
 interface OrderEventReadRepository
 {
-    public function orderExists(string $orderId): bool;
+    public function storeIdOf(string $orderId): ?string;
 
     public function list(ListOrderEventsCriteria $criteria): OrderEventPage;
 }

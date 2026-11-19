@@ -13,7 +13,7 @@ use App\Application\Query\ListOrderEvents\OrderEventPage;
 final class InMemoryOrderEventReadRepository implements OrderEventReadRepository
 {
     /**
-     * @var array<string, true>
+     * @var array<string, string>
      */
     private array $orders = [];
 
@@ -24,20 +24,20 @@ final class InMemoryOrderEventReadRepository implements OrderEventReadRepository
 
     public ?ListOrderEventsCriteria $criteria = null;
 
-    public function addOrder(string $orderId): void
+    public function addOrder(string $orderId, string $storeId): void
     {
-        $this->orders[$orderId] = true;
+        $this->orders[$orderId] = $storeId;
     }
 
-    public function addEvent(OrderEventItem $event, string $orderId): void
+    public function addEvent(OrderEventItem $event, string $orderId, string $storeId): void
     {
         $this->events[] = $event;
-        $this->orders[$orderId] = true;
+        $this->orders[$orderId] = $storeId;
     }
 
-    public function orderExists(string $orderId): bool
+    public function storeIdOf(string $orderId): ?string
     {
-        return isset($this->orders[$orderId]);
+        return $this->orders[$orderId] ?? null;
     }
 
     public function list(ListOrderEventsCriteria $criteria): OrderEventPage

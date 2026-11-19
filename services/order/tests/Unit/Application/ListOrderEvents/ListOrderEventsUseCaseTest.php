@@ -25,6 +25,10 @@ final class ListOrderEventsUseCaseTest extends TestCase
 
     private const string ADMIN_ID = '99999999-9999-4999-8999-999999999999';
 
+    private const string STORE_ID = '22222222-2222-4222-8222-222222222222';
+
+    private const string OTHER_STORE_ID = '22222222-2222-4222-8222-333333333333';
+
     private InMemoryOrderEventReadRepository $repository;
 
     private ListOrderEventsUseCase $useCase;
@@ -40,7 +44,7 @@ final class ListOrderEventsUseCaseTest extends TestCase
     #[Test]
     public function it_returns_events_and_forwards_the_cursor_and_limit(): void
     {
-        $this->repository->addEvent($this->event('1', '2026-11-20T10:00:00.123456+00:00'), self::ORDER_ID);
+        $this->repository->addEvent($this->event('1', '2026-11-20T10:00:00.123456+00:00'), self::ORDER_ID, self::STORE_ID);
 
         $cursor = (new OrderEventCursor(
             CarbonImmutable::parse('2026-11-20T09:00:00.000000+00:00'),
@@ -60,7 +64,7 @@ final class ListOrderEventsUseCaseTest extends TestCase
     #[Test]
     public function it_treats_an_empty_cursor_as_no_cursor(): void
     {
-        $this->repository->addOrder(self::ORDER_ID);
+        $this->repository->addOrder(self::ORDER_ID, self::STORE_ID);
 
         $this->useCase->execute($this->admin(), self::ORDER_ID, '', 50);
 
@@ -103,6 +107,8 @@ final class ListOrderEventsUseCaseTest extends TestCase
     #[Test]
     public function it_forbids_a_customer(): void
     {
+        $this->repository->addOrder(self::ORDER_ID, self::STORE_ID);
+
         $this->expectException(ForbiddenException::class);
 
         $this->useCase->execute(
@@ -114,12 +120,30 @@ final class ListOrderEventsUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function it_forbids_a_store_manager(): void
+    public function it_allows_a_store_manager_for_their_own_store(): void
     {
-        $this->expectException(ForbiddenException::class);
+        $this->repository->addOrder(self::ORDER_ID, self::STORE_ID);
+
+        $page = $this->useCase->execute(
+            new AuthUser('11111111-1111-4111-8111-222222222222', Role::STORE_MANAGER, self::STORE_ID),
+            self::ORDER_ID,
+            null,
+            50,
+        );
+
+        self::assertSame([], $page->events);
+        self::assertNull($page->nextCursor);
+    }
+
+    #[Test]
+    public function it_returns_not_found_for_a_store_manager_of_another_store(): void
+    {
+        $this->repository->addOrder(self::ORDER_ID, self::STORE_ID);
+
+        $this->expectException(OrderNotFound::class);
 
         $this->useCase->execute(
-            new AuthUser('11111111-1111-4111-8111-222222222222', Role::STORE_MANAGER, '22222222-2222-4222-8222-222222222222'),
+            new AuthUser('11111111-1111-4111-8111-222222222222', Role::STORE_MANAGER, self::OTHER_STORE_ID),
             self::ORDER_ID,
             null,
             50,

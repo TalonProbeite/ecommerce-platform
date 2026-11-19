@@ -98,28 +98,33 @@ final class OrderPolicyTest extends TestCase
     }
 
     /**
-     * @return array<string, array{0: Role, 1: ?string, 2: bool}>
+     * @return array<string, array{0: Role, 1: ?string, 2: ?string, 3: bool}>
      */
     public static function viewEventsMatrix(): array
     {
         return [
-            'customer' => [Role::CUSTOMER, null, false],
-            'manager with store' => [Role::STORE_MANAGER, self::STORE_ID, false],
-            'manager without store' => [Role::STORE_MANAGER, null, false],
-            'analyst' => [Role::ANALYST, null, true],
-            'admin' => [Role::ADMIN, null, true],
+            'customer' => [Role::CUSTOMER, null, self::STORE_ID, false],
+            'manager same store' => [Role::STORE_MANAGER, self::STORE_ID, self::STORE_ID, true],
+            'manager other store' => [Role::STORE_MANAGER, self::STORE_ID, '22222222-2222-4222-8222-999999999999', false],
+            'manager without store' => [Role::STORE_MANAGER, null, self::STORE_ID, false],
+            'analyst' => [Role::ANALYST, null, null, true],
+            'admin' => [Role::ADMIN, null, null, true],
         ];
     }
 
     #[Test]
     #[DataProvider('viewEventsMatrix')]
-    public function it_applies_the_view_events_matrix(Role $role, ?string $storeId, bool $expected): void
-    {
+    public function it_applies_the_view_events_matrix(
+        Role $role,
+        ?string $storeId,
+        ?string $orderStoreId,
+        bool $expected,
+    ): void {
         $policy = new OrderPolicy();
 
         self::assertSame(
             $expected,
-            $policy->viewEvents(new AuthUser('11111111-1111-4111-8111-999999999999', $role, $storeId)),
+            $policy->viewEvents(new AuthUser('11111111-1111-4111-8111-999999999999', $role, $storeId), $orderStoreId),
         );
     }
 

@@ -22,7 +22,7 @@ final class OrderEventsHttpTest extends ApiTestCase
         parent::setUp();
 
         $this->events = new InMemoryOrderEventReadRepository();
-        $this->events->addOrder(self::ORDER_ID);
+        $this->events->addOrder(self::ORDER_ID, self::STORE_ID);
         $this->app->instance(OrderEventReadRepository::class, $this->events);
     }
 
@@ -77,12 +77,26 @@ final class OrderEventsHttpTest extends ApiTestCase
     }
 
     #[Test]
-    public function a_store_manager_is_forbidden(): void
+    public function a_store_manager_sees_events_for_their_own_store(): void
     {
+        $this->seedEvent('10', '2026-11-20T10:00:00.123456+00:00', 'created', 'stock_reserved');
+
         $this->getJson(
             '/api/v1/orders/' . self::ORDER_ID . '/events',
             $this->headers($this->tokenFor(Role::STORE_MANAGER, self::STORE_ID)),
-        )->assertStatus(403)
+        )->assertStatus(200)
+            ->assertJsonCount(1, 'data');
+    }
+
+    #[Test]
+    public function a_store_manager_cannot_see_events_of_another_store(): void
+    {
+        $this->seedEvent('10', '2026-11-20T10:00:00.123456+00:00', 'created', 'stock_reserved');
+
+        $this->getJson(
+            '/api/v1/orders/' . self::ORDER_ID . '/events',
+            $this->headers($this->tokenFor(Role::STORE_MANAGER, self::OTHER_STORE_ID)),
+        )->assertStatus(404)
             ->assertHeader('Content-Type', 'application/problem+json');
     }
 
@@ -191,6 +205,6 @@ final class OrderEventsHttpTest extends ApiTestCase
             orderItemId: '01930000-0000-7000-8000-000000000001',
             actorRole: 'system',
             occurredAt: CarbonImmutable::parse($occurredAt),
-        ), self::ORDER_ID);
+        ), self::ORDER_ID, self::STORE_ID);
     }
 }

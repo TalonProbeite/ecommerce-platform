@@ -20,9 +20,11 @@ final readonly class EloquentOrderEventReadRepository implements OrderEventReadR
 {
     private const string TIMESTAMP_FORMAT = 'Y-m-d H:i:s.uP';
 
-    public function orderExists(string $orderId): bool
+    public function storeIdOf(string $orderId): ?string
     {
-        return OrderModel::query()->whereKey($orderId)->exists();
+        $storeId = OrderModel::query()->whereKey($orderId)->value('store_id');
+
+        return is_string($storeId) && $storeId !== '' ? $storeId : null;
     }
 
     public function list(ListOrderEventsCriteria $criteria): OrderEventPage

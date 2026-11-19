@@ -9,6 +9,7 @@ use App\Application\Exceptions\InvalidCursor;
 use App\Application\Exceptions\OrderNotFound;
 use App\Application\Ports\AuthenticatedUser;
 use App\Application\Ports\OrderEventReadRepository;
+use App\Enums\Role;
 use App\Policies\OrderPolicy;
 use InvalidArgumentException;
 
@@ -32,10 +33,6 @@ final readonly class ListOrderEventsUseCase
         ?string $cursor,
         int $limit,
     ): OrderEventPage {
-        if (! $this->policy->viewEvents($user)) {
-            throw new ForbiddenException('Only admin and analyst can view order events.');
-        }
-
         if ($limit < self::MIN_LIMIT || $limit > self::MAX_LIMIT) {
             throw new InvalidArgumentException('The limit must be between 1 and 100.');
         }
@@ -50,8 +47,18 @@ final readonly class ListOrderEventsUseCase
             }
         }
 
-        if (! $this->events->orderExists($orderId)) {
+        $storeId = $this->events->storeIdOf($orderId);
+
+        if ($storeId === null) {
             throw new OrderNotFound($orderId);
+        }
+
+        if (! $this->policy->viewEvents($user, $storeId)) {
+            if ($user->role() === Role::STORE_MANAGER) {
+                throw new OrderNotFound($orderId);
+            }
+
+            throw new ForbiddenException('Only admin, analyst, and the store manager can view order events.');
         }
 
         return $this->events->list(new ListOrderEventsCriteria(

@@ -28,10 +28,11 @@ final class OrderPolicy
         };
     }
 
-    public function viewEvents(AuthenticatedUser $user): bool
+    public function viewEvents(AuthenticatedUser $user, ?string $orderStoreId = null): bool
     {
         return match ($user->role()) {
             Role::ADMIN, Role::ANALYST => true,
+            Role::STORE_MANAGER => $orderStoreId !== null && $user->storeId() === $orderStoreId,
             default => false,
         };
     }

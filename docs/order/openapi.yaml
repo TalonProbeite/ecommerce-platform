@@ -170,8 +170,9 @@ paths:
       summary: List order status events
       description: |
         Returns the append-only status history of an order in ascending
-        `(occurred_at, id)` order. Available only to `admin` and `analyst`.
-        `actor_id` and `payload` are intentionally not exposed.
+        `(occurred_at, id)` order. Available to `admin`, `analyst`, and the
+        `store_manager` of the order's store. `actor_id` and `payload` are
+        intentionally not exposed.
       parameters:
         - $ref: '#/components/parameters/OrderId'
         - name: cursor
@@ -199,13 +200,13 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          description: The caller is neither `admin` nor `analyst`.
+          description: The caller is not allowed to view the order journal (for example a `customer`).
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         '404':
-          description: The order does not exist.
+          description: The order does not exist or belongs to another store.
           content:
             application/problem+json:
               schema:
