@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ReadyzController;
 use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\VerifyRequestOrigin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -20,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Reject cross-site unsafe requests before authentication runs.
+        $middleware->append(VerifyRequestOrigin::class);
+
         // Authenticate must populate AuthUser before the orders-create limiter runs.
         $middleware->prependToPriorityList(
             ThrottleRequests::class,

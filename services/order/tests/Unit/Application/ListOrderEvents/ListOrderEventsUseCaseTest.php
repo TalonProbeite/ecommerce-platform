@@ -147,7 +147,7 @@ final class ListOrderEventsUseCaseTest extends TestCase
         self::assertTrue($decoded->occurredAt->equalTo($cursor->occurredAt));
         self::assertNull(OrderEventCursor::decode('%%%'));
         self::assertNull(OrderEventCursor::decode(base64_encode('{"occurred_at":"bad","id":"1"}')));
-        self::assertNull(OrderEventCursor::decode(base64_encode('{"occurred_at":"2026-11-20T10:00:00.000000+00:00","id":"x"}'))); 
+        self::assertNull(OrderEventCursor::decode(base64_encode('{"occurred_at":"2026-11-20T10:00:00.000000+00:00","id":"x"}')));
     }
 
     private function admin(): AuthUser
