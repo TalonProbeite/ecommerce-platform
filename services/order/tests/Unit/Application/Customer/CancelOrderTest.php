@@ -250,6 +250,7 @@ final class CancelOrderTest extends OrderApplicationTestCase
                 'product_id' => '33333333-3333-4333-8333-333333333333',
                 'quantity' => 1,
             ]],
+            'customer_id' => '11111111-1111-4111-8111-111111111111',
         ], $events[0]->toArray());
     }
 

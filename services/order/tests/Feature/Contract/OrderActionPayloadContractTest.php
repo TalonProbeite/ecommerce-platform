@@ -71,6 +71,23 @@ final class OrderActionPayloadContractTest extends TestCase
     }
 
     #[Test]
+    public function cancelled_payload_includes_customer_id_for_notification(): void
+    {
+        $customerId = '11111111-1111-4111-8111-111111111111';
+
+        $event = new OrderCancelled(
+            orderId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+            storeId: '3d9a1c2e-4b5f-4a6d-9e8f-1a2b3c4d5e6f',
+            items: [],
+            fromStatus: OrderStatus::PAID,
+            actorRole: ActorRole::ADMIN,
+            customerId: $customerId,
+        );
+
+        self::assertSame($customerId, $event->toArray()['customer_id']);
+    }
+
+    #[Test]
     public function cancel_reasons_and_refund_values_match_schema_values(): void
     {
         self::assertSame(

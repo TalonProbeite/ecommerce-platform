@@ -395,8 +395,16 @@ func TestProfileService_PatchUserProfile(t *testing.T) {
 					t,
 					profileEventPayload(t, f, events.EmailVerificationRequestedEventKey),
 				)
-				if event.Email != tt.want.email || event.Code != entry.value {
+				if event.UserID != testUserID || event.Email != tt.want.email || event.Code != entry.value {
 					t.Errorf("event %+v does not match email/saved code %q", event, entry.value)
+				}
+
+				changed := decode[events.EmailChangedEvent](
+					t,
+					profileEventPayload(t, f, events.EmailChangedEventKey),
+				)
+				if changed.UserID != testUserID || changed.Email != tt.want.email {
+					t.Errorf("email changed event %+v does not match %q", changed, tt.want.email)
 				}
 			}
 		})

@@ -59,6 +59,30 @@ func (f *fakeSaver) SaveEvent(_ context.Context, event any) error {
 	return nil
 }
 
+type fakeContactStore struct {
+	err        error
+	email      string
+	gotID      string
+	savedID    string
+	savedEmail string
+}
+
+func (f *fakeContactStore) SaveContact(_ context.Context, userID, email string) error {
+	f.savedID = userID
+	f.savedEmail = email
+
+	return f.err
+}
+
+func (f *fakeContactStore) GetEmail(_ context.Context, userID string) (string, error) {
+	f.gotID = userID
+	if f.err != nil {
+		return "", f.err
+	}
+
+	return f.email, nil
+}
+
 type fakeRenderer struct {
 	err   error
 	calls []string

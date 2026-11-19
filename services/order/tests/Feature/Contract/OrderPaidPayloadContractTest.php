@@ -22,7 +22,7 @@ final class OrderPaidPayloadContractTest extends TestCase
         /** @var array<string, mixed> $example */
         $example = json_decode(trim($matches[1]), true, 512, JSON_THROW_ON_ERROR);
         $expected = $example;
-        unset($expected['event_id'], $expected['occurred_at']);
+        unset($expected['event_id'], $expected['schema_version'], $expected['occurred_at']);
 
         $event = new OrderPaid(
             orderId: (string) $example['order_id'],

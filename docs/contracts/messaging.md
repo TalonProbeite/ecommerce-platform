@@ -362,6 +362,10 @@ Each item:
 | `product_id` | UUID string | Product identifier. |
 | `quantity` | integer | 1 to 1000. |
 
+`order.cancelled` additionally includes `customer_id` (UUID string) so
+Notification can resolve the recipient address from its stored user contact
+mapping. `order.issued` and `order.returned` do not carry `customer_id`.
+
 Example (`order.issued`):
 
 ```json
@@ -385,7 +389,8 @@ Example (`order.issued`):
 
 Published on `order.events` and consumed by Notification. Catalog does not
 subscribe to this routing key. Payload не содержит персональных данных; контакт
-клиента Notification получает у Auth по `customer_id`.
+клиента Notification хранит в собственном маппинге `user_id → email`, который
+обновляется по user-событиям Auth.
 
 | Field | Type | Description |
 | --- | --- | --- |

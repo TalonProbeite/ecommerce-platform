@@ -45,6 +45,7 @@ var queues = []queueSpec{
 			events.UserEmailVerifiedEventKey,
 			events.EmailVerificationRequestedEventKey,
 			events.WelcomeEmailRequestedEventKey,
+			events.EmailChangedEventKey,
 		},
 	},
 	{

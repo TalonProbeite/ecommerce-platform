@@ -19,6 +19,7 @@ final class OrderCancelled extends OrderEvent
         OrderStatus $fromStatus,
         ActorRole $actorRole,
         ?string $actorId = null,
+        private readonly ?string $customerId = null,
     ) {
         parent::__construct(
             orderId: $orderId,
@@ -34,5 +35,19 @@ final class OrderCancelled extends OrderEvent
     public function routingKey(): string
     {
         return 'order.cancelled';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(): array
+    {
+        $payload = parent::toArray();
+
+        if ($this->customerId !== null) {
+            $payload['customer_id'] = $this->customerId;
+        }
+
+        return $payload;
     }
 }

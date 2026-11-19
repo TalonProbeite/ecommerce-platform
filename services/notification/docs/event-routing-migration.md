@@ -1,12 +1,19 @@
 # User event routing migration
 
 The durable `user.notifications.q` queue accepts both generations on the user
-exchange. Startup declares all four bindings idempotently before subscribing:
+exchange. Startup declares all five bindings idempotently before subscribing:
 
 | Legacy routing key | Current routing key | Payload |
 | --- | --- | --- |
-| `user.registered` | `user.email_verification_requested` | `email`, `code` |
-| `user.email_verified` | `user.welcome_email_requested` | `email`, `name` |
+| `user.registered` | `user.email_verification_requested` | `user_id`, `email`, `code` |
+| `user.email_verified` | `user.welcome_email_requested` | `user_id`, `email`, `name` |
+| — | `user.email_changed` | `user_id`, `email` |
+
+Current producers include `user_id`. Notification stores it as the
+`user_id → email` contact mapping used to deliver order events.
+`user.email_changed` updates that mapping when a profile email changes. Legacy
+payloads may omit `user_id`; they are still delivered but do not create a
+mapping.
 
 Legacy deliveries use the same handlers as current deliveries, including messages
 already in the queue. Notification logs use the current event names. Producers

@@ -18,6 +18,7 @@ type handlerFixture struct {
 	renderer *fakeRenderer
 	sender   *fakeSender
 	saver    *fakeSaver
+	contacts *fakeContactStore
 	user     *UserEventHandler
 	order    *OrderEventHandler
 }
@@ -26,13 +27,15 @@ func newHandlerFixture() *handlerFixture {
 	renderer := &fakeRenderer{}
 	sender := &fakeSender{}
 	saver := &fakeSaver{}
+	contacts := &fakeContactStore{email: testRecipient}
 
 	return &handlerFixture{
 		renderer: renderer,
 		sender:   sender,
 		saver:    saver,
-		user:     NewUserEventHandler(renderer, sender, saver),
-		order:    NewOrderEventHandler(renderer, sender, saver),
+		contacts: contacts,
+		user:     NewUserEventHandler(renderer, sender, saver, contacts),
+		order:    NewOrderEventHandler(renderer, sender, saver, contacts),
 	}
 }
 
@@ -52,17 +55,17 @@ func handlerCases() []handlerCase {
 		{
 			name:       "email verification requested",
 			handle:     func(f *handlerFixture) HandlerFunc { return f.user.HandleEmailVerificationRequested },
-			event:      events.EmailVerificationRequestedEvent{Email: testRecipient, Code: "123456"},
+			event:      events.EmailVerificationRequestedEvent{UserID: "user-1", Email: testRecipient, Code: "123456"},
 			eventKey:   events.EmailVerificationRequestedEventKey,
 			subject:    events.EmailVerificationSubject,
 			wantRender: "RenderVerification(123456,15)",
 
-			wantPayload: events.EmailVerificationRequestedEvent{Email: testRecipient},
+			wantPayload: events.EmailVerificationRequestedEvent{UserID: "user-1", Email: testRecipient},
 		},
 		{
 			name:       "welcome email requested",
 			handle:     func(f *handlerFixture) HandlerFunc { return f.user.HandleWelcomeEmailRequested },
-			event:      events.WelcomeEmailRequestedEvent{Email: testRecipient, Name: "John"},
+			event:      events.WelcomeEmailRequestedEvent{UserID: "user-1", Email: testRecipient, Name: "John"},
 			eventKey:   events.WelcomeEmailRequestedEventKey,
 			subject:    events.WelcomeEmailSubject,
 			wantRender: "RenderWelcome(John)",
@@ -135,6 +138,81 @@ func TestHandlers_ValidEvent_SendsMailAndLogsIt(t *testing.T) {
 	}
 }
 
+func TestUserHandlers_EmailChangedUpdatesContactMapping(t *testing.T) {
+	t.Parallel()
+
+	f := newHandlerFixture()
+	event := events.EmailChangedEvent{UserID: "user-1", Email: "new@example.com"}
+
+	require.NoError(t, f.user.HandleEmailChanged(t.Context(), mustMarshal(t, event)))
+
+	assert.Equal(t, "user-1", f.contacts.savedID)
+	assert.Equal(t, "new@example.com", f.contacts.savedEmail)
+	assert.Empty(t, f.sender.calls)
+	assert.Empty(t, f.saver.saved)
+}
+
+func TestUserHandlers_EmailChangedRequiresFields(t *testing.T) {
+	t.Parallel()
+
+	f := newHandlerFixture()
+
+	err := f.user.HandleEmailChanged(t.Context(), mustMarshal(t, events.EmailChangedEvent{UserID: "user-1"}))
+
+	require.ErrorIs(t, err, ErrUnrecoverable)
+	assert.Empty(t, f.contacts.savedID)
+}
+
+func TestOrderHandlers_ResolveRecipientFromCustomerID(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		handle   func(*OrderEventHandler) HandlerFunc
+		event    any
+		wantSubj string
+	}{
+		{
+			name:     "order paid",
+			handle:   func(h *OrderEventHandler) HandlerFunc { return h.HandleOrderPaid },
+			event:    events.OrderPaidEvent{OrderID: "order-1", CustomerID: "customer-1", Amount: 100},
+			wantSubj: events.OrderPaidSubject,
+		},
+		{
+			name:     "order cancelled",
+			handle:   func(h *OrderEventHandler) HandlerFunc { return h.HandleOrderCancelled },
+			event:    events.OrderCancelledPayload{OrderID: "order-1", CustomerID: "customer-1", Reason: "out of stock"},
+			wantSubj: events.OrderCancelledSubject,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			f := newHandlerFixture()
+			contacts := &fakeContactStore{email: testRecipient}
+			handler := NewOrderEventHandler(f.renderer, f.sender, f.saver, contacts)
+
+			require.NoError(t, tc.handle(handler)(t.Context(), mustMarshal(t, tc.event)))
+			assert.Equal(t, "customer-1", contacts.gotID)
+			assert.Equal(t, []sentMail{{To: testRecipient, Subject: tc.wantSubj, Body: fakeMailBody}}, f.sender.calls)
+		})
+	}
+}
+
+func TestOrderHandlers_ContactLookupFailureIsRetryable(t *testing.T) {
+	t.Parallel()
+
+	f := newHandlerFixture()
+	contacts := &fakeContactStore{err: errors.New("contact store unavailable")}
+	handler := NewOrderEventHandler(f.renderer, f.sender, f.saver, contacts)
+
+	err := handler.HandleOrderPaid(t.Context(), mustMarshal(t, events.OrderPaidEvent{OrderID: "order-1", CustomerID: "customer-1"}))
+
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrUnrecoverable)
+	assert.Empty(t, f.sender.calls)
+}
+
 func TestHandlers_InvalidPayload_IsUnrecoverableAndHasNoSideEffects(t *testing.T) {
 	t.Parallel()
 
@@ -202,12 +280,14 @@ func TestHandlers_EmailVerificationRequested_DoesNotPersistVerificationCode(t *t
 	t.Parallel()
 
 	f := newHandlerFixture()
-	event := events.EmailVerificationRequestedEvent{Email: testRecipient, Code: "123456"}
+	event := events.EmailVerificationRequestedEvent{UserID: "user-1", Email: testRecipient, Code: "123456"}
 
 	require.NoError(t, f.user.HandleEmailVerificationRequested(t.Context(), mustMarshal(t, event)))
 
 	assert.Equal(t, []string{"RenderVerification(123456,15)"}, f.renderer.calls)
 
 	require.Len(t, f.saver.saved, 1)
-	assert.Equal(t, events.EmailVerificationRequestedEvent{Email: testRecipient}, f.saver.saved[0].Payload)
+	assert.Equal(t, events.EmailVerificationRequestedEvent{UserID: "user-1", Email: testRecipient}, f.saver.saved[0].Payload)
+	assert.Equal(t, "user-1", f.contacts.savedID)
+	assert.Equal(t, testRecipient, f.contacts.savedEmail)
 }

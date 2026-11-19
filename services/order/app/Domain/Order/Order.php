@@ -396,6 +396,7 @@ final class Order
             items: $this->eventItemsShort(),
             fromStatus: $fromStatus,
             actorRole: $actor,
+            customerId: $this->customerId,
         );
 
         $this->statusChanges[] = new OrderStatusChanged(

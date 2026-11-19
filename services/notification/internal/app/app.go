@@ -68,9 +68,10 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	eventRepo := repository.NewEventRepo(mongoClient)
+	contactRepo := repository.NewContactRepo(mongoClient)
 
-	userHandler := services.NewUserEventHandler(renderer, sender, eventRepo)
-	orderHandler := services.NewOrderEventHandler(renderer, sender, eventRepo)
+	userHandler := services.NewUserEventHandler(renderer, sender, eventRepo, contactRepo)
+	orderHandler := services.NewOrderEventHandler(renderer, sender, eventRepo, contactRepo)
 	analyticsService := services.NewAnalyticsService(eventRepo)
 
 	consumer, err := rabbitmq.NewConsumer(rabbit)
@@ -112,6 +113,7 @@ func eventHandlers(
 		events.UserEmailVerifiedEventKey:          user.HandleWelcomeEmailRequested,
 		events.EmailVerificationRequestedEventKey: user.HandleEmailVerificationRequested,
 		events.WelcomeEmailRequestedEventKey:      user.HandleWelcomeEmailRequested,
+		events.EmailChangedEventKey:               user.HandleEmailChanged,
 		events.OrderPaidEventKey:                  order.HandleOrderPaid,
 		events.OrderConfirmedEventKey:             order.HandleOrderConfirmed,
 		events.OrderCancelledEventKey:             order.HandleOrderCancelled,

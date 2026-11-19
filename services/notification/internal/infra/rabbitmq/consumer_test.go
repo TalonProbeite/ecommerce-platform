@@ -11,7 +11,7 @@ func TestUserQueueBindsBothEventGenerations(t *testing.T) {
 			}
 		}
 	}
-	for _, key := range []string{"user.registered", "user.email_verified", "user.email_verification_requested", "user.welcome_email_requested"} {
+	for _, key := range []string{"user.registered", "user.email_verified", "user.email_verification_requested", "user.welcome_email_requested", "user.email_changed"} {
 		if !keys[key] {
 			t.Errorf("user queue missing binding for %s", key)
 		}

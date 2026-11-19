@@ -96,7 +96,7 @@ func TestAuthService_Registration(t *testing.T) {
 				t.Fatalf("expected one welcome event, got %d", len(f.events))
 			}
 			ev := decode[events.WelcomeEmailRequestedEvent](t, f.eventPayload(t, events.WelcomeEmailRequestedEventKey))
-			if ev.Email != req.Email || ev.Name != req.FirstName {
+			if ev.UserID != testUserID || ev.Email != req.Email || ev.Name != req.FirstName {
 				t.Errorf("unexpected welcome event: %+v", ev)
 			}
 		})
@@ -669,7 +669,7 @@ func TestAuthService_SendVerificationEmail(t *testing.T) {
 				t.Fatalf("verification entry = %+v (found=%t), want non-empty code with ttl %s", ver, ok, verificationCodeTTL)
 			}
 			ev := decode[events.EmailVerificationRequestedEvent](t, f.eventPayload(t, events.EmailVerificationRequestedEventKey))
-			if ev.Email != testEmail || ev.Code != ver.value {
+			if ev.UserID != testUserID || ev.Email != testEmail || ev.Code != ver.value {
 				t.Errorf("event %+v does not match email/saved code %q", ev, ver.value)
 			}
 		})
