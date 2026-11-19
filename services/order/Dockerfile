@@ -67,6 +67,7 @@ RUN composer dump-autoload --optimize --no-scripts \
     storage/logs \
     bootstrap/cache \
     && touch .rr.yaml \
+    && chown www-data:www-data bootstrap \
     && chown -R www-data:www-data \
     storage \
     bootstrap/cache \

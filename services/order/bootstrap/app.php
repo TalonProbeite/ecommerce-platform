@@ -10,7 +10,26 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Route;
 
-return Application::configure(basePath: dirname(__DIR__))
+$basePath = dirname(__DIR__);
+
+$writableDirectories = [
+    $basePath . '/bootstrap/cache',
+    $basePath . '/storage/app/private',
+    $basePath . '/storage/app/public',
+    $basePath . '/storage/framework/cache/data',
+    $basePath . '/storage/framework/sessions',
+    $basePath . '/storage/framework/testing',
+    $basePath . '/storage/framework/views',
+    $basePath . '/storage/logs',
+];
+
+foreach ($writableDirectories as $directory) {
+    if (! is_dir($directory)) {
+        @mkdir($directory, 0775, true);
+    }
+}
+
+return Application::configure(basePath: $basePath)
     ->withRouting(
         web: __DIR__ . '/../routes/web.php',
         api: __DIR__ . '/../routes/api.php',
