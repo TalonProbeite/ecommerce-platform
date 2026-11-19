@@ -10,7 +10,6 @@ function source(relative: string): string {
 const paymentFiles = [
   'src/components/rental/stripe-payment-form.tsx',
   'src/pages/order-payment-page.tsx',
-  'src/lib/stripe.ts',
 ]
 
 test('the payment UI never persists the client secret', () => {

@@ -1,5 +1,5 @@
 import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ROUTES } from '@/app/routes'
@@ -7,6 +7,8 @@ import { EmptyState } from '@/components/common/empty-state'
 import { LinkButton } from '@/components/common/link-button'
 import { PageHeader } from '@/components/common/page-header'
 import { Button } from '@/components/ui/button'
+import { isHttpError } from '@/api/http'
+import { beginCheckoutAttempt, checkoutKey, completeCheckoutAttempt, retryCheckoutAttempt, syncCheckoutAttempt } from '@/lib/idempotency'
 import { formatEurCents } from '@/lib/money'
 import { billedHours, formatDateTime } from '@/lib/rental'
 import { cartTotals, rentalItemKey, useRentalCartStore } from '@/store/rental-cart-store'
@@ -23,8 +25,13 @@ export function RentalCheckoutPage() {
   const clear = useRentalCartStore((state) => state.clear)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [attempt, setAttempt] = useState(() => beginCheckoutAttempt(items))
   const totals = cartTotals(items)
   const store = items[0]
+
+  useEffect(() => {
+    setAttempt((current) => syncCheckoutAttempt(current, items))
+  }, [items])
 
   async function handleConfirm() {
     if (submitting) return
@@ -34,12 +41,18 @@ export function RentalCheckoutPage() {
     }
     setSubmitting(true)
     setError('')
+    const current = syncCheckoutAttempt(attempt, items)
+    const key = current.key ?? checkoutKey(current)
+    if (key !== current.key) setAttempt({ ...current, key })
     try {
-      const order = await submitRentalOrder(user.id, items)
+      const order = await submitRentalOrder(items, key)
+      setAttempt((latest) => completeCheckoutAttempt(latest))
       clear()
       toast.success('Order created. We are reserving your equipment.')
       navigate(ROUTES.order(order.id), { replace: true })
     } catch (failure) {
+      const status = isHttpError(failure) ? failure.response?.status : undefined
+      setAttempt((latest) => retryCheckoutAttempt(latest, status))
       setError(orderErrorMessage(failure, 'Could not create your order. Please try again.'))
     } finally {
       setSubmitting(false)

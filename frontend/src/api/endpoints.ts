@@ -7,6 +7,7 @@ interface EndpointEnvironment {
   NEXT_PUBLIC_ENABLE_REAL_CHECKOUT?: string
   VITE_API_MODE?: string
   VITE_API_URL?: string
+  VITE_USE_MOCKS?: string
   VITE_ENABLE_REAL_CHECKOUT?: string
 }
 
@@ -100,13 +101,16 @@ export const IS_ORDER_API_ENABLED = endpoints.orderApiEnabled
 
 // Live catalog data is used for REAL auth mode or whenever a new-style API
 // mode override is present. Plain `pnpm dev` keeps the existing mock fixtures.
+const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true'
+
 export const IS_CATALOG_LIVE =
-  import.meta.env.VITE_API_MODE === 'real' || Boolean(import.meta.env.NEXT_PUBLIC_API_MODE?.trim())
+  !USE_MOCKS && (import.meta.env.VITE_API_MODE === 'real' || Boolean(import.meta.env.NEXT_PUBLIC_API_MODE?.trim()))
 
 // Real checkout follows the real API transport unless it is explicitly
 // disabled. Mock mode still uses the local fixtures.
 const RAW_API_MODE = import.meta.env.VITE_API_MODE?.trim()
 const MOCK_MODE =
+  USE_MOCKS ||
   RAW_API_MODE === 'mock' ||
   (RAW_API_MODE === undefined && !import.meta.env.VITE_API_URL)
 
@@ -118,4 +122,4 @@ export const ENABLE_REAL_CHECKOUT =
   import.meta.env.NEXT_PUBLIC_ENABLE_REAL_CHECKOUT !== 'false'
 
 export const STRIPE_PUBLISHABLE_KEY =
-  import.meta.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() ?? ''
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY?.trim() ?? ''

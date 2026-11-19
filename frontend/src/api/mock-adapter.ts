@@ -1,37 +1,16 @@
 import { HttpError, type Adapter, type RequestConfig } from './http'
 import { mockNotifications } from './mock-notifications'
+import { DEMO_VERIFICATION_CODE, EXPIRED_VERIFICATION_CODE, MOCK_ACCOUNTS as accounts } from './mock-fixtures'
 import type { ChangePasswordPayload, LoginPayload, ProfileChanges, RegisterPayload, User, VerifyEmailPayload } from '@/types'
+import type { MockAccount } from './mock-fixtures'
 
-interface MockAccount extends User {
-  password?: string
-  verified?: boolean
-  isOAuth?: boolean
-}
+export { ADMIN_MOCK_TARGETS, DEMO_ACCOUNTS, DEMO_VERIFICATION_CODE } from './mock-fixtures'
+
+export const MOCK_ADAPTER_BUNDLE_MARKER = 'RENTIFY_MOCK_ADAPTER_SHOULD_NOT_SHIP'
 
 // Dev-only stand-in for the backend's httpOnly cookies. The real app never touches auth cookies.
 const SESSION_KEY = 'rentify_mock_session'
 
-export const DEMO_VERIFICATION_CODE = '1234567890'
-const EXPIRED_VERIFICATION_CODE = '0000000000'
-
-export const DEMO_ACCOUNTS: Array<{ label: string; email: string; password?: string; isOAuth?: boolean }> = [
-  { label: 'Customer', email: 'user@rentify.dev', password: 'password123' },
-  { label: 'Google Account', email: 'google.user@rentify.dev', isOAuth: true },
-  { label: 'Unverified User', email: 'unverified@rentify.dev', password: 'password123' },
-  { label: 'Admin', email: 'admin@rentify.dev', password: 'password123' },
-  { label: 'Analyst', email: 'analyst@rentify.dev', password: 'password123' },
-]
-
-const accounts: MockAccount[] = [
-  { id: 'u-user', firstName: 'Maya', lastName: 'Chen', email: 'user@rentify.dev', phone: '+1 555 0142 000', role: 'customer', password: 'password123', verified: true, isOAuth: false },
-  { id: 'u-google', firstName: 'Jordan', lastName: 'Lee', email: 'google.user@rentify.dev', phone: '+1 555 0199 888', role: 'customer', verified: true, isOAuth: true },
-  { id: 'u-unverified', firstName: 'Taylor', lastName: 'Swift', email: 'unverified@rentify.dev', phone: '+1 555 0188 777', role: 'customer', password: 'password123', verified: false, isOAuth: false },
-  { id: 'u-admin', firstName: 'Alex', lastName: 'Rivera', email: 'admin@rentify.dev', role: 'admin', password: 'password123', verified: true, isOAuth: false },
-  { id: 'u-analyst', firstName: 'Sam', lastName: 'Patel', email: 'analyst@rentify.dev', role: 'analyst', password: 'password123', verified: true, isOAuth: false },
-]
-
-// Local fixture references, not an undocumented users-list API.
-export const ADMIN_MOCK_TARGETS = accounts.map(({ id, email }) => ({ id, email }))
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 

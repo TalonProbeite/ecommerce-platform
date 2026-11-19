@@ -5,6 +5,11 @@ export interface IdempotencyCartLine {
   rentalEndAt: string
 }
 
+export interface CheckoutAttempt {
+  fingerprint: string
+  key: string | null
+}
+
 function canonicalLines(lines: readonly IdempotencyCartLine[]): string {
   const entries = lines.map((line) => JSON.stringify({
     productId: line.productId,
@@ -15,21 +20,48 @@ function canonicalLines(lines: readonly IdempotencyCartLine[]): string {
   return `[${entries.sort().join(',')}]`
 }
 
+/** A stable signature used only to detect cart changes between attempts. */
+export function cartFingerprint(lines: readonly IdempotencyCartLine[]): string {
+  return canonicalLines(lines)
+}
+
 /**
- * Stable UUID-shaped key derived from the cart contents and customer id.
- * The server only needs a visible-ASCII idempotency key; the UUID form keeps
- * retries easy to correlate and avoids random regeneration on network retries.
+ * Create a fresh checkout attempt with a random idempotency key. The key is
+ * intentionally unrelated to the cart contents so that a later purchase of
+ * the same cart receives a new key instead of replaying the previous order.
  */
-export async function cartIdempotencyKey(customerId: string, lines: readonly IdempotencyCartLine[]): Promise<string> {
-  if (!customerId) throw new Error('A customer id is required for checkout.')
-  if (lines.length === 0) throw new Error('The cart is empty.')
-  const subtle = globalThis.crypto?.subtle
-  if (!subtle) throw new Error('This browser cannot create a secure idempotency key.')
-  const input = new TextEncoder().encode(`${customerId}\n${canonicalLines(lines)}`)
-  const digest = new Uint8Array(await subtle.digest('SHA-256', input))
-  const bytes = digest.slice(0, 16)
-  bytes[6] = (bytes[6] & 0x0f) | 0x50
-  bytes[8] = (bytes[8] & 0x3f) | 0x80
-  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+export function beginCheckoutAttempt(lines: readonly IdempotencyCartLine[]): CheckoutAttempt {
+  return { fingerprint: cartFingerprint(lines), key: lines.length === 0 ? null : createIdempotencyKey() }
+}
+
+/** Reset the key whenever the cart changes, keeping a retry key otherwise. */
+export function syncCheckoutAttempt(attempt: CheckoutAttempt, lines: readonly IdempotencyCartLine[]): CheckoutAttempt {
+  const fingerprint = cartFingerprint(lines)
+  if (attempt.fingerprint === fingerprint) return attempt
+  return { fingerprint, key: lines.length === 0 ? null : createIdempotencyKey() }
+}
+
+/** The order was created successfully; the next checkout needs a new key. */
+export function completeCheckoutAttempt(attempt: CheckoutAttempt): CheckoutAttempt {
+  return { ...attempt, key: null }
+}
+
+/**
+ * Keep the key for retryable responses (conflict, validation, rate limit) and
+ * for any other failure so a lost response cannot create a duplicate order.
+ */
+export function retryCheckoutAttempt(attempt: CheckoutAttempt, status?: number): CheckoutAttempt {
+  if (status === 409 || status === 422 || status === 429) return attempt
+  return attempt.key ? attempt : { ...attempt, key: createIdempotencyKey() }
+}
+
+/** Return the key to send with the next request, creating one if needed. */
+export function checkoutKey(attempt: CheckoutAttempt): string {
+  return attempt.key ?? createIdempotencyKey()
+}
+
+function createIdempotencyKey(): string {
+  const cryptoApi = globalThis.crypto
+  if (!cryptoApi?.randomUUID) throw new Error('This browser cannot create a secure idempotency key.')
+  return cryptoApi.randomUUID()
 }

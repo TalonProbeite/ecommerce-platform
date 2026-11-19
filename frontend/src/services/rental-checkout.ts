@@ -1,5 +1,4 @@
 import { createRentalOrder } from '@/api/order-client'
-import { cartIdempotencyKey } from '@/lib/idempotency'
 import { billedHours, isValidRentalRange } from '@/lib/rental'
 import { cartTotals, MAX_CART_LINES, MAX_ITEM_QUANTITY, type RentalCartItem } from '@/store/rental-cart-store'
 import type { CreateRentalOrderItem, RentalOrder } from '@/types/rental-order'
@@ -36,11 +35,10 @@ export function toCreateOrderItems(items: readonly RentalCartItem[]): CreateRent
   }))
 }
 
-export async function submitRentalOrder(customerId: string, items: readonly RentalCartItem[]): Promise<RentalOrder> {
+export async function submitRentalOrder(items: readonly RentalCartItem[], idempotencyKey: string): Promise<RentalOrder> {
   const errors = validateRentalCart(items)
   if (errors.length > 0) throw new Error(errors.join(' '))
-  const key = await cartIdempotencyKey(customerId, items)
-  return createRentalOrder(toCreateOrderItems(items), key)
+  return createRentalOrder(toCreateOrderItems(items), idempotencyKey)
 }
 
 export function cartEstimate(items: readonly RentalCartItem[]) {

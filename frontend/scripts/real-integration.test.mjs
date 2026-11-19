@@ -12,7 +12,7 @@ async function context(mode = 'real') {
   const server = await createServer({
     configFile: false, envDir: false,
     resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
-    define: { 'import.meta.env.VITE_API_MODE': JSON.stringify(mode), 'import.meta.env.VITE_API_URL': '"https://example.invalid"' },
+    define: { 'import.meta.env.VITE_API_MODE': JSON.stringify(mode), 'import.meta.env.VITE_API_URL': '"https://example.invalid"', 'import.meta.env.VITE_USE_MOCKS': JSON.stringify(mode === 'mock' ? 'true' : 'false') },
     server: { middlewareMode: true, watch: null, ws: false }, appType: 'custom',
   })
   const client = await server.ssrLoadModule('/src/api/client.ts')

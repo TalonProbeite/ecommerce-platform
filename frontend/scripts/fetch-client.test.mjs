@@ -4,7 +4,7 @@ import { createServer } from 'vite'
 
 test('REAL transport uses fetch with credentials, JSON, query parameters and cancellation', async () => {
   const server = await createServer({ configFile: false, envDir: false, optimizeDeps: { noDiscovery: true, include: [] },
-    define: { 'import.meta.env.VITE_API_MODE': '"real"', 'import.meta.env.VITE_API_URL': '"https://rentify.test"' },
+    define: { 'import.meta.env.VITE_API_MODE': '"real"', 'import.meta.env.VITE_API_URL': '"https://rentify.test"', 'import.meta.env.VITE_USE_MOCKS': '"false"' },
     server: { middlewareMode: true, watch: null, ws: false } })
   const originalFetch = globalThis.fetch
   try {

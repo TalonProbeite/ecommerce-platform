@@ -5,13 +5,14 @@ import { createServer } from 'vite'
 async function context() {
   const server = await createServer({
     configFile: false, envDir: false,
-    define: { 'import.meta.env.VITE_API_MODE': '"real"', 'import.meta.env.VITE_API_URL': '"https://example.invalid"' },
+    define: { 'import.meta.env.VITE_API_MODE': '"real"', 'import.meta.env.VITE_API_URL': '"https://example.invalid"', 'import.meta.env.VITE_USE_MOCKS': '"false"' },
     resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
     server: { middlewareMode: true, watch: null, ws: false }, appType: 'custom',
   })
   const { submitRentalOrder } = await server.ssrLoadModule('/src/services/rental-checkout.ts')
+  const { beginCheckoutAttempt } = await server.ssrLoadModule('/src/lib/idempotency.ts')
   const { orderErrorMessage } = await server.ssrLoadModule('/src/lib/order-error.ts')
-  return { server, submitRentalOrder, orderErrorMessage }
+  return { server, submitRentalOrder, orderErrorMessage, beginCheckoutAttempt }
 }
 
 const item = {
@@ -50,7 +51,7 @@ async function submitWith(ctx, status, body) {
     })
   }
   try {
-    return { result: await ctx.submitRentalOrder('11111111-1111-4111-8111-111111111111', [item]), capturedKey }
+    return { result: await ctx.submitRentalOrder([item], ctx.beginCheckoutAttempt([item]).key), capturedKey }
   } finally {
     globalThis.fetch = original
   }
@@ -61,7 +62,7 @@ test('checkout 201 leads to the order and sends a UUID Idempotency-Key', async (
   try {
     const { result, capturedKey } = await submitWith(ctx, 201, { data: order })
     assert.equal(result.id, order.id)
-    assert.match(capturedKey, /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+    assert.match(capturedKey, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   } finally { await ctx.server.close() }
 })
 
