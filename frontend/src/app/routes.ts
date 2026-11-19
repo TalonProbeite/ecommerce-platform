@@ -11,6 +11,8 @@ export const ROUTES = {
   orders: '/orders',
   order: (id: string) => `/orders/${encodeURIComponent(id)}`,
   orderPayment: (id: string) => `/orders/${encodeURIComponent(id)}/pay`,
+  manageOrders: '/manage/orders',
+  manageOrder: (id: string) => `/manage/orders/${encodeURIComponent(id)}`,
   profile: '/profile',
   login: '/login',
   register: '/register',

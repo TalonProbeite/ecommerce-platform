@@ -71,3 +71,22 @@ export interface OrderPage {
   orders: RentalOrder[]
   nextCursor: string | null
 }
+
+export interface RentalOrderEvent {
+  id: number
+  fromStatus: string | null
+  toStatus: string
+  orderItemId: string | null
+  actorRole: string
+  occurredAt: string
+}
+
+export interface OrderEventPage {
+  events: RentalOrderEvent[]
+  nextCursor: string | null
+}
+
+export interface ItemOperationResult {
+  order: RentalOrder
+  skippedItemIds: string[]
+}

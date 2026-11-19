@@ -1,4 +1,4 @@
-import { RENTAL_ORDER_STATUSES, type CancelReason, type OrderPage, type PaymentIntent, type RentalItemStatus, type RentalOrder, type RentalOrderItem, type RentalOrderStatus } from '@/types/rental-order'
+import { RENTAL_ORDER_STATUSES, type CancelReason, type ItemOperationResult, type OrderEventPage, type OrderPage, type PaymentIntent, type RentalItemStatus, type RentalOrder, type RentalOrderEvent, type RentalOrderItem, type RentalOrderStatus } from '@/types/rental-order'
 
 const ITEM_STATUSES: readonly RentalItemStatus[] = ['reserved', 'issued', 'returned', 'cancelled']
 const CANCEL_REASONS: readonly CancelReason[] = ['stock_unavailable', 'payment_timeout', 'customer_request', 'admin_request']
@@ -130,5 +130,45 @@ export function parsePaymentIntent(value: unknown): PaymentIntent {
     status: text(body.status, 'status'),
     amountTotal: integer(body.amount_total, 'amount_total'),
     currency: 'EUR',
+  }
+}
+
+export function parseItemOperationResponse(value: unknown): ItemOperationResult {
+  const order = parseOrderResponse(value)
+  const body = record(value, 'Item operation response')
+  const skipped = body.skipped_item_ids
+  if (skipped !== undefined && (!Array.isArray(skipped) || skipped.some((id) => typeof id !== 'string'))) {
+    throw new Error('skipped_item_ids must be an array of strings.')
+  }
+  return {
+    order,
+    skippedItemIds: (skipped ?? []) as string[],
+  }
+}
+
+export function parseRentalOrderEvent(value: unknown): RentalOrderEvent {
+  const event = record(value, 'Order event')
+  if (!Number.isSafeInteger(event.id)) throw new Error('Order event id must be an integer.')
+  return {
+    id: event.id as number,
+    fromStatus: nullableText(event.from_status, 'events[].from_status'),
+    toStatus: text(event.to_status, 'events[].to_status'),
+    orderItemId: nullableText(event.order_item_id, 'events[].order_item_id'),
+    actorRole: text(event.actor_role, 'events[].actor_role'),
+    occurredAt: dateTime(event.occurred_at, 'events[].occurred_at'),
+  }
+}
+
+export function parseOrderEventPage(value: unknown): OrderEventPage {
+  const body = record(value, 'Order event list response')
+  if (!Array.isArray(body.data)) throw new Error('Order event list data must be an array.')
+  const meta = record(body.meta, 'Order event list meta')
+  const nextCursor = meta.next_cursor
+  if (nextCursor !== null && nextCursor !== undefined && typeof nextCursor !== 'string') {
+    throw new Error('Order event cursor is invalid.')
+  }
+  return {
+    events: body.data.map(parseRentalOrderEvent),
+    nextCursor: typeof nextCursor === 'string' && nextCursor !== '' ? nextCursor : null,
   }
 }

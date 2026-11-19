@@ -39,6 +39,13 @@ export const router = createBrowserRouter([
       {
         element: <ProtectedRoute />,
         children: [
+          { path: ROUTES.manageOrders, lazy: async () => ({ Component: (await import('@/pages/manage-orders-page')).ManageOrdersPage }) },
+          { path: `${ROUTES.manageOrders}/:id`, lazy: async () => ({ Component: (await import('@/pages/manage-order-detail-page')).ManageOrderDetailPage }) },
+        ],
+      },
+      {
+        element: <ProtectedRoute />,
+        children: [
           { path: ROUTES.profile, lazy: async () => ({ Component: (await import('@/pages/profile-page')).ProfilePage }) },
         ],
       },

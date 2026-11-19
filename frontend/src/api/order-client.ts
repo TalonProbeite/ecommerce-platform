@@ -2,8 +2,8 @@ import { serviceRequest } from '@/api/catalog-client'
 import { ORDER_API } from '@/api/endpoints'
 import { HttpError } from '@/api/http'
 import { orderErrorMessage, type ProblemDetails } from '@/lib/order-error'
-import { parseOrderPage, parseOrderResponse, parsePaymentIntent } from '@/lib/order-mapping'
-import type { CreateRentalOrderItem, PaymentIntent, RentalOrder } from '@/types/rental-order'
+import { parseItemOperationResponse, parseOrderEventPage, parseOrderPage, parseOrderResponse, parsePaymentIntent } from '@/lib/order-mapping'
+import type { CreateRentalOrderItem, ItemOperationResult, OrderEventPage, PaymentIntent, RentalOrder } from '@/types/rental-order'
 
 export function requireOrderApi(): string {
   if (!ORDER_API) throw new Error('The Order Service is not configured for this environment.')
@@ -67,6 +67,51 @@ export async function cancelRentalOrder(orderId: string, signal?: AbortSignal): 
     signal,
   })
   return parseOrderResponse(data)
+}
+
+export async function issueRentalOrderItems(
+  orderId: string,
+  itemIds: string[],
+  signal?: AbortSignal,
+): Promise<ItemOperationResult> {
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: `/orders/${encodeURIComponent(orderId)}/issue`,
+    method: 'post',
+    data: { item_ids: itemIds },
+    signal,
+  })
+  return parseItemOperationResponse(data)
+}
+
+export async function returnRentalOrderItems(
+  orderId: string,
+  itemIds: string[],
+  signal?: AbortSignal,
+): Promise<ItemOperationResult> {
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: `/orders/${encodeURIComponent(orderId)}/return`,
+    method: 'post',
+    data: { item_ids: itemIds },
+    signal,
+  })
+  return parseItemOperationResponse(data)
+}
+
+export async function listRentalOrderEvents(
+  orderId: string,
+  params: { cursor?: string; limit?: number } = {},
+  signal?: AbortSignal,
+): Promise<OrderEventPage> {
+  const query: Record<string, string> = {}
+  if (params.cursor) query.cursor = params.cursor
+  if (params.limit) query.limit = String(params.limit)
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: `/orders/${encodeURIComponent(orderId)}/events`,
+    method: 'get',
+    params: query,
+    signal,
+  })
+  return parseOrderEventPage(data)
 }
 
 export { HttpError, orderErrorMessage, type ProblemDetails }
