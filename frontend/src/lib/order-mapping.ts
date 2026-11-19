@@ -1,4 +1,4 @@
-import { RENTAL_ORDER_STATUSES, type CancelReason, type ItemOperationResult, type OrderEventPage, type OrderPage, type PaymentIntent, type RentalItemStatus, type RentalOrder, type RentalOrderEvent, type RentalOrderItem, type RentalOrderStatus } from '@/types/rental-order'
+import { RENTAL_ORDER_STATUSES, type CancelReason, type ItemOperationResult, type OrderEventPage, type OrderPage, type OverdueRentalPage, type PaymentIntent, type RentalItemStatus, type RentalOrder, type RentalOrderEvent, type RentalOrderItem, type RentalOrderStatus } from '@/types/rental-order'
 
 const ITEM_STATUSES: readonly RentalItemStatus[] = ['reserved', 'issued', 'returned', 'cancelled']
 const CANCEL_REASONS: readonly CancelReason[] = ['stock_unavailable', 'payment_timeout', 'customer_request', 'admin_request']
@@ -169,6 +169,33 @@ export function parseOrderEventPage(value: unknown): OrderEventPage {
   }
   return {
     events: body.data.map(parseRentalOrderEvent),
+    nextCursor: typeof nextCursor === 'string' && nextCursor !== '' ? nextCursor : null,
+  }
+}
+
+export function parseOverdueRentalPage(value: unknown): OverdueRentalPage {
+  const body = record(value, 'Overdue rental list response')
+  if (!Array.isArray(body.data)) throw new Error('Overdue rental list data must be an array.')
+  const meta = record(body.meta, 'Overdue rental list meta')
+  const nextCursor = meta.next_cursor
+  if (nextCursor !== null && nextCursor !== undefined && typeof nextCursor !== 'string') {
+    throw new Error('Overdue rental cursor is invalid.')
+  }
+  return {
+    items: body.data.map((entry) => {
+      const item = record(entry, 'Overdue rental')
+      return {
+        orderId: text(item.order_id, 'data[].order_id'),
+        itemId: text(item.item_id, 'data[].item_id'),
+        productId: text(item.product_id, 'data[].product_id'),
+        productName: text(item.product_name, 'data[].product_name'),
+        storeId: text(item.store_id, 'data[].store_id'),
+        customerId: text(item.customer_id, 'data[].customer_id'),
+        quantity: integer(item.quantity, 'data[].quantity', 1),
+        rentalEndAt: dateTime(item.rental_end_at, 'data[].rental_end_at'),
+        overdueHours: integer(item.overdue_hours, 'data[].overdue_hours'),
+      }
+    }),
     nextCursor: typeof nextCursor === 'string' && nextCursor !== '' ? nextCursor : null,
   }
 }

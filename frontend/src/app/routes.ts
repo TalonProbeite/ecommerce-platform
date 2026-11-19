@@ -20,7 +20,12 @@ export const ROUTES = {
   oauthComplete: '/register/complete',
   verifyEmail: '/verify-email',
   admin: '/admin',
+  adminOrders: '/admin/orders',
+  adminOrder: (id: string) => `/admin/orders/${encodeURIComponent(id)}`,
   analytics: '/analytics',
+  analyticsOrders: '/analytics/orders',
+  analyticsOrder: (id: string) => `/analytics/orders/${encodeURIComponent(id)}`,
+  analyticsOverdue: '/analytics/overdue',
   notifications: '/notifications',
 } as const
 

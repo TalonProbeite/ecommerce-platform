@@ -2,8 +2,8 @@ import { serviceRequest } from '@/api/catalog-client'
 import { ORDER_API } from '@/api/endpoints'
 import { HttpError } from '@/api/http'
 import { orderErrorMessage, type ProblemDetails } from '@/lib/order-error'
-import { parseItemOperationResponse, parseOrderEventPage, parseOrderPage, parseOrderResponse, parsePaymentIntent } from '@/lib/order-mapping'
-import type { CreateRentalOrderItem, ItemOperationResult, OrderEventPage, PaymentIntent, RentalOrder } from '@/types/rental-order'
+import { parseItemOperationResponse, parseOrderEventPage, parseOrderPage, parseOrderResponse, parseOverdueRentalPage, parsePaymentIntent } from '@/lib/order-mapping'
+import type { CreateRentalOrderItem, ItemOperationResult, OrderEventPage, OverdueRentalPage, PaymentIntent, RentalOrder } from '@/types/rental-order'
 
 export function requireOrderApi(): string {
   if (!ORDER_API) throw new Error('The Order Service is not configured for this environment.')
@@ -26,13 +26,14 @@ export async function createRentalOrder(
 }
 
 export async function listRentalOrders(
-  params: { cursor?: string; limit?: number; status?: string } = {},
+  params: { cursor?: string; limit?: number; status?: string; storeId?: string } = {},
   signal?: AbortSignal,
 ): Promise<ReturnType<typeof parseOrderPage>> {
   const query: Record<string, string> = {}
   if (params.cursor) query.cursor = params.cursor
   if (params.limit) query.limit = String(params.limit)
   if (params.status) query.status = params.status
+  if (params.storeId) query.store_id = params.storeId
   const { data } = await serviceRequest<unknown>(requireOrderApi(), {
     url: '/orders',
     method: 'get',
@@ -112,6 +113,23 @@ export async function listRentalOrderEvents(
     signal,
   })
   return parseOrderEventPage(data)
+}
+
+export async function listOverdueRentals(
+  params: { cursor?: string; limit?: number; storeId?: string } = {},
+  signal?: AbortSignal,
+): Promise<OverdueRentalPage> {
+  const query: Record<string, string> = {}
+  if (params.cursor) query.cursor = params.cursor
+  if (params.limit) query.limit = String(params.limit)
+  if (params.storeId) query.store_id = params.storeId
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: '/analytics/overdue-rentals',
+    method: 'get',
+    params: query,
+    signal,
+  })
+  return parseOverdueRentalPage(data)
 }
 
 export { HttpError, orderErrorMessage, type ProblemDetails }

@@ -56,6 +56,26 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        element: <ProtectedRoute feature="orders.manage.all" />,
+        children: [
+          { path: ROUTES.adminOrders, lazy: async () => ({ Component: (await import('@/pages/admin-orders-page')).AdminOrdersPage }) },
+          { path: `${ROUTES.adminOrders}/:id`, lazy: async () => ({ Component: (await import('@/pages/admin-order-detail-page')).AdminOrderDetailPage }) },
+        ],
+      },
+      {
+        element: <ProtectedRoute feature="orders.read.all" />,
+        children: [
+          { path: ROUTES.analyticsOrders, lazy: async () => ({ Component: (await import('@/pages/analytics-orders-page')).AnalyticsOrdersPage }) },
+          { path: `${ROUTES.analyticsOrders}/:id`, lazy: async () => ({ Component: (await import('@/pages/analytics-order-detail-page')).AnalyticsOrderDetailPage }) },
+        ],
+      },
+      {
+        element: <ProtectedRoute feature="overdue.read" />,
+        children: [
+          { path: ROUTES.analyticsOverdue, lazy: async () => ({ Component: (await import('@/pages/analytics-overdue-page')).AnalyticsOverduePage }) },
+        ],
+      },
+      {
         element: <ProtectedRoute roles={['admin', 'analyst']} />,
         children: [
           { path: ROUTES.notifications, lazy: async () => ({ Component: (await import('@/pages/notifications-page')).NotificationsPage }) },

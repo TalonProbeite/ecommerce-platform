@@ -2,14 +2,16 @@ import { Loader2 } from 'lucide-react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { ROUTES } from '@/app/routes'
 import { SessionFeedback } from './session-feedback'
+import { can, type AccessFeature } from '@/lib/access'
 import { useAuthStore } from '@/store/auth-store'
 import type { Role } from '@/types'
 
 interface ProtectedRouteProps {
   roles?: Role[]
+  feature?: AccessFeature
 }
 
-export function ProtectedRoute({ roles }: ProtectedRouteProps) {
+export function ProtectedRoute({ roles, feature }: ProtectedRouteProps) {
   const location = useLocation()
   const user = useAuthStore((state) => state.user)
   const status = useAuthStore((state) => state.status)
@@ -29,7 +31,9 @@ export function ProtectedRoute({ roles }: ProtectedRouteProps) {
     return <Navigate to={ROUTES.login} replace state={{ from: location.pathname + location.search }} />
   }
 
-  if (user.isBanned || (roles && (!user.role || !roles.includes(user.role)))) {
+  const roleAllowed = feature ? can(user.role, feature) : !roles || (user.role !== undefined && roles.includes(user.role))
+
+  if (user.isBanned || !roleAllowed) {
     return <div className="mx-auto max-w-3xl px-4 py-16" role="alert"><h1 className="text-3xl font-bold">Forbidden</h1><p className="mt-3 text-muted-foreground">Your account does not have permission to access this page.</p></div>
   }
 

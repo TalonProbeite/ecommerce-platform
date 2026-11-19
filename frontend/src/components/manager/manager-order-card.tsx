@@ -6,19 +6,20 @@ import { formatDateTime } from '@/lib/rental'
 import { ORDER_STATUS_LABELS } from '@/lib/order-status'
 import type { RentalOrder } from '@/types/rental-order'
 
-export function ManagerOrderCard({ order }: { order: RentalOrder }) {
+export function ManagerOrderCard({ order, orderHref }: { order: RentalOrder; orderHref?: string }) {
   const itemCount = order.items.reduce((total, item) => total + item.quantity, 0)
   const firstStart = order.items[0]?.rentalStartAt
   const lastEnd = order.items.reduce(
     (latest, item) => (item.rentalEndAt > latest ? item.rentalEndAt : latest),
     order.items[0]?.rentalEndAt ?? '',
   )
+  const href = orderHref ?? ROUTES.manageOrder(order.id)
 
   return (
     <li className="rounded-3xl border bg-card p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link to={ROUTES.manageOrder(order.id)} className="break-all font-bold underline-offset-4 hover:underline">
+          <Link to={href} className="break-all font-bold underline-offset-4 hover:underline">
             {order.id}
           </Link>
           <p className="mt-1 text-sm text-muted-foreground">

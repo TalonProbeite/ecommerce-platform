@@ -51,17 +51,18 @@ export type RentalOrderListState =
   | { status: 'error'; error: string }
   | { status: 'success'; orders: RentalOrder[]; nextCursor: string | null }
 
-export function useRentalOrders(status?: string) {
+export function useRentalOrders(status?: string, options: { storeId?: string } = {}) {
   const [state, setState] = useState<RentalOrderListState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
   const reload = useCallback(() => setAttempt((value) => value + 1), [])
   const filter = status?.trim() || undefined
+  const storeId = options.storeId?.trim() || undefined
 
   useEffect(() => {
     const controller = new AbortController()
     setState({ status: 'loading' })
-    listRentalOrders({ limit: 20, status: filter }, controller.signal).then(
+    listRentalOrders({ limit: 20, status: filter, storeId }, controller.signal).then(
       (page) => {
         if (!controller.signal.aborted) setState({ status: 'success', orders: page.orders, nextCursor: page.nextCursor })
       },
@@ -70,13 +71,13 @@ export function useRentalOrders(status?: string) {
       },
     )
     return () => controller.abort()
-  }, [attempt, filter])
+  }, [attempt, filter, storeId])
 
   const loadMore = useCallback(async () => {
     if (state.status !== 'success' || !state.nextCursor || loadingMore) return
     setLoadingMore(true)
     try {
-      const page = await listRentalOrders({ cursor: state.nextCursor, limit: 20, status: filter })
+      const page = await listRentalOrders({ cursor: state.nextCursor, limit: 20, status: filter, storeId })
       setState({
         status: 'success',
         orders: [...state.orders, ...page.orders],
@@ -87,7 +88,7 @@ export function useRentalOrders(status?: string) {
     } finally {
       setLoadingMore(false)
     }
-  }, [state, loadingMore, filter])
+  }, [state, loadingMore, filter, storeId])
 
   return { state, reload, loadMore, loadingMore }
 }

@@ -90,3 +90,20 @@ export interface ItemOperationResult {
   order: RentalOrder
   skippedItemIds: string[]
 }
+
+export interface OverdueRental {
+  orderId: string
+  itemId: string
+  productId: string
+  productName: string
+  storeId: string
+  customerId: string
+  quantity: number
+  rentalEndAt: string
+  overdueHours: number
+}
+
+export interface OverdueRentalPage {
+  items: OverdueRental[]
+  nextCursor: string | null
+}
