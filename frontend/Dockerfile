@@ -14,11 +14,15 @@ RUN --mount=type=cache,id=shop-frontend-pnpm,target=/home/node/.local/share/pnpm
 FROM dependencies AS build
 ARG VITE_API_MODE=real
 ARG VITE_API_URL
+ARG VITE_STRIPE_PUBLISHABLE_KEY=
 COPY --chown=node:node index.html tsconfig.json vite.config.ts ./
 COPY --chown=node:node src ./src
 COPY --chown=node:node public ./public
 RUN case "$VITE_API_MODE" in real|mock) ;; *) echo 'VITE_API_MODE must be real or mock' >&2; exit 1 ;; esac \
-    && VITE_API_MODE="$VITE_API_MODE" VITE_API_URL="$VITE_API_URL" pnpm build --mode "$VITE_API_MODE"
+    && VITE_API_MODE="$VITE_API_MODE" \
+        VITE_API_URL="$VITE_API_URL" \
+        VITE_STRIPE_PUBLISHABLE_KEY="$VITE_STRIPE_PUBLISHABLE_KEY" \
+        pnpm build --mode "$VITE_API_MODE"
 
 FROM nginx:1.28-alpine AS runtime
 RUN rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf

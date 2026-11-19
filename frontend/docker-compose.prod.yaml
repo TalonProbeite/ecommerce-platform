@@ -9,6 +9,7 @@ services:
       args:
         VITE_API_MODE: real
         VITE_API_URL: ${FRONTEND_API_URL:?FRONTEND_API_URL must be set to the public API origin}
+        VITE_STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:?STRIPE_PUBLISHABLE_KEY must be set to the Stripe test publishable key (pk_test_...)}
     restart: unless-stopped
     expose:
       - "8080"

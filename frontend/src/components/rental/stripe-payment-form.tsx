@@ -9,7 +9,7 @@ interface StripePaymentFormProps {
   publishableKey: string
   returnUrl: string
   onConfirmed: () => void
-  onFailed?: () => void
+  onFailed?: (message: string) => void
 }
 
 const stripePromises = new Map<string, Promise<Stripe | null>>()
@@ -24,19 +24,20 @@ function stripeFor(publishableKey: string): Promise<Stripe | null> {
 
 export function StripePaymentForm({ orderId, clientSecret, publishableKey, returnUrl, onConfirmed, onFailed }: StripePaymentFormProps) {
   const stripePromise = useMemo(() => (publishableKey ? stripeFor(publishableKey) : null), [publishableKey])
+  const options = useMemo(
+    () => ({
+      clientSecret,
+      appearance: { theme: 'stripe' as const, variables: { colorPrimary: '#166534' } },
+    }),
+    [clientSecret],
+  )
 
   if (!stripePromise) {
     return <p role="alert" className="rounded-2xl bg-destructive/10 p-4 text-sm text-destructive">Stripe is not configured. The order remains unpaid.</p>
   }
 
   return (
-    <Elements
-      stripe={stripePromise}
-      options={{
-        clientSecret,
-        appearance: { theme: 'stripe', variables: { colorPrimary: '#166534' } },
-      }}
-    >
+    <Elements stripe={stripePromise} options={options}>
       <PaymentForm orderId={orderId} returnUrl={returnUrl} onConfirmed={onConfirmed} onFailed={onFailed} />
     </Elements>
   )
@@ -60,9 +61,10 @@ function PaymentForm({ orderId, returnUrl, onConfirmed, onFailed }: Pick<StripeP
         confirmParams: { return_url: returnUrl },
         redirect: 'if_required',
       })
-      if (result.error?.message) {
-        setMessage(result.error.message)
-        onFailed?.()
+      if (result.error) {
+        const errorMessage = result.error.message ?? 'The payment could not be confirmed.'
+        setMessage(errorMessage)
+        onFailed?.(errorMessage)
         return
       }
       onConfirmed()

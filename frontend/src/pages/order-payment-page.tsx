@@ -53,7 +53,22 @@ function CustomerOrderPaymentPage() {
     }
   }, [confirmed, order, navigate])
 
+  useEffect(() => {
+    if (intent?.status !== 'succeeded') return
+    setConfirmed(true)
+    setDeclined(false)
+    setIntent(null)
+    reload()
+  }, [intent, reload])
+
   if (state.status === 'loading') {
+    if (confirmed) {
+      return (
+        <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6" role="status" aria-live="polite">
+          <p className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">Payment received. Updating your order…</p>
+        </div>
+      )
+    }
     return <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6" role="status" aria-live="polite"><span className="sr-only">Loading payment...</span><Skeleton className="h-72 rounded-3xl" /></div>
   }
 
@@ -113,6 +128,13 @@ function CustomerOrderPaymentPage() {
               createOrderPaymentIntent(id).then(setIntent).catch((error: unknown) => setIntentError(orderErrorMessage(error)))
             }}>Try again</Button>
           </div>
+        ) : confirmed || intent?.status === 'succeeded' ? (
+          <p role="status" className="text-sm text-muted-foreground">Payment received. Updating your order…</p>
+        ) : intent?.status === 'canceled' ? (
+          <div role="alert">
+            <p className="rounded-2xl bg-destructive/10 p-4 text-sm text-destructive">This payment session is no longer active.</p>
+            <Button type="button" variant="outline" className="mt-4 rounded-full" onClick={requestIntent}>Start a new payment</Button>
+          </div>
         ) : !intent ? (
           <p role="status" className="text-sm text-muted-foreground">Preparing secure payment…</p>
         ) : (
@@ -121,11 +143,10 @@ function CustomerOrderPaymentPage() {
             clientSecret={intent.clientSecret}
             publishableKey={STRIPE_PUBLISHABLE_KEY}
             returnUrl={`${window.location.origin}${ROUTES.order(current.id)}`}
-            onConfirmed={() => { setConfirmed(true); reload() }}
-            onFailed={() => {
+            onConfirmed={() => { setConfirmed(true); setDeclined(false); setIntent(null); reload() }}
+            onFailed={(message) => {
               setDeclined(true)
-              setIntent(null)
-              requestIntent()
+              toast.error(message)
             }}
           />
         )}

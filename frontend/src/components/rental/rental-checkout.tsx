@@ -35,7 +35,7 @@ export function RentalCheckoutPage() {
 
   async function handleConfirm() {
     if (submitting) return
-    if (!user?.id) {
+    if (!user) {
       setError('Your session expired. Please sign in again.')
       return
     }

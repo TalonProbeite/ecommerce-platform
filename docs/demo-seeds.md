@@ -10,12 +10,13 @@ Run from the repository root after starting the global stack:
 ```sh
 make seed-auth
 make seed-notification
-make seed              # auth + notification + catalog
+make seed              # auth + notification + catalog + order
 ```
 
-All three targets use the root `docker-compose.yaml`, so they seed the running
-global stack (`catalog-app-prod` for catalog) and the database configured in
-`services/catalog/.env`.
+All four targets use the root `docker-compose.yaml`, so they seed the running
+global stack and the database configured in each service's `.env`. The order
+seeder writes the DEMO product snapshots required for checkout, so orders can be
+created for seeded catalog products without waiting for RabbitMQ events.
 
 ## Isolated local stacks
 
@@ -23,6 +24,7 @@ global stack (`catalog-app-prod` for catalog) and the database configured in
 make -C services/auth seed
 make -C services/notification seed
 make -C services/catalog seed
+make -C services/order seed
 ```
 
 These commands use each service's `docker-compose.local.yaml`. To target another
