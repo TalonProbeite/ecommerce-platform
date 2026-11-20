@@ -20,8 +20,9 @@ return new class () extends Migration {
             $table->boolean('is_active')->default(true);
             $table->foreignUuid('store_id')->constrained()->restrictOnDelete();
             $table->uuid('category_id');
-            $table->timestamps();
-            $table->softDeletes();
+            $table->timestampTz('created_at', 6)->useCurrent();
+            $table->timestampTz('updated_at', 6)->useCurrent();
+            $table->timestampTz('deleted_at', 6)->nullable();
             $table->unique(['store_id', 'slug']);
             $table->unique(['id', 'store_id']);
             $table->index('category_id');

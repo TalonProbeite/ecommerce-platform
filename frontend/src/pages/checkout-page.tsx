@@ -6,6 +6,7 @@ import { CheckoutDetailsFields, CheckoutFeedback, CheckoutItems, CheckoutSteps, 
 import { EmptyState } from '@/components/common/empty-state'
 import { LinkButton } from '@/components/common/link-button'
 import { PageHeader } from '@/components/common/page-header'
+import { UnderDevelopment } from '@/components/common/under-development'
 import { Button } from '@/components/ui/button'
 import { getEquipmentById } from '@/data/equipment'
 import { hasErrors, type FieldErrors } from '@/lib/validation'
@@ -15,10 +16,19 @@ import { useAuthStore } from '@/store/auth-store'
 import { useCartStore } from '@/store/cart-store'
 import { useOrdersStore } from '@/store/orders-store'
 import { isMockApi } from '@/api/client'
-import { ENABLE_REAL_CHECKOUT, IS_ORDER_API_ENABLED } from '@/api/endpoints'
+import { ENABLE_REAL_CHECKOUT, IS_ORDER_API_ENABLED, IS_ORDER_LIVE } from '@/api/endpoints'
+import { RentalCheckoutPage } from '@/components/rental/rental-checkout'
 import type { CheckoutDetails } from '@/types'
 
 export function CheckoutPage() {
+  const role = useAuthStore((state) => state.user?.role)
+  if (role !== 'customer') {
+    return <UnderDevelopment title="Checkout" description="Checkout is available to customer accounts in this release." />
+  }
+  return IS_ORDER_LIVE ? <RentalCheckoutPage /> : <MockCheckoutPage />
+}
+
+function MockCheckoutPage() {
   const navigate = useNavigate()
   const { pathname, search } = useLocation()
   const user = useAuthStore((state) => state.user)

@@ -1,6 +1,5 @@
 <?php
 
-use App\Messaging\RabbitMqPublisher;
 use Laravel\Octane\Contracts\OperationTerminated;
 use Laravel\Octane\Events\RequestHandled;
 use Laravel\Octane\Events\RequestReceived;
@@ -133,7 +132,6 @@ return [
 
     'warm' => [
         ...Octane::defaultServicesToWarm(),
-        RabbitMqPublisher::class,
     ],
 
     'flush' => [

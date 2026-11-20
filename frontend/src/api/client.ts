@@ -1,20 +1,29 @@
 import { fetchAdapter, isHttpError, CanceledError, type RequestConfig, type Adapter, type ApiResponse } from './http'
-import { mockAdapter } from './mock-adapter'
 import { resolveApiConfig } from './config'
 import { messageResponse } from './response'
 
 const { apiUrl, isMockApi } = resolveApiConfig({
   VITE_API_MODE: import.meta.env.VITE_API_MODE,
   VITE_API_URL: import.meta.env.VITE_API_URL,
+  VITE_USE_MOCKS: import.meta.env.VITE_USE_MOCKS,
 })
+
+const MOCKS_ENABLED = import.meta.env.VITE_USE_MOCKS === 'true'
+if (MOCKS_ENABLED !== isMockApi) throw new Error('VITE_USE_MOCKS must select the mock adapter.')
 
 export { isMockApi }
 
-// The adapter is shared by REAL fetch requests and explicit MOCK fixtures.
+async function mockRequest(config: RequestConfig): Promise<ApiResponse> {
+  const { mockAdapter } = await import('./mock-adapter')
+  return mockAdapter(config)
+}
+
+// The mock adapter is only loaded when VITE_USE_MOCKS=true, allowing the
+// production bundle to exclude it entirely.
 const defaults = {
   baseURL: apiUrl,
   credentials: 'include' as const,
-  adapter: (isMockApi ? mockAdapter : (config => fetchAdapter(config, apiUrl))) as Adapter,
+  adapter: (MOCKS_ENABLED ? mockRequest : ((config: RequestConfig) => fetchAdapter(config, apiUrl))) as Adapter,
 }
 
 async function request<T = any>(config: RequestConfig): Promise<ApiResponse<T>> {

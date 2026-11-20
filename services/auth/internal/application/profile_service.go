@@ -97,8 +97,9 @@ func (ps *ProfileService) PatchUserProfile(
 		}
 
 		payload, err := json.Marshal(events.EmailVerificationRequestedEvent{
-			Email: email,
-			Code:  code,
+			UserID: userID,
+			Email:  email,
+			Code:   code,
 		})
 		if err != nil {
 			return fmt.Errorf("error while creating json struct for event: %w", err)
@@ -107,6 +108,19 @@ func (ps *ProfileService) PatchUserProfile(
 		err = ps.publisher.PublishEvent(events.EmailVerificationRequestedEventKey, payload)
 		if err != nil {
 			return fmt.Errorf("error while publishing event: %w", err)
+		}
+
+		changedPayload, err := json.Marshal(events.EmailChangedEvent{
+			UserID: userID,
+			Email:  email,
+		})
+		if err != nil {
+			return fmt.Errorf("error while creating json struct for email changed event: %w", err)
+		}
+
+		err = ps.publisher.PublishEvent(events.EmailChangedEventKey, changedPayload)
+		if err != nil {
+			return fmt.Errorf("error while publishing email changed event: %w", err)
 		}
 	}
 

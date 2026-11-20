@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Contracts\Messaging\EventPublisherInterface;
 use App\Contracts\Services\CategoryServiceInterface;
 use App\Contracts\Services\ProductImageServiceInterface;
 use App\Contracts\Services\ProductServiceInterface;
@@ -12,7 +11,6 @@ use App\Contracts\Services\StockServiceInterface;
 use App\Contracts\Services\StoreServiceInterface;
 use App\Infrastructure\Health\ReadinessChecker;
 use App\Infrastructure\Storage\S3BucketGuard;
-use App\Messaging\RabbitMqPublisher;
 use Aws\S3\S3Client;
 use ReflectionProperty;
 use App\Services\CategoryService;
@@ -24,7 +22,7 @@ use Tests\TestCase;
 
 class ContainerBindingsTest extends TestCase
 {
-    public function test_repository_bindings_and_lazy_singleton_publisher(): void
+    public function test_repository_bindings_and_lazy_singletons(): void
     {
         $app = $this->app;
 
@@ -33,11 +31,17 @@ class ContainerBindingsTest extends TestCase
             self::assertTrue($app->bound($interface));
             self::assertInstanceOf('App\\Repositories\\' . $name . 'Repository', $app->make($interface));
         }
-        self::assertFalse($app->resolved(RabbitMqPublisher::class));
-        $publisher = $app->make(EventPublisherInterface::class);
-        self::assertInstanceOf(RabbitMqPublisher::class, $publisher);
-        self::assertSame($publisher, $app->make(EventPublisherInterface::class));
-        self::assertSame($publisher, $app->make(RabbitMqPublisher::class));
+        self::assertTrue($app->bound(\App\Contracts\Outbox\OutboxRepositoryInterface::class));
+        self::assertInstanceOf(\App\Outbox\OutboxRepository::class, $app->make(\App\Contracts\Outbox\OutboxRepositoryInterface::class));
+
+        self::assertTrue($app->bound(\App\Contracts\Outbox\OutboxWriterInterface::class));
+        self::assertInstanceOf(\App\Outbox\OutboxWriter::class, $app->make(\App\Contracts\Outbox\OutboxWriterInterface::class));
+
+        self::assertFalse($app->resolved(\App\Outbox\AmqpOutboxPublisher::class));
+        $outboxPublisher = $app->make(\App\Contracts\Outbox\OutboxMessagePublisherInterface::class);
+        self::assertInstanceOf(\App\Outbox\AmqpOutboxPublisher::class, $outboxPublisher);
+        self::assertSame($outboxPublisher, $app->make(\App\Contracts\Outbox\OutboxMessagePublisherInterface::class));
+        self::assertSame($outboxPublisher, $app->make(\App\Outbox\AmqpOutboxPublisher::class));
 
         foreach ([
             CategoryServiceInterface::class => CategoryService::class,

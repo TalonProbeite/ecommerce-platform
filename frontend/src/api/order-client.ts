@@ -1,0 +1,135 @@
+import { serviceRequest } from '@/api/catalog-client'
+import { ORDER_API } from '@/api/endpoints'
+import { HttpError } from '@/api/http'
+import { orderErrorMessage, type ProblemDetails } from '@/lib/order-error'
+import { parseItemOperationResponse, parseOrderEventPage, parseOrderPage, parseOrderResponse, parseOverdueRentalPage, parsePaymentIntent } from '@/lib/order-mapping'
+import type { CreateRentalOrderItem, ItemOperationResult, OrderEventPage, OverdueRentalPage, PaymentIntent, RentalOrder } from '@/types/rental-order'
+
+export function requireOrderApi(): string {
+  if (!ORDER_API) throw new Error('The Order Service is not configured for this environment.')
+  return ORDER_API
+}
+
+export async function createRentalOrder(
+  items: CreateRentalOrderItem[],
+  idempotencyKey: string,
+  signal?: AbortSignal,
+): Promise<RentalOrder> {
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: '/orders',
+    method: 'post',
+    data: { items },
+    headers: { 'Idempotency-Key': idempotencyKey },
+    signal,
+  })
+  return parseOrderResponse(data)
+}
+
+export async function listRentalOrders(
+  params: { cursor?: string; limit?: number; status?: string; storeId?: string } = {},
+  signal?: AbortSignal,
+): Promise<ReturnType<typeof parseOrderPage>> {
+  const query: Record<string, string> = {}
+  if (params.cursor) query.cursor = params.cursor
+  if (params.limit) query.limit = String(params.limit)
+  if (params.status) query.status = params.status
+  if (params.storeId) query.store_id = params.storeId
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: '/orders',
+    method: 'get',
+    params: query,
+    signal,
+  })
+  return parseOrderPage(data)
+}
+
+export async function getRentalOrder(orderId: string, signal?: AbortSignal): Promise<RentalOrder> {
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: `/orders/${encodeURIComponent(orderId)}`,
+    method: 'get',
+    signal,
+  })
+  return parseOrderResponse(data)
+}
+
+export async function createOrderPaymentIntent(orderId: string, signal?: AbortSignal): Promise<PaymentIntent> {
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: `/orders/${encodeURIComponent(orderId)}/payment-intent`,
+    method: 'post',
+    signal,
+  })
+  return parsePaymentIntent(data)
+}
+
+export async function cancelRentalOrder(orderId: string, signal?: AbortSignal): Promise<RentalOrder> {
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: `/orders/${encodeURIComponent(orderId)}/cancel`,
+    method: 'post',
+    signal,
+  })
+  return parseOrderResponse(data)
+}
+
+export async function issueRentalOrderItems(
+  orderId: string,
+  itemIds: string[],
+  signal?: AbortSignal,
+): Promise<ItemOperationResult> {
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: `/orders/${encodeURIComponent(orderId)}/issue`,
+    method: 'post',
+    data: { item_ids: itemIds },
+    signal,
+  })
+  return parseItemOperationResponse(data)
+}
+
+export async function returnRentalOrderItems(
+  orderId: string,
+  itemIds: string[],
+  signal?: AbortSignal,
+): Promise<ItemOperationResult> {
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: `/orders/${encodeURIComponent(orderId)}/return`,
+    method: 'post',
+    data: { item_ids: itemIds },
+    signal,
+  })
+  return parseItemOperationResponse(data)
+}
+
+export async function listRentalOrderEvents(
+  orderId: string,
+  params: { cursor?: string; limit?: number } = {},
+  signal?: AbortSignal,
+): Promise<OrderEventPage> {
+  const query: Record<string, string> = {}
+  if (params.cursor) query.cursor = params.cursor
+  if (params.limit) query.limit = String(params.limit)
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: `/orders/${encodeURIComponent(orderId)}/events`,
+    method: 'get',
+    params: query,
+    signal,
+  })
+  return parseOrderEventPage(data)
+}
+
+export async function listOverdueRentals(
+  params: { cursor?: string; limit?: number; storeId?: string } = {},
+  signal?: AbortSignal,
+): Promise<OverdueRentalPage> {
+  const query: Record<string, string> = {}
+  if (params.cursor) query.cursor = params.cursor
+  if (params.limit) query.limit = String(params.limit)
+  if (params.storeId) query.store_id = params.storeId
+  const { data } = await serviceRequest<unknown>(requireOrderApi(), {
+    url: '/analytics/overdue-rentals',
+    method: 'get',
+    params: query,
+    signal,
+  })
+  return parseOverdueRentalPage(data)
+}
+
+export { HttpError, orderErrorMessage, type ProblemDetails }

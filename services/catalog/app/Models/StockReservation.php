@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesPreciseDates;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,7 @@ use Ramsey\Uuid\Uuid;
 class StockReservation extends Model
 {
     use HasUuids;
+    use UsesPreciseDates;
 
     public function newUniqueId(): string
     {
@@ -20,9 +22,6 @@ class StockReservation extends Model
     }
 
     protected $guarded = ['id'];
-
-    // Preserve the supplied offset when Eloquent writes PostgreSQL TIMESTAMPTZ values.
-    protected $dateFormat = 'Y-m-d H:i:sP';
 
     protected function casts(): array
     {

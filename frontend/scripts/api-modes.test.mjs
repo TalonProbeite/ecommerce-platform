@@ -12,6 +12,7 @@ async function loadClient(mode, url) {
     define: {
       'import.meta.env.VITE_API_MODE': JSON.stringify(mode),
       'import.meta.env.VITE_API_URL': JSON.stringify(url),
+      'import.meta.env.VITE_USE_MOCKS': JSON.stringify(mode === 'mock' ? 'true' : 'false'),
     },
     server: { middlewareMode: true, watch: null, ws: false },
     appType: 'custom',
@@ -34,9 +35,7 @@ test('MOCK explicitly uses the existing adapter even when an API URL is configur
   }
   const { server, client } = await loadClient('mock', 'https://example.invalid')
   try {
-    const { mockAdapter } = await server.ssrLoadModule('/src/api/mock-adapter.ts')
     assert.equal(client.isMockApi, true)
-    assert.equal(client.api.defaults.adapter, mockAdapter)
     assert.equal(client.api.defaults.credentials, 'include')
     const { data } = await client.api.post('/auth/login', { email: 'user@rentify.dev', password: 'password123' })
     assert.equal(data.user.email, 'user@rentify.dev')
@@ -65,9 +64,7 @@ test('REAL uses HTTP at the configured address and never falls back on errors', 
   }
   const { server, client } = await loadClient('real', url)
   try {
-    const { mockAdapter } = await server.ssrLoadModule('/src/api/mock-adapter.ts')
     assert.equal(client.isMockApi, false)
-    assert.notEqual(client.api.defaults.adapter, mockAdapter)
     assert.equal(client.api.defaults.baseURL, url)
     assert.equal(client.api.defaults.credentials, 'include')
     await assert.rejects(client.api.post('/auth/api/login', { email: 'user@rentify.dev', password: 'password123' }), (error) => {
@@ -113,8 +110,10 @@ test('API configuration rejects invalid modes and missing REAL addresses', async
     for (const url of ['https://example.invalid/auth/api', 'https://user:secret@example.invalid', 'https://example.invalid?token=secret', 'https://example.invalid/#fragment']) {
       assert.throws(() => resolveApiConfig({ VITE_API_MODE: 'real', VITE_API_URL: url }), /origin/i)
     }
-    assert.equal(resolveApiConfig({}).isMockApi, true)
-    assert.equal(resolveApiConfig({ VITE_API_URL: 'https://example.invalid' }).isMockApi, false)
+    assert.equal(resolveApiConfig({}).isMockApi, false)
+    assert.equal(resolveApiConfig({ VITE_USE_MOCKS: 'true' }).isMockApi, true)
+    assert.equal(resolveApiConfig({ VITE_USE_MOCKS: 'false', VITE_API_URL: 'https://example.invalid' }).isMockApi, false)
+    assert.throws(() => resolveApiConfig({ VITE_USE_MOCKS: 'maybe' }), /VITE_USE_MOCKS/)
   } finally {
     await server.close()
   }

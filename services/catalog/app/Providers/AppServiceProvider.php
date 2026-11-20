@@ -4,8 +4,15 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Contracts\Messaging\EventPublisherInterface;
+use App\Contracts\Database\TransactionRunnerInterface;
+use App\Contracts\Messaging\AmqpConnectionFactoryInterface;
+use App\Contracts\Messaging\InboundMessageRouterInterface;
+use App\Contracts\Messaging\ObserverTopologyInterface;
+use App\Contracts\Outbox\OutboxMessagePublisherInterface;
+use App\Contracts\Outbox\OutboxRepositoryInterface;
+use App\Contracts\Outbox\OutboxWriterInterface;
 use App\Contracts\Repositories\CategoryRepositoryInterface;
+use App\Contracts\Repositories\ProcessedEventRepositoryInterface;
 use App\Contracts\Repositories\ProductAttributeRepositoryInterface;
 use App\Contracts\Repositories\ProductImageRepositoryInterface;
 use App\Contracts\Repositories\ProductRepositoryInterface;
@@ -13,6 +20,8 @@ use App\Contracts\Repositories\StockRepositoryInterface;
 use App\Contracts\Repositories\StockReservationRepositoryInterface;
 use App\Contracts\Repositories\StoreRepositoryInterface;
 use App\Contracts\Services\CategoryServiceInterface;
+use App\Contracts\Services\Inbound\OrderFulfilmentServiceInterface;
+use App\Contracts\Services\Inbound\OrderStockReservationServiceInterface;
 use App\Contracts\Services\ProductImageServiceInterface;
 use App\Contracts\Services\ProductServiceInterface;
 use App\Contracts\Services\StockServiceInterface;
@@ -21,10 +30,21 @@ use App\Infrastructure\Cache\CategoryCache;
 use App\Infrastructure\Health\ReadinessChecker;
 use Aws\S3\S3Client;
 use App\Infrastructure\Cache\ProductCache;
-use App\Messaging\RabbitMqPublisher;
+use App\Messaging\AmqpConnectionFactory;
+use App\Messaging\Inbound\Handlers\OrderCancelledHandler;
+use App\Messaging\Inbound\Handlers\OrderCreatedHandler;
+use App\Messaging\Inbound\Handlers\OrderIssuedHandler;
+use App\Messaging\Inbound\Handlers\OrderReturnedHandler;
+use App\Messaging\Inbound\InboundHandlerRegistry;
+use App\Messaging\Inbound\InboundMessageRouter;
+use App\Messaging\ObserverTopology;
 use App\Models\Category;
 use App\Observers\CategoryObserver;
+use App\Outbox\AmqpOutboxPublisher;
+use App\Outbox\OutboxRepository;
+use App\Outbox\OutboxWriter;
 use App\Repositories\CategoryRepository;
+use App\Repositories\ProcessedEventRepository;
 use App\Repositories\ProductAttributeRepository;
 use App\Repositories\ProductImageRepository;
 use App\Repositories\ProductRepository;
@@ -32,10 +52,13 @@ use App\Repositories\StockRepository;
 use App\Repositories\StockReservationRepository;
 use App\Repositories\StoreRepository;
 use App\Services\CategoryService;
+use App\Services\Inbound\OrderFulfilmentService;
+use App\Services\Inbound\OrderStockReservationService;
 use App\Services\ProductImageService;
 use App\Services\ProductService;
 use App\Services\StockService;
 use App\Services\StoreService;
+use App\Database\DbTransactionRunner;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -53,6 +76,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(CategoryRepositoryInterface::class, CategoryRepository::class);
+        $this->app->bind(ProcessedEventRepositoryInterface::class, ProcessedEventRepository::class);
         $this->app->bind(ProductAttributeRepositoryInterface::class, ProductAttributeRepository::class);
         $this->app->bind(ProductImageRepositoryInterface::class, ProductImageRepository::class);
         $this->app->bind(ProductRepositoryInterface::class, ProductRepository::class);
@@ -60,14 +84,36 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(StockReservationRepositoryInterface::class, StockReservationRepository::class);
         $this->app->bind(StoreRepositoryInterface::class, StoreRepository::class);
 
+        $this->app->bind(TransactionRunnerInterface::class, DbTransactionRunner::class);
+        $this->app->bind(AmqpConnectionFactoryInterface::class, AmqpConnectionFactory::class);
+        $this->app->bind(ObserverTopologyInterface::class, ObserverTopology::class);
+
+        $this->app->bind(OutboxRepositoryInterface::class, OutboxRepository::class);
+        $this->app->bind(OutboxWriterInterface::class, OutboxWriter::class);
+
         $this->app->bind(CategoryServiceInterface::class, CategoryService::class);
+        $this->app->bind(OrderFulfilmentServiceInterface::class, OrderFulfilmentService::class);
+        $this->app->bind(OrderStockReservationServiceInterface::class, OrderStockReservationService::class);
         $this->app->bind(ProductImageServiceInterface::class, ProductImageService::class);
         $this->app->bind(ProductServiceInterface::class, ProductService::class);
         $this->app->bind(StockServiceInterface::class, StockService::class);
         $this->app->bind(StoreServiceInterface::class, StoreService::class);
 
-        $this->app->singleton(RabbitMqPublisher::class);
-        $this->app->alias(RabbitMqPublisher::class, EventPublisherInterface::class);
+        $this->app->tag([
+            OrderCreatedHandler::class,
+            OrderCancelledHandler::class,
+            OrderIssuedHandler::class,
+            OrderReturnedHandler::class,
+        ], 'inbound.handlers');
+
+        $this->app->singleton(InboundHandlerRegistry::class, static function ($app): InboundHandlerRegistry {
+            return new InboundHandlerRegistry($app->tagged('inbound.handlers'));
+        });
+        $this->app->singleton(InboundMessageRouter::class);
+        $this->app->alias(InboundMessageRouter::class, InboundMessageRouterInterface::class);
+
+        $this->app->singleton(AmqpOutboxPublisher::class);
+        $this->app->alias(AmqpOutboxPublisher::class, OutboxMessagePublisherInterface::class);
         $this->app->singleton(CategoryCache::class);
         $this->app->singleton(ProductCache::class);
         $this->app->singleton(S3Client::class, fn (): S3Client => $this->makeS3Client(5.0));
@@ -114,11 +160,9 @@ class AppServiceProvider extends ServiceProvider
         Category::observe(CategoryObserver::class);
 
         Event::listen(WorkerStopping::class, static function (WorkerStopping $event): void {
-            if (! $event->app->resolved(RabbitMqPublisher::class)) {
-                return;
+            if ($event->app->resolved(AmqpOutboxPublisher::class)) {
+                $event->app->make(AmqpOutboxPublisher::class)->close();
             }
-
-            $event->app->make(RabbitMqPublisher::class)->close();
         });
     }
 }

@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { getErrorMessage, isMockApi } from '@/api/client'
-import { ADMIN_MOCK_TARGETS } from '@/api/mock-adapter'
+import { ADMIN_MOCK_TARGETS } from '@/api/mock-fixtures'
 import { CatalogAdmin } from '@/components/admin/catalog-admin'
 import { UserActionForm } from '@/components/admin/user-action-form'
 import { FormField } from '@/components/auth/form-field'

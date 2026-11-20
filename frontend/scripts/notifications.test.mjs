@@ -7,7 +7,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 const setup = (real = false) => createServer({
   configFile: false, envDir: false, resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
-  define: { 'import.meta.env.VITE_API_MODE': JSON.stringify(real ? 'real' : 'mock'), 'import.meta.env.VITE_API_URL': '"https://example.invalid"' },
+  define: { 'import.meta.env.VITE_API_MODE': JSON.stringify(real ? 'real' : 'mock'), 'import.meta.env.VITE_API_URL': '"https://example.invalid"', 'import.meta.env.VITE_USE_MOCKS': JSON.stringify(real ? 'false' : 'true') },
   server: { middlewareMode: true, ws: false, watch: null }, appType: 'custom',
 })
 

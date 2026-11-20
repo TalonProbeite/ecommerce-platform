@@ -12,7 +12,8 @@ return new class () extends Migration {
             $table->foreignUuid('product_id')->constrained()->cascadeOnDelete();
             $table->string('name', 255);
             $table->string('value', 255);
-            $table->timestamps();
+            $table->timestampTz('created_at', 6)->useCurrent();
+            $table->timestampTz('updated_at', 6)->useCurrent();
 
             $table->index('product_id');
         });

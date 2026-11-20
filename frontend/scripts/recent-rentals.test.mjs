@@ -8,7 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 test('profile rental history shares orders, isolates users and renders its states', async () => {
   const server = await createServer({
     configFile: false, envDir: false,
-    define: { 'import.meta.env.VITE_API_MODE': '"mock"', 'import.meta.env.VITE_API_URL': '""' },
+    define: { 'import.meta.env.VITE_API_MODE': '"mock"', 'import.meta.env.VITE_API_URL': '""', 'import.meta.env.VITE_USE_MOCKS': '"true"' },
     resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
     server: { middlewareMode: true, ws: false, watch: null },
     appType: 'custom',
@@ -47,10 +47,10 @@ test('profile rental history shares orders, isolates users and renders its state
     assert.match(error, /Try again/)
     // Zustand's SSR snapshot normally holds the initial (signed-out) state.
     useOrdersStore.getInitialState().orders = useOrdersStore.getState().orders
-    useAuthStore.getInitialState().user = { id: 'u-user' }
+    useAuthStore.getInitialState().user = { id: 'u-user', role: 'customer' }
     const history = renderToStaticMarkup(createElement(MemoryRouter, null, createElement(OrdersPage)))
     assert.match(history, /RNT-NEW/)
-    useAuthStore.getInitialState().user = { id: 'u-google' }
+    useAuthStore.getInitialState().user = { id: 'u-google', role: 'customer' }
     assert.doesNotMatch(renderToStaticMarkup(createElement(MemoryRouter, null, createElement(OrdersPage))), /RNT-NEW/)
   } finally {
     await server.close()

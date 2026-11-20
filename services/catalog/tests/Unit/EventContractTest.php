@@ -25,8 +25,16 @@ class EventContractTest extends TestCase
     {
         foreach ([ProductCreated::class => 'product.created', ProductUpdated::class => 'product.updated'] as $class => $key) {
             foreach ([0, 12345] as $price) {
-                yield $key . $price => [new $class('product', 'store', 'Дрель / "Pro"', $price), $key,
-                    ['product_id' => 'product', 'store_id' => 'store', 'name' => 'Дрель / "Pro"', 'price_per_hour' => $price]];
+                yield $key . $price => [new $class('product', 'store', 'Дрель / "Pro"', $price, 'category', 5000, true), $key,
+                    [
+                        'product_id' => 'product',
+                        'store_id' => 'store',
+                        'category_id' => 'category',
+                        'name' => 'Дрель / "Pro"',
+                        'price_per_hour' => $price,
+                        'deposit_amount' => 5000,
+                        'is_active' => true,
+                    ]];
             }
         }
         yield 'product.deleted' => [new ProductDeleted('product', 'store'), 'product.deleted', ['product_id' => 'product', 'store_id' => 'store']];
@@ -41,12 +49,12 @@ class EventContractTest extends TestCase
             yield 'stock.changed' . $quantity . ':' . $reserved => [new StockChanged('product', 'store', $quantity, $reserved), 'stock.changed',
                 ['product_id' => 'product', 'store_id' => 'store', 'quantity' => $quantity, 'reserved' => $reserved, 'available' => $available]];
         }
-        yield 'stock.reserved' => [new StockReserved('order', 'store', 'product', 2), 'stock.reserved',
-            ['order_id' => 'order', 'store_id' => 'store', 'product_id' => 'product', 'quantity' => 2]];
+        yield 'stock.reserved' => [new StockReserved('order', 'store'), 'stock.reserved',
+            ['order_id' => 'order', 'store_id' => 'store']];
         foreach (['insufficient_stock' => StockReservationFailureReason::InsufficientStock,
             'product_not_found' => StockReservationFailureReason::ProductNotFound] as $value => $reason) {
-            yield $value => [new StockReservationFailed('order', 'store', 'product', 2, $reason), 'stock.reservation_failed',
-                ['order_id' => 'order', 'store_id' => 'store', 'product_id' => 'product', 'quantity' => 2, 'reason' => $value]];
+            yield $value => [new StockReservationFailed('order', 'store', $reason), 'stock.reservation_failed',
+                ['order_id' => 'order', 'store_id' => 'store', 'reason' => $value]];
         }
     }
 

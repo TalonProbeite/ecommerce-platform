@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Contracts\Messaging\EventPublisherInterface;
+use App\Contracts\Outbox\OutboxWriterInterface;
 use App\DTO\CreateCategoryData;
 use App\Infrastructure\Cache\CategoryCache;
 use App\Infrastructure\Cache\ProductCache;
@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Mockery;
 use Ramsey\Uuid\Uuid;
 use Tests\PostgresTestCase;
+use Tests\Support\Fakes\FakeOutboxWriter;
 
 class CategoryCacheIntegrationTest extends PostgresTestCase
 {
@@ -33,9 +34,7 @@ class CategoryCacheIntegrationTest extends PostgresTestCase
 
         self::assertInstanceOf(RedisStore::class, Cache::store()->getStore());
 
-        $publisher = Mockery::mock(EventPublisherInterface::class);
-        $publisher->shouldReceive('publish');
-        $this->app->instance(EventPublisherInterface::class, $publisher);
+        $this->app->instance(OutboxWriterInterface::class, new FakeOutboxWriter());
 
         $this->storeA = Store::create(['name' => 'Store A']);
         $this->storeB = Store::create(['name' => 'Store B']);

@@ -87,6 +87,7 @@ class CatalogRepositoriesTest extends PostgresTestCase
 
         StockReservation::create([
             'order_id' => (string) Uuid::uuid7(),
+            'order_line_id' => (string) Uuid::uuid7(),
             'product_id' => $this->product->id,
             'store_id' => $this->store->id,
             'quantity' => 1,
@@ -270,12 +271,13 @@ class CatalogRepositoriesTest extends PostgresTestCase
         ProductImage::create(['product_id' => $this->product->id, 'object_key' => 'second.jpg']);
         Stock::create(['product_id' => $this->product->id, 'store_id' => $this->store->id, 'quantity' => 10, 'reserved' => 3]);
         $product = (new ProductRepository())->findDetailedById($this->product->id, $this->store->id);
-        foreach (['category', 'attributes', 'images', 'stock'] as $relation) {
+        foreach (['category', 'attributes', 'images', 'mainImage', 'stock'] as $relation) {
             self::assertTrue($product->relationLoaded($relation));
         }
         self::assertTrue($product->category->is($this->category));
         self::assertSame(['800 W'], $product->attributes->pluck('value')->all());
         self::assertSame(['first.jpg', 'second.jpg'], $product->images->pluck('object_key')->all());
+        self::assertSame('first.jpg', $product->mainImage?->object_key);
         self::assertSame(7, $product->stock->available);
         self::assertSame(100, $product->price_per_hour);
         self::assertTrue($product->is_active);
@@ -400,7 +402,7 @@ class CatalogRepositoriesTest extends PostgresTestCase
         $productIds = [];
         foreach (['reserved', 'issued', 'released', 'returned'] as $status) {
             $product = $this->product($status);
-            $reservation = new StockReservation(['order_id' => $order, 'product_id' => $product->id, 'store_id' => $this->store->id, 'quantity' => 2, 'status' => $status]);
+            $reservation = new StockReservation(['order_id' => $order, 'order_line_id' => (string) Uuid::uuid7(), 'product_id' => $product->id, 'store_id' => $this->store->id, 'quantity' => 2, 'status' => $status]);
             self::assertSame($reservation, $repository->save($reservation));
             $ids[$status] = $reservation->id;
             $productIds[$status] = $product->id;
@@ -412,7 +414,7 @@ class CatalogRepositoriesTest extends PostgresTestCase
         $otherStore = Store::create(['name' => 'Other']);
         $otherCategory = Category::create(['store_id' => $otherStore->id, 'name' => 'Other', 'slug' => 'other']);
         $product = $this->product('foreign', ['store_id' => $otherStore->id, 'category_id' => $otherCategory->id]);
-        $repository->save(new StockReservation(['order_id' => (string) Uuid::uuid7(), 'product_id' => $product->id, 'store_id' => $otherStore->id, 'quantity' => 1, 'status' => 'reserved']));
+        $repository->save(new StockReservation(['order_id' => (string) Uuid::uuid7(), 'order_line_id' => (string) Uuid::uuid7(), 'product_id' => $product->id, 'store_id' => $otherStore->id, 'quantity' => 1, 'status' => 'reserved']));
         self::assertInstanceOf(Collection::class, $repository->findByOrderId($order));
         self::assertEqualsCanonicalizing(array_values($ids), $repository->findByOrderId($order)->modelKeys());
         self::assertTrue($repository->findByOrderId((string) Uuid::uuid7())->isEmpty());

@@ -15,7 +15,8 @@ return new class () extends Migration {
             $table->string('mime_type', 100)->nullable();
             $table->unsignedBigInteger('size')->nullable();
             $table->boolean('is_main')->default(false);
-            $table->timestamps();
+            $table->timestampTz('created_at', 6)->useCurrent();
+            $table->timestampTz('updated_at', 6)->useCurrent();
 
             $table->index(['product_id', 'is_main']);
         });

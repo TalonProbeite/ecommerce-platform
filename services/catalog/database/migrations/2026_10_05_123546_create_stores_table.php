@@ -16,8 +16,9 @@ return new class () extends Migration {
             $table->text('description')->nullable();
             $table->string('location', 255)->nullable();
             $table->boolean('active')->default(true);
-            $table->timestamps();
-            $table->softDeletes();
+            $table->timestampTz('created_at', 6)->useCurrent();
+            $table->timestampTz('updated_at', 6)->useCurrent();
+            $table->timestampTz('deleted_at', 6)->nullable();
         });
     }
 
