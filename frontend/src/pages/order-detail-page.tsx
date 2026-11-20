@@ -7,6 +7,7 @@ import { cancelRentalOrder, orderErrorMessage } from '@/api/order-client'
 import { EmptyState } from '@/components/common/empty-state'
 import { LinkButton } from '@/components/common/link-button'
 import { PageHeader } from '@/components/common/page-header'
+import { OrderMetadata } from '@/components/orders/order-metadata'
 import { StatusBadge } from '@/components/rental/status-badge'
 import { UnderDevelopment } from '@/components/common/under-development'
 import { Button } from '@/components/ui/button'
@@ -89,18 +90,22 @@ function CustomerOrderDetailPage() {
         </p>
       ) : null}
 
-      <section className="mt-8 rounded-3xl border bg-card p-6" aria-labelledby="order-items-heading">
+      <OrderMetadata order={order} />
+
+      <section className="mt-4 rounded-3xl border bg-card p-6" aria-labelledby="order-items-heading">
         <h2 id="order-items-heading" className="text-lg font-bold">Items</h2>
         <ul className="mt-4 divide-y">
           {order.items.map((item) => (
             <li key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-4 first:pt-0 last:pb-0">
               <div className="min-w-0">
-                <p className="break-words font-semibold">{item.productName} × {item.quantity}</p>
+                <Link to={ROUTES.equipment(item.productId)} className="break-words font-semibold underline-offset-4 hover:underline">
+                  {item.productName} × {item.quantity}
+                </Link>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {formatDateTime(item.rentalStartAt)} – {formatDateTime(item.rentalEndAt)} · {item.billedHours} {item.billedHours === 1 ? 'hour' : 'hours'}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {formatEurCents(item.pricePerHourCents)} / hour · deposit {formatEurCents(item.depositTotalCents)}
+                  {formatEurCents(item.pricePerHourCents)} / hour · deposit {formatEurCents(item.depositPerUnitCents)} / unit ({formatEurCents(item.depositTotalCents)} total)
                 </p>
                 <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {ITEM_STATUS_LABELS[item.status]}

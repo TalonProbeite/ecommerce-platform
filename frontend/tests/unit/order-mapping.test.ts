@@ -76,3 +76,20 @@ test('rejects a malformed payment intent', () => {
   })
   assert.throws(() => parsePaymentIntent({ client_secret: 'x', status: 'ok', amount_total: 1, currency: 'USD' }))
 })
+
+test('maps item actor identifiers supplied by the API', () => {
+  const parsed = parseOrderResponse({
+    data: {
+      ...order,
+      items: [{
+        ...order.items[0],
+        issued_at: '2026-11-21T09:05:00.000000+00:00',
+        issued_by: '44444444-4444-4444-8444-444444444444',
+        returned_at: '2026-11-21T10:55:00.000000+00:00',
+        returned_by: '55555555-5555-4555-8555-555555555555',
+      }],
+    },
+  })
+  assert.equal(parsed.items[0].issuedBy, '44444444-4444-4444-8444-444444444444')
+  assert.equal(parsed.items[0].returnedBy, '55555555-5555-4555-8555-555555555555')
+})

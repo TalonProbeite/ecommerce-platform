@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
+import { OrderMetadata } from '@/components/orders/order-metadata'
 import { StatusBadge } from '@/components/rental/status-badge'
 import { RentalOrderCard } from '@/components/rental/rental-order-card'
 import type { RentalOrder } from '@/types/rental-order'
@@ -36,7 +37,9 @@ const order: RentalOrder = {
     depositTotalCents: 5000,
     status: 'reserved',
     issuedAt: null,
+    issuedBy: null,
     returnedAt: null,
+    returnedBy: null,
   }],
 }
 
@@ -52,4 +55,19 @@ test('order card renders items, totals and a detail link', () => {
   assert.match(html, /Drill/)
   assert.match(html, /€90\.00/)
   assert.match(html, /\/orders\/77777777-7777-4777-8777-777777777771/)
+})
+
+test('order metadata renders lifecycle timestamps and internal ids', () => {
+  const html = renderToStaticMarkup(createElement(OrderMetadata, {
+    order: {
+      ...order,
+      status: 'completed',
+      completedAt: '2026-11-22T12:00:00.000000+00:00',
+    },
+    showInternalIds: true,
+  }))
+  assert.match(html, /Order info/)
+  assert.match(html, /Completed/)
+  assert.match(html, /Customer ID/)
+  assert.match(html, /11111111-1111-4111-8111-111111111111/)
 })

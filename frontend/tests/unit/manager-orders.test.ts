@@ -29,7 +29,9 @@ function item(overrides: Partial<RentalOrderItem> = {}): RentalOrderItem {
     depositTotalCents: 2500,
     status: 'reserved',
     issuedAt: null,
+    issuedBy: null,
     returnedAt: null,
+    returnedBy: null,
     ...overrides,
   }
 }

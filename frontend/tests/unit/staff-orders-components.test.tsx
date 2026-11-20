@@ -20,7 +20,9 @@ const ITEM: RentalOrderItem = {
   depositTotalCents: 5000,
   status: 'reserved',
   issuedAt: null,
+  issuedBy: null,
   returnedAt: null,
+  returnedBy: null,
 }
 
 function order(): RentalOrder {

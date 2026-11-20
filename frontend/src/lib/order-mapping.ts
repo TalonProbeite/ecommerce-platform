@@ -76,7 +76,9 @@ export function parseOrderItem(value: unknown): RentalOrderItem {
     depositTotalCents: integer(item.deposit_total, 'items[].deposit_total'),
     status: itemStatus(item.status),
     issuedAt: nullableDateTime(item.issued_at, 'items[].issued_at'),
+    issuedBy: nullableText(item.issued_by, 'items[].issued_by'),
     returnedAt: nullableDateTime(item.returned_at, 'items[].returned_at'),
+    returnedBy: nullableText(item.returned_by, 'items[].returned_by'),
   }
 }
 

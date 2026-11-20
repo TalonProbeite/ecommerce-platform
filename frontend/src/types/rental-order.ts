@@ -32,7 +32,9 @@ export interface RentalOrderItem {
   depositTotalCents: number
   status: RentalItemStatus
   issuedAt: string | null
+  issuedBy: string | null
   returnedAt: string | null
+  returnedBy: string | null
 }
 
 export interface RentalOrder {
