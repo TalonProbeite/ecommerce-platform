@@ -221,6 +221,7 @@ export function CategorySection({ storeId, categories }: { storeId: string; cate
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-5">Name</TableHead>
+                <TableHead className="w-40">ID</TableHead>
                 <TableHead className="hidden sm:table-cell">Slug</TableHead>
                 <TableHead className="pr-5 text-right">Actions</TableHead>
               </TableRow>
@@ -230,6 +231,9 @@ export function CategorySection({ storeId, categories }: { storeId: string; cate
                 <TableRow key={category.id}>
                   <TableCell className="pl-5 font-semibold" style={{ paddingLeft: `${20 + depth * 20}px` }}>
                     {category.name}
+                  </TableCell>
+                  <TableCell className="w-40 whitespace-normal">
+                    <span className="block break-all font-mono text-[11px] leading-tight text-muted-foreground">{category.id}</span>
                   </TableCell>
                   <TableCell className="hidden font-mono text-xs text-muted-foreground sm:table-cell">{category.slug}</TableCell>
                   <TableCell className="pr-5 text-right">

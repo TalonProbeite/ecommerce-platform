@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Contracts\Repositories\StockReservationRepositoryInterface;
+use App\Enums\ReservationStatus;
 use App\Models\StockReservation;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
+use Ramsey\Uuid\Uuid;
 
 class StockReservationRepository implements StockReservationRepositoryInterface
 {
@@ -71,5 +75,77 @@ class StockReservationRepository implements StockReservationRepositoryInterface
     {
         $stockReservation->saveOrFail();
         return $stockReservation;
+    }
+
+    /**
+     * @param list<array{
+     *   order_line_id: string, order_id: string, product_id: string,
+     *   store_id: string, quantity: int, status: string,
+     *   rental_start_at: ?string, rental_end_at: ?string
+     * }> $rows
+     */
+    public function insertIgnoringExisting(array $rows): int
+    {
+        if ($rows === []) {
+            return 0;
+        }
+
+        $prepared = array_map(
+            static fn (array $row): array => ['id' => (string) Uuid::uuid7()] + $row,
+            $rows,
+        );
+
+        return DB::table('stock_reservations')->insertOrIgnore($prepared);
+    }
+
+    /**
+     * @param list<string> $lineIds
+     * @return list<string>
+     */
+    public function findExistingLineIds(array $lineIds): array
+    {
+        if ($lineIds === []) {
+            return [];
+        }
+
+        return array_values(StockReservation::query()
+            ->whereIn('order_line_id', $lineIds)
+            ->pluck('order_line_id')
+            ->map(static fn (mixed $lineId): string => (string) $lineId)
+            ->all());
+    }
+
+    public function findByLineIdForUpdate(string $lineId): ?StockReservation
+    {
+        return StockReservation::query()
+            ->where('order_line_id', $lineId)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    public function transitionStatus(
+        string $lineId,
+        ReservationStatus $from,
+        ReservationStatus $to,
+        CarbonImmutable $at,
+    ): int {
+        $values = [
+            'status' => $to->value,
+            'updated_at' => $at,
+        ];
+
+        if ($to === ReservationStatus::Issued) {
+            $values['issued_at'] = $at;
+        }
+
+        if ($to === ReservationStatus::Returned) {
+            $values['returned_at'] = $at;
+        }
+
+        // Use the query builder: Eloquent would overwrite updated_at with now().
+        return DB::table('stock_reservations')
+            ->where('order_line_id', $lineId)
+            ->where('status', $from->value)
+            ->update($values);
     }
 }

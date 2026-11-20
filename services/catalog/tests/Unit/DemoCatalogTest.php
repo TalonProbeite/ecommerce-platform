@@ -4,197 +4,83 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Console\Commands\ImportDemoCatalog;
-use Database\Seeders\CatalogSeeder;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Http;
-use PHPUnit\Framework\Attributes\DataProvider;
+use Database\Seeders\DemoCatalogDataset;
+use Database\Seeders\DemoProductImageFactory;
+use finfo;
+use PHPUnit\Framework\TestCase;
 use Ramsey\Uuid\Uuid;
-use Tests\TestCase;
 
 class DemoCatalogTest extends TestCase
 {
-    /** @return array<string, mixed> */
-    private function manual(): array
+    public function test_dataset_is_deterministic_and_contains_at_least_two_hundred_products(): void
     {
-        return json_decode(file_get_contents(database_path('seeders/data/catalog-demo-manual.json')), true, 512, JSON_THROW_ON_ERROR);
-    }
+        $dataset = (new DemoCatalogDataset())->make();
+        $again = (new DemoCatalogDataset())->make();
 
-    /** @return list<array<string, mixed>> */
-    private function source(): array
-    {
-        $products = [];
-        foreach ($this->manual()['imports'] as $item) {
-            $products[] = ['id' => $item['id'], 'title' => $item['title'], 'category' => $item['source_category'],
-                'brand' => 'Fixture brand', 'price' => 999999, 'stock' => 0,
-                'images' => ['https://cdn.dummyjson.com/product-images/example/1.webp']];
-        }
-        return $products;
-    }
-
-    public function test_normalization_is_order_independent_and_does_not_use_sale_price_or_source_stock(): void
-    {
-        Http::preventStrayRequests();
-        $command = new ImportDemoCatalog();
-        $source = $this->source();
-        $source[] = ['id' => 1, 'title' => 'Mascara', 'category' => 'beauty'];
-        $dataset = $command->normalize($source, $this->manual());
-        $changed = array_reverse($source);
-        foreach ($changed as &$item) {
-            $item['price'] = 0.01;
-            $item['stock'] = 9999;
-        }
-        unset($item);
-        self::assertSame($dataset, $command->normalize($changed, $this->manual()));
-        self::assertCount(48, $dataset['products']);
-        $laptop = array_values(array_filter($dataset['products'], fn ($p) => $p['slug'] === 'demo-dummyjson-78'))[0];
-        self::assertSame(15000, $laptop['price_per_hour']);
-        self::assertSame(5000000, $laptop['deposit_amount']);
-        self::assertSame(['quantity' => 3, 'reserved' => 0], $laptop['stock']);
-        self::assertSame([], $laptop['images']);
-        self::assertCount(1, $laptop['source']['image_urls']);
-        self::assertStringStartsWith('DEMO ', $laptop['name']);
-        Http::assertNothingSent();
-    }
-
-    public function test_missing_or_changed_selected_products_are_rejected(): void
-    {
-        $source = $this->source();
-        $source[0]['category'] = 'beauty';
-        $this->expectException(\UnexpectedValueException::class);
-        (new ImportDemoCatalog())->normalize($source, $this->manual());
-    }
-
-    public function test_committed_dataset_has_valid_ownership_ids_money_stock_and_provenance(): void
-    {
-        $dataset = json_decode(file_get_contents(database_path('seeders/data/catalog-demo.json')), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame(1, $dataset['version']);
+        self::assertSame($dataset, $again);
+        self::assertSame(2, $dataset['version']);
         self::assertSame('kopecks', $dataset['money_unit']);
         self::assertCount(3, $dataset['stores']);
         self::assertCount(9, $dataset['categories']);
-        self::assertCount(48, $dataset['products']);
+        self::assertGreaterThanOrEqual(200, count($dataset['products']));
+    }
+
+    public function test_every_product_has_valid_ownership_money_stock_attributes_and_images(): void
+    {
+        $dataset = (new DemoCatalogDataset())->make();
         $stores = array_column($dataset['stores'], null, 'id');
         $categories = array_column($dataset['categories'], null, 'id');
         $ids = [];
         $slugs = [];
-        $sources = [];
-        foreach ($dataset['categories'] as $category) {
-            self::assertArrayHasKey($category['store_id'], $stores);
-        }
+
         foreach ($dataset['products'] as $product) {
-            self::assertArrayNotHasKey('rating', $product);
-            self::assertArrayNotHasKey('reviews_count', $product);
             self::assertTrue(Uuid::isValid($product['id']));
-            self::assertNotContains($product['id'], $ids);
-            $ids[] = $product['id'];
-            $slug = $product['store_id'] . '/' . $product['slug'];
-            self::assertNotContains($slug, $slugs);
-            $slugs[] = $slug;
+            self::assertArrayNotHasKey($product['id'], $ids);
+            $ids[$product['id']] = true;
+
+            $slugKey = $product['store_id'] . '/' . $product['slug'];
+            self::assertArrayNotHasKey($slugKey, $slugs);
+            $slugs[$slugKey] = true;
+
+            self::assertArrayHasKey($product['store_id'], $stores);
+            self::assertArrayHasKey($product['category_id'], $categories);
             self::assertSame($product['store_id'], $categories[$product['category_id']]['store_id']);
-            self::assertIsInt($product['price_per_hour']);
+            self::assertStringStartsWith('DEMO ', $product['name']);
+            self::assertStringStartsWith('demo-', $product['slug']);
             self::assertGreaterThan(0, $product['price_per_hour']);
-            self::assertIsInt($product['deposit_amount']);
             self::assertGreaterThan(0, $product['deposit_amount']);
+            self::assertTrue($product['is_active']);
             self::assertGreaterThan(0, $product['stock']['quantity']);
             self::assertSame(0, $product['stock']['reserved']);
-            self::assertSame([], $product['images']);
-            self::assertNotEmpty($product['attributes']);
-            self::assertStringStartsWith('DEMO ', $product['name']);
-            $sources[] = $product['source']['provider'];
-        }
-        self::assertCount(14, array_filter($sources, fn ($s) => $s === 'dummyjson'));
-        self::assertCount(34, array_filter($sources, fn ($s) => $s === 'manual'));
-    }
 
-    public function test_seeder_reads_and_validates_local_json_without_http_or_database(): void
-    {
-        Http::preventStrayRequests();
-        DB::shouldReceive('transaction')->never();
-        $dataset = (new CatalogSeeder())->readDataset(database_path('seeders/data/catalog-demo.json'));
-        self::assertCount(48, $dataset['products']);
-        Http::assertNothingSent();
-    }
+            self::assertGreaterThanOrEqual(2, count($product['attributes']));
+            foreach ($product['attributes'] as $attribute) {
+                self::assertNotSame('', $attribute['name']);
+                self::assertNotSame('', $attribute['value']);
+            }
 
-    public function test_seeder_rejects_cross_store_product_before_database_access(): void
-    {
-        $dataset = json_decode(file_get_contents(database_path('seeders/data/catalog-demo.json')), true, 512, JSON_THROW_ON_ERROR);
-        $dataset['products'][0]['store_id'] = $dataset['stores'][2]['id'];
-        DB::shouldReceive('transaction')->never();
-        $path = tempnam(sys_get_temp_dir(), 'catalog-demo-test-');
-        try {
-            file_put_contents($path, json_encode($dataset, JSON_THROW_ON_ERROR));
-            $this->expectException(\UnexpectedValueException::class);
-            (new CatalogSeeder())->readDataset($path);
-        } finally {
-            unlink($path);
+            self::assertNotEmpty($product['images']);
+            self::assertTrue($product['images'][0]['is_main']);
+            self::assertSame('image/png', $product['images'][0]['mime_type']);
         }
     }
 
-    /** @return iterable<string, array{string}> */
-    public static function failures(): iterable
+    public function test_image_factory_returns_valid_deterministic_png_files(): void
     {
-        yield 'unavailable API' => ['unavailable'];
-        yield 'invalid JSON' => ['json'];
-        yield 'incomplete response' => ['incomplete'];
-        yield 'changed selection' => ['selection'];
-    }
+        $factory = new DemoProductImageFactory();
+        $png = $factory->png('photo-video', 1, 0);
 
-    #[DataProvider('failures')]
-    public function test_failed_import_preserves_previous_file(string $failure): void
-    {
-        Http::preventStrayRequests();
-        $response = match ($failure) {
-            'unavailable' => Http::response('', 503),
-            'json' => Http::response('{broken', 200),
-            'incomplete' => Http::response(['products' => [], 'total' => 1], 200),
-            default => Http::response(['products' => [['id' => 1]], 'total' => 1], 200),
-        };
-        Http::fake(['dummyjson.com/products*' => $response]);
-        $path = tempnam(sys_get_temp_dir(), 'catalog-demo-test-');
-        try {
-            file_put_contents($path, 'previous dataset');
-            $this->artisan('catalog:import-demo-data', ['--output' => $path])->assertFailed();
-            self::assertSame('previous dataset', file_get_contents($path));
-        } finally {
-            unlink($path);
-        }
-    }
+        self::assertSame($png, $factory->png('photo-video', 1, 0));
+        self::assertNotSame($png, $factory->png('tools', 1, 0));
+        self::assertNotSame($png, $factory->png('photo-video', 2, 0));
+        self::assertStringStartsWith("\x89PNG\r\n\x1a\n", $png);
 
-    public function test_semantically_invalid_manual_data_does_not_replace_previous_dataset(): void
-    {
-        $manual = $this->manual();
-        $source = $this->source();
-        $manual['products'][0]['price_per_hour'] = 2147483648;
-        Http::preventStrayRequests();
-        Http::fake(['dummyjson.com/products*' => Http::response(['products' => $source, 'total' => count($source)])]);
-        File::partialMock()->shouldReceive('get')
-            ->with(database_path('seeders/data/catalog-demo-manual.json'))
-            ->andReturn(json_encode($manual, JSON_THROW_ON_ERROR));
-        $path = tempnam(sys_get_temp_dir(), 'catalog-demo-test-');
-        try {
-            file_put_contents($path, 'previous dataset');
-            $this->artisan('catalog:import-demo-data', ['--output' => $path])->assertFailed();
-            self::assertSame('previous dataset', file_get_contents($path));
-        } finally {
-            unlink($path);
-        }
-    }
+        $header = unpack('Nwidth/Nheight', substr($png, 16, 8));
+        self::assertSame(480, $header['width']);
+        self::assertSame(360, $header['height']);
+        self::assertLessThan(5 * 1024 * 1024, strlen($png));
 
-    public function test_command_writes_normalized_json_using_only_get(): void
-    {
-        Http::preventStrayRequests();
-        $source = $this->source();
-        Http::fake(['dummyjson.com/products*' => Http::response(['products' => $source, 'total' => count($source)])]);
-        $path = tempnam(sys_get_temp_dir(), 'catalog-demo-test-');
-        try {
-            $this->artisan('catalog:import-demo-data', ['--output' => $path])->assertSuccessful();
-            $dataset = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-            self::assertCount(48, $dataset['products']);
-            Http::assertSentCount(1);
-            Http::assertSent(fn ($request) => $request->method() === 'GET' && $request->url() === 'https://dummyjson.com/products?limit=0');
-        } finally {
-            unlink($path);
-        }
+        $mimeType = (new finfo(FILEINFO_MIME_TYPE))->buffer($png);
+        self::assertSame('image/png', $mimeType);
     }
 }

@@ -1,8 +1,7 @@
 # Auth and notification DEMO seeds
 
 Seeds are explicit commands, separate from migrations and application startup.
-They require running databases; auth migrations must already be applied.
-The existing admin migration and Catalog seeder are unchanged.
+They require a running stack with migrations already applied.
 
 ## Global stack
 
@@ -11,17 +10,19 @@ Run from the repository root after starting the global stack:
 ```sh
 make seed-auth
 make seed-notification
-make seed              # auth + notification + existing Catalog seed
+make seed              # auth + notification + catalog
 ```
 
-Auth and notification use the root `docker-compose.yaml`. Catalog keeps its
-existing `make -C services/catalog seed` behavior and configured Laravel database.
+All three targets use the root `docker-compose.yaml`, so they seed the running
+global stack (`catalog-app-prod` for catalog) and the database configured in
+`services/catalog/.env`.
 
 ## Isolated local stacks
 
 ```sh
 make -C services/auth seed
 make -C services/notification seed
+make -C services/catalog seed
 ```
 
 These commands use each service's `docker-compose.local.yaml`. To target another

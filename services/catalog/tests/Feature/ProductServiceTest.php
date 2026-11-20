@@ -102,6 +102,7 @@ class ProductServiceTest extends PostgresTestCase
 
         StockReservation::create([
             'order_id' => (string) Uuid::uuid7(),
+            'order_line_id' => (string) Uuid::uuid7(),
             'product_id' => $product->id,
             'store_id' => $this->store->id,
             'quantity' => 1,
@@ -180,6 +181,7 @@ class ProductServiceTest extends PostgresTestCase
 
         StockReservation::create([
             'order_id' => (string) Uuid::uuid7(),
+            'order_line_id' => (string) Uuid::uuid7(),
             'product_id' => $product->id,
             'store_id' => $this->store->id,
             'quantity' => 1,

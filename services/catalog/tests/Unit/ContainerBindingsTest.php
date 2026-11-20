@@ -39,6 +39,18 @@ class ContainerBindingsTest extends TestCase
         self::assertSame($publisher, $app->make(EventPublisherInterface::class));
         self::assertSame($publisher, $app->make(RabbitMqPublisher::class));
 
+        self::assertTrue($app->bound(\App\Contracts\Outbox\OutboxRepositoryInterface::class));
+        self::assertInstanceOf(\App\Outbox\OutboxRepository::class, $app->make(\App\Contracts\Outbox\OutboxRepositoryInterface::class));
+
+        self::assertTrue($app->bound(\App\Contracts\Outbox\OutboxWriterInterface::class));
+        self::assertInstanceOf(\App\Outbox\OutboxWriter::class, $app->make(\App\Contracts\Outbox\OutboxWriterInterface::class));
+
+        self::assertFalse($app->resolved(\App\Outbox\AmqpOutboxPublisher::class));
+        $outboxPublisher = $app->make(\App\Contracts\Outbox\OutboxMessagePublisherInterface::class);
+        self::assertInstanceOf(\App\Outbox\AmqpOutboxPublisher::class, $outboxPublisher);
+        self::assertSame($outboxPublisher, $app->make(\App\Contracts\Outbox\OutboxMessagePublisherInterface::class));
+        self::assertSame($outboxPublisher, $app->make(\App\Outbox\AmqpOutboxPublisher::class));
+
         foreach ([
             CategoryServiceInterface::class => CategoryService::class,
             ProductImageServiceInterface::class => ProductImageService::class,
