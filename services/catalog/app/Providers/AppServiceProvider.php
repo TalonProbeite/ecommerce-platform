@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Contracts\Messaging\EventPublisherInterface;
 use App\Contracts\Database\TransactionRunnerInterface;
+use App\Contracts\Messaging\AmqpConnectionFactoryInterface;
+use App\Contracts\Messaging\EventPublisherInterface;
+use App\Contracts\Messaging\InboundMessageRouterInterface;
 use App\Contracts\Outbox\OutboxMessagePublisherInterface;
 use App\Contracts\Outbox\OutboxRepositoryInterface;
 use App\Contracts\Outbox\OutboxWriterInterface;
@@ -28,11 +30,13 @@ use App\Infrastructure\Cache\CategoryCache;
 use App\Infrastructure\Health\ReadinessChecker;
 use Aws\S3\S3Client;
 use App\Infrastructure\Cache\ProductCache;
+use App\Messaging\AmqpConnectionFactory;
 use App\Messaging\Inbound\Handlers\OrderCancelledHandler;
 use App\Messaging\Inbound\Handlers\OrderCreatedHandler;
 use App\Messaging\Inbound\Handlers\OrderIssuedHandler;
 use App\Messaging\Inbound\Handlers\OrderReturnedHandler;
 use App\Messaging\Inbound\InboundHandlerRegistry;
+use App\Messaging\Inbound\InboundMessageRouter;
 use App\Messaging\RabbitMqPublisher;
 use App\Models\Category;
 use App\Observers\CategoryObserver;
@@ -81,6 +85,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(StoreRepositoryInterface::class, StoreRepository::class);
 
         $this->app->bind(TransactionRunnerInterface::class, DbTransactionRunner::class);
+        $this->app->bind(AmqpConnectionFactoryInterface::class, AmqpConnectionFactory::class);
 
         $this->app->bind(OutboxRepositoryInterface::class, OutboxRepository::class);
         $this->app->bind(OutboxWriterInterface::class, OutboxWriter::class);
@@ -106,6 +111,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(InboundHandlerRegistry::class, static function ($app): InboundHandlerRegistry {
             return new InboundHandlerRegistry($app->tagged('inbound.handlers'));
         });
+        $this->app->singleton(InboundMessageRouter::class);
+        $this->app->alias(InboundMessageRouter::class, InboundMessageRouterInterface::class);
 
         $this->app->singleton(AmqpOutboxPublisher::class);
         $this->app->alias(AmqpOutboxPublisher::class, OutboxMessagePublisherInterface::class);

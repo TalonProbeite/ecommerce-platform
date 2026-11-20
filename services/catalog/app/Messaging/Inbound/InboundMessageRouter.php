@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Messaging\Inbound;
 
+use App\Contracts\Messaging\InboundMessageRouterInterface;
 use App\Infrastructure\Cache\ProductCache;
 use App\Messaging\Inbound\Exceptions\InvalidMessageException;
 use App\Messaging\Inbound\Exceptions\InvalidReservationTransitionException;
@@ -19,7 +20,7 @@ use Psr\Log\LoggerInterface;
 use stdClass;
 use Throwable;
 
-final readonly class InboundMessageRouter
+final readonly class InboundMessageRouter implements InboundMessageRouterInterface
 {
     public function __construct(
         private InboundHandlerRegistry $registry,
