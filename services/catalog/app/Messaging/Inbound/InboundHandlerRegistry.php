@@ -11,7 +11,7 @@ use LogicException;
 final class InboundHandlerRegistry
 {
     /**
-     * @var array<string, InboundHandler>
+     * @var array<string, InboundHandler<object>>
      */
     private array $handlers = [];
 
@@ -43,6 +43,7 @@ final class InboundHandlerRegistry
     }
 
     /**
+     * @return InboundHandler<object>
      * @throws UnknownRoutingKeyException
      */
     public function get(string $routingKey): InboundHandler
