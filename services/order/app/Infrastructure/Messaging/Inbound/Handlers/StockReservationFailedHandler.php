@@ -14,9 +14,11 @@ use App\Infrastructure\Messaging\Inbound\Exceptions\InvalidMessageException;
 use App\Infrastructure\Messaging\Inbound\InboundHandler;
 use App\Infrastructure\Messaging\Inbound\InboundRoutingKeys;
 use Carbon\CarbonImmutable;
-use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
 
+/**
+ * @implements InboundHandler<StockReservationFailedData>
+ */
 final readonly class StockReservationFailedHandler implements InboundHandler
 {
     public function __construct(
@@ -40,14 +42,6 @@ final readonly class StockReservationFailedHandler implements InboundHandler
 
     public function handle(object $dto, CarbonImmutable $now): void
     {
-        if (! $dto instanceof StockReservationFailedData) {
-            throw new InvalidArgumentException(sprintf(
-                'Expected %s, got %s.',
-                StockReservationFailedData::class,
-                get_debug_type($dto),
-            ));
-        }
-
         try {
             $this->useCase->handle(new StockReservationFailedCommand(
                 eventId: $dto->eventId,

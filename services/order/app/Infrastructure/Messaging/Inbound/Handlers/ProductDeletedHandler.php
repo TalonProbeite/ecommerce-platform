@@ -10,8 +10,10 @@ use App\Infrastructure\Messaging\Inbound\Data\ProductDeletedData;
 use App\Infrastructure\Messaging\Inbound\InboundHandler;
 use App\Infrastructure\Messaging\Inbound\InboundRoutingKeys;
 use Carbon\CarbonImmutable;
-use InvalidArgumentException;
 
+/**
+ * @implements InboundHandler<ProductDeletedData>
+ */
 final readonly class ProductDeletedHandler implements InboundHandler
 {
     public function __construct(
@@ -34,14 +36,6 @@ final readonly class ProductDeletedHandler implements InboundHandler
 
     public function handle(object $dto, CarbonImmutable $now): void
     {
-        if (! $dto instanceof ProductDeletedData) {
-            throw new InvalidArgumentException(sprintf(
-                'Expected %s, got %s.',
-                ProductDeletedData::class,
-                get_debug_type($dto),
-            ));
-        }
-
         $this->useCase->delete(new ProductDeleteCommand(
             eventId: $dto->eventId,
             occurredAt: $dto->occurredAt,

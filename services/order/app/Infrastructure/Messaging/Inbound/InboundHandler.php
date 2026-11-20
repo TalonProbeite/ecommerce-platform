@@ -6,14 +6,20 @@ namespace App\Infrastructure\Messaging\Inbound;
 
 use Carbon\CarbonImmutable;
 
+/**
+ * @template T of object
+ */
 interface InboundHandler
 {
     public function routingKey(): string;
 
     /**
-     * @return class-string
+     * @return class-string<T>
      */
     public function dtoClass(): string;
 
+    /**
+     * @param T $dto
+     */
     public function handle(object $dto, CarbonImmutable $now): void;
 }

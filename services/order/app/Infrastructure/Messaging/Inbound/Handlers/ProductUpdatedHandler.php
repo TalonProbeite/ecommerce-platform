@@ -10,8 +10,10 @@ use App\Infrastructure\Messaging\Inbound\Data\ProductUpsertData;
 use App\Infrastructure\Messaging\Inbound\InboundHandler;
 use App\Infrastructure\Messaging\Inbound\InboundRoutingKeys;
 use Carbon\CarbonImmutable;
-use InvalidArgumentException;
 
+/**
+ * @implements InboundHandler<ProductUpsertData>
+ */
 final readonly class ProductUpdatedHandler implements InboundHandler
 {
     public function __construct(
@@ -34,14 +36,6 @@ final readonly class ProductUpdatedHandler implements InboundHandler
 
     public function handle(object $dto, CarbonImmutable $now): void
     {
-        if (! $dto instanceof ProductUpsertData) {
-            throw new InvalidArgumentException(sprintf(
-                'Expected %s, got %s.',
-                ProductUpsertData::class,
-                get_debug_type($dto),
-            ));
-        }
-
         $this->useCase->upsert(new ProductUpsertCommand(
             eventId: $dto->eventId,
             occurredAt: $dto->occurredAt,
