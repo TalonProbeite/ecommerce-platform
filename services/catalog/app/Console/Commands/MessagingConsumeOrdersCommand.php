@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Messaging\Inbound\InboundMessageRouter;
+use App\Contracts\Messaging\AmqpConnectionFactoryInterface;
+use App\Contracts\Messaging\InboundMessageRouterInterface;
 use App\Messaging\Inbound\InboundOutcome;
 use App\Messaging\Inbound\Topology;
 use Illuminate\Console\Command;
@@ -44,8 +45,11 @@ final class MessagingConsumeOrdersCommand extends Command
 
     private bool $shouldStop = false;
 
-    public function handle(InboundMessageRouter $router, LoggerInterface $logger): int
-    {
+    public function handle(
+        InboundMessageRouterInterface $router,
+        AmqpConnectionFactoryInterface $connections,
+        LoggerInterface $logger,
+    ): int {
         $this->registerSignalHandlers($logger);
 
         $maxMessages = $this->maxMessages();
@@ -62,7 +66,7 @@ final class MessagingConsumeOrdersCommand extends Command
             $channel = null;
 
             try {
-                $connection = $this->connect();
+                $connection = $connections->connect();
                 $channel = $connection->channel();
 
                 Topology::declare($channel);
@@ -150,22 +154,6 @@ final class MessagingConsumeOrdersCommand extends Command
         if ($delayMs > 0) {
             usleep($delayMs * 1000);
         }
-    }
-
-    private function connect(): AMQPStreamConnection
-    {
-        return new AMQPStreamConnection(
-            (string) config('rabbitmq.host'),
-            (int) config('rabbitmq.port'),
-            (string) config('rabbitmq.user'),
-            (string) config('rabbitmq.password'),
-            (string) config('rabbitmq.vhost'),
-            connection_timeout: (float) config('rabbitmq.connection_timeout'),
-            read_write_timeout: (float) config('rabbitmq.read_write_timeout'),
-            keepalive: true,
-            heartbeat: (int) config('rabbitmq.heartbeat'),
-            channel_rpc_timeout: (float) config('rabbitmq.channel_rpc_timeout'),
-        );
     }
 
     private function close(?AMQPChannel $channel, ?AMQPStreamConnection $connection): void

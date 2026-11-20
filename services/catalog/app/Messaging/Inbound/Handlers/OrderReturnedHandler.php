@@ -10,8 +10,10 @@ use App\Messaging\Inbound\InboundHandler;
 use App\Messaging\Inbound\InboundRoutingKeys;
 use App\Services\Inbound\Results\ProcessingResult;
 use Carbon\CarbonImmutable;
-use InvalidArgumentException;
 
+/**
+ * @implements InboundHandler<OrderReturnedData>
+ */
 final readonly class OrderReturnedHandler implements InboundHandler
 {
     public function __construct(
@@ -34,14 +36,6 @@ final readonly class OrderReturnedHandler implements InboundHandler
 
     public function handle(object $dto, CarbonImmutable $now): ProcessingResult
     {
-        if (! $dto instanceof OrderReturnedData) {
-            throw new InvalidArgumentException(sprintf(
-                'Expected %s, got %s.',
-                OrderReturnedData::class,
-                get_debug_type($dto),
-            ));
-        }
-
         return $this->service->handleReturned($dto, $now);
     }
 }

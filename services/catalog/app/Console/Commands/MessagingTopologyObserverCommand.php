@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Messaging\OutboundTopology;
+use App\Contracts\Messaging\ObserverTopologyInterface;
 use Illuminate\Console\Command;
-use PhpAmqpLib\Connection\AMQPStreamConnection;
 use Throwable;
 
 final class MessagingTopologyObserverCommand extends Command
@@ -25,40 +24,15 @@ final class MessagingTopologyObserverCommand extends Command
      */
     protected $description = 'Declare development observer queue catalog.events.observer on catalog.events exchange';
 
-    public function handle(): int
+    public function handle(ObserverTopologyInterface $topology): int
     {
-        $queueName = 'catalog.events.observer';
-        $exchangeName = (string) config('rabbitmq.exchange.name');
+        $queueName = $topology->queueName();
+        $exchangeName = $topology->exchangeName();
 
         $this->info(sprintf('Declaring observer queue "%s" on exchange "%s"...', $queueName, $exchangeName));
 
         try {
-            $connection = new AMQPStreamConnection(
-                (string) config('rabbitmq.host'),
-                (int) config('rabbitmq.port'),
-                (string) config('rabbitmq.user'),
-                (string) config('rabbitmq.password'),
-                (string) config('rabbitmq.vhost'),
-                connection_timeout: (float) config('rabbitmq.connection_timeout'),
-                read_write_timeout: (float) config('rabbitmq.read_write_timeout'),
-            );
-
-            $channel = $connection->channel();
-
-            OutboundTopology::declareExchange($channel);
-
-            $channel->queue_declare(
-                $queueName,
-                passive: false,
-                durable: true,
-                exclusive: false,
-                auto_delete: false,
-            );
-
-            $channel->queue_bind($queueName, $exchangeName, '#');
-
-            $channel->close();
-            $connection->close();
+            $topology->declare();
 
             $this->info(sprintf('Observer queue "%s" bound to "%s" with routing key "#".', $queueName, $exchangeName));
 
