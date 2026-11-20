@@ -15,7 +15,7 @@ use Psr\Log\LoggerInterface;
 use stdClass;
 use Throwable;
 
-final readonly class InboundMessageRouter
+final readonly class InboundMessageRouter implements InboundMessageRouterInterface
 {
     public function __construct(
         private InboundHandlerRegistry $registry,

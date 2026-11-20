@@ -28,9 +28,12 @@ use App\Infrastructure\Messaging\Inbound\Handlers\ProductCreatedHandler;
 use App\Infrastructure\Messaging\Inbound\Handlers\ProductDeletedHandler;
 use App\Infrastructure\Messaging\Inbound\Handlers\ProductUpdatedHandler;
 use App\Infrastructure\Messaging\Inbound\Handlers\StockReservationFailedHandler;
+use App\Infrastructure\Messaging\AmqpConnectionFactory;
+use App\Infrastructure\Messaging\AmqpConnectionFactoryInterface;
 use App\Infrastructure\Messaging\Inbound\Handlers\StockReservedHandler;
 use App\Infrastructure\Messaging\Inbound\InboundHandlerRegistry;
 use App\Infrastructure\Messaging\Inbound\InboundMessageRouter;
+use App\Infrastructure\Messaging\Inbound\InboundMessageRouterInterface;
 use App\Infrastructure\Messaging\Outbox\AmqpOutboxPublisher;
 use App\Infrastructure\Messaging\Outbox\OutboxMessagePublisherInterface;
 use App\Infrastructure\Messaging\Outbox\OutboxRelay;
@@ -70,6 +73,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Database Transactions
         $this->app->bind(TransactionRunnerInterface::class, DbTransactionRunner::class);
+        $this->app->bind(AmqpConnectionFactoryInterface::class, AmqpConnectionFactory::class);
 
         // Persistence and time
         $this->app->bind(Clock::class, SystemClock::class);
@@ -131,6 +135,7 @@ class AppServiceProvider extends ServiceProvider
             return new InboundHandlerRegistry($app->tagged('inbound.handlers'));
         });
         $this->app->singleton(InboundMessageRouter::class);
+        $this->app->alias(InboundMessageRouter::class, InboundMessageRouterInterface::class);
     }
 
     /**
