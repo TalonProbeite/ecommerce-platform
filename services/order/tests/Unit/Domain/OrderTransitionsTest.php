@@ -12,6 +12,7 @@ use App\Domain\Events\OrderReturned;
 use App\Domain\Exceptions\InvalidOrderTransition;
 use App\Domain\Exceptions\ItemNotInOrder;
 use App\Domain\Exceptions\MixedStoreOrder;
+use App\Domain\Exceptions\ReturnBeforeRentalStart;
 use App\Domain\Money\Money;
 use App\Domain\Order\ActorRole;
 use App\Domain\Order\CancelReason;
@@ -373,6 +374,21 @@ final class OrderTransitionsTest extends TestCase
         $this->expectException(InvalidOrderTransition::class);
 
         $order->returnItems([$lineIds[0]], $this->at(), 'manager-1');
+    }
+
+    #[Test]
+    public function returning_an_item_before_its_rental_starts_is_forbidden(): void
+    {
+        $order = $this->issuedOrder();
+        $lineIds = $this->lineIds($order);
+
+        $this->expectException(ReturnBeforeRentalStart::class);
+
+        $order->returnItems(
+            [$lineIds[0]],
+            $this->at('2026-11-20T12:00:00.000000+00:00'),
+            'manager-1',
+        );
     }
 
     #[Test]

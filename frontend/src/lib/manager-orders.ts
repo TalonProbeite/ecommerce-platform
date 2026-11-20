@@ -9,10 +9,10 @@ export function issuableItems(order: RentalOrder): RentalOrderItem[] {
   return order.items.filter((item) => item.status === 'reserved')
 }
 
-/** Items a manager can accept back: issued, and only while the order is in rental. */
-export function returnableItems(order: RentalOrder): RentalOrderItem[] {
-  if (!canReturnOrder(order)) return []
-  return order.items.filter((item) => item.status === 'issued')
+/** Items a manager can accept back: issued, in rental, and after the rental has started. */
+export function returnableItems(order: RentalOrder, now: Date = new Date()): RentalOrderItem[] {
+  if (order.status !== 'in_rental') return []
+  return order.items.filter((item) => item.status === 'issued' && rentalHasStarted(item, now))
 }
 
 export function canIssueOrder(order: RentalOrder): boolean {
@@ -20,8 +20,14 @@ export function canIssueOrder(order: RentalOrder): boolean {
     && order.items.some((item) => item.status === 'reserved')
 }
 
-export function canReturnOrder(order: RentalOrder): boolean {
-  return order.status === 'in_rental' && order.items.some((item) => item.status === 'issued')
+export function canReturnOrder(order: RentalOrder, now: Date = new Date()): boolean {
+  return returnableItems(order, now).length > 0
+}
+
+/** Returns are accepted only after the rental period has started. */
+export function rentalHasStarted(item: RentalOrderItem, now: Date = new Date()): boolean {
+  const start = Date.parse(item.rentalStartAt)
+  return Number.isFinite(start) && start <= now.getTime()
 }
 
 export function canCancelOrder(order: RentalOrder): boolean {

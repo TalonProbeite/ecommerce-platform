@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { cartQuantity, cartTotals, MAX_CART_LINES, rentalItemKey, useRentalCartStore } from '@/store/rental-cart-store'
+import { cartQuantity, cartTotals, maxQuantityFor, MAX_CART_LINES, rentalItemKey, useRentalCartStore } from '@/store/rental-cart-store'
 import type { RentalCartItem } from '@/store/rental-cart-store'
 
 const base: RentalCartItem = {
@@ -13,6 +13,7 @@ const base: RentalCartItem = {
   pricePerHourCents: 500,
   depositPerUnitCents: 1000,
   quantity: 1,
+  available: 1000,
   rentalStartAt: '2026-11-21T09:00:00.000Z',
   rentalEndAt: '2026-11-21T11:00:00.000Z',
 }
@@ -53,6 +54,28 @@ test('clamps quantities and removes lines', () => {
   assert.equal(useRentalCartStore.getState().items[0].quantity, 1000)
   useRentalCartStore.getState().removeItem(key)
   assert.equal(useRentalCartStore.getState().items.length, 0)
+})
+
+test('never allows more than the available stock', () => {
+  const store = useRentalCartStore.getState()
+  store.addItem({ ...base, available: 3, quantity: 2 })
+  const key = rentalItemKey(base)
+  useRentalCartStore.getState().updateQuantity(key, 10)
+  assert.equal(useRentalCartStore.getState().items[0].quantity, 3)
+
+  useRentalCartStore.getState().updateQuantity(key, 1)
+  useRentalCartStore.getState().addItem({ ...base, available: 3, quantity: 5 })
+  assert.equal(useRentalCartStore.getState().items[0].quantity, 3)
+})
+
+test('rejects an out-of-stock item', () => {
+  assert.throws(() => useRentalCartStore.getState().addItem({ ...base, available: 0 }), /out of stock/i)
+})
+
+test('max quantity is capped by stock and the global limit', () => {
+  assert.equal(maxQuantityFor({ available: 3 }), 3)
+  assert.equal(maxQuantityFor({ available: 5000 }), 1000)
+  assert.equal(maxQuantityFor({ available: 0 }), 0)
 })
 
 test('rejects an invalid period', () => {

@@ -7,6 +7,7 @@ import {
   canReturnOrder,
   issuableItems,
   itemStatusLabel,
+  rentalHasStarted,
   returnableItems,
   returnedDepositCents,
 } from '@/lib/manager-orders'
@@ -20,6 +21,7 @@ interface ManagerActionPanelProps {
   onToggle?: (itemId: string) => void
   onSubmit?: () => void
   submitting?: boolean
+  now?: Date
 }
 
 export function ManagerActionPanel({
@@ -30,12 +32,17 @@ export function ManagerActionPanel({
   onToggle,
   onSubmit,
   submitting = false,
+  now,
 }: ManagerActionPanelProps) {
-  const eligible = mode === 'issue' ? issuableItems(order) : returnableItems(order)
-  const canAct = mode === 'issue' ? canIssueOrder(order) : canReturnOrder(order)
+  const currentTime = now ?? new Date()
+  const eligible = mode === 'issue' ? issuableItems(order) : returnableItems(order, currentTime)
+  const canAct = mode === 'issue' ? canIssueOrder(order) : canReturnOrder(order, currentTime)
   const selectedItems = eligible.filter((item) => selectedIds.has(item.id))
   const submitDisabled = !canAct || selectedItems.length === 0 || submitting
   const isIssue = mode === 'issue'
+  const waitingForStart = !isIssue
+    ? order.items.filter((item) => item.status === 'issued' && !rentalHasStarted(item, currentTime))
+    : []
   const heading = isIssue ? 'Issue items' : 'Accept returns'
   const submitLabel = isIssue ? 'Issue selected items' : 'Return selected items'
   const busyLabel = isIssue ? 'Issuing…' : 'Returning…'
@@ -53,7 +60,11 @@ export function ManagerActionPanel({
 
       {eligible.length === 0 ? (
         <p className="mt-4 rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">
-          {isIssue ? 'No reserved items are ready to be issued.' : 'No issued items are ready to be returned.'}
+          {isIssue
+            ? 'No reserved items are ready to be issued.'
+            : waitingForStart.length > 0
+              ? 'Returns open when the rental period starts.'
+              : 'No issued items are ready to be returned.'}
         </p>
       ) : (
         <ul className="mt-4 divide-y">
@@ -84,6 +95,23 @@ export function ManagerActionPanel({
           ))}
         </ul>
       )}
+
+      {waitingForStart.length > 0 ? (
+        <div role="status" className="mt-4 rounded-2xl border bg-muted/40 p-4 text-sm">
+          <p className="font-semibold">Waiting for the rental to start</p>
+          <p className="mt-1 text-muted-foreground">
+            These items can be returned from their rental start date.
+          </p>
+          <ul className="mt-2 space-y-1">
+            {waitingForStart.map((item) => (
+              <li key={item.id} className="flex flex-wrap justify-between gap-2">
+                <span className="break-words">{item.productName} × {item.quantity}</span>
+                <span className="font-semibold">{formatDateTime(item.rentalStartAt)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {skippedItems.length > 0 ? (
         <div role="status" className="mt-4 rounded-2xl border bg-muted/40 p-4 text-sm">

@@ -47,6 +47,7 @@ export function managerActionErrorMessage(error: unknown, fallback = 'The action
   if (status === 409) {
     const detail = typeof problem?.detail === 'string' ? problem.detail : ''
     if (/refund/i.test(detail)) return 'The deposit refund would exceed the amount paid for this order.'
+    if (/before its rental starts/i.test(detail)) return 'This item cannot be returned before its rental period starts.'
     if (/transition/i.test(detail)) return 'This item or order can no longer change. Refresh to see its current state.'
     if (/processing/i.test(detail)) return 'The payment is still processing. Please try again shortly.'
     return 'This action can no longer be completed. Refresh to see the current state.'

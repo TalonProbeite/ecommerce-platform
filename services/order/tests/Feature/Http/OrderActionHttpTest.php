@@ -133,6 +133,8 @@ final class OrderActionHttpTest extends ApiTestCase
             ->assertJsonPath('data.status', 'in_rental')
             ->assertJsonPath('skipped_item_ids', []);
 
+        $this->clock->setNow(CarbonImmutable::parse('2026-11-21T09:00:00.000000+00:00'));
+
         $this->postJson(
             '/api/v1/orders/' . $order->id() . '/return',
             ['item_ids' => [self::ITEM_ID]],

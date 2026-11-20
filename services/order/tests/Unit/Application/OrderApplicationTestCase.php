@@ -41,7 +41,7 @@ abstract class OrderApplicationTestCase extends TestCase
     {
         parent::setUp();
 
-        $this->now = CarbonImmutable::parse('2026-11-20T12:00:00.123456+00:00');
+        $this->now = CarbonImmutable::parse('2026-11-21T12:00:00.123456+00:00');
         $this->clock = new FixedClock($this->now);
         $this->outbox = new FakeOutboxWriter();
         $this->orders = new InMemoryOrderRepository($this->outbox, $this->clock);

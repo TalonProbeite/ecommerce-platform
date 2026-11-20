@@ -76,6 +76,7 @@ test('return panel disables the button when nothing is selected', () => {
     mode: 'return',
     order: order('in_rental', [item({ status: 'issued' })]),
     selectedIds: new Set<string>(),
+    now: new Date('2026-11-21T12:00:00.000Z'),
   }))
   const match = html.match(/<button[^>]*>(?:(?!<\/button>)[\s\S])*?Return selected items/)
   assert.ok(match)
@@ -100,9 +101,21 @@ test('return panel previews the deposit refunded for the selected items', () => 
     mode: 'return',
     order: order('in_rental', [item({ status: 'issued', depositTotalCents: 5000 })]),
     selectedIds: new Set(['01930000-0000-7000-8000-000000000001']),
+    now: new Date('2026-11-21T12:00:00.000Z'),
   }))
   assert.match(html, /Deposit to refund/)
   assert.match(html, /€50\.00/)
+})
+
+test('return panel explains that returns open when the rental starts', () => {
+  const html = renderToStaticMarkup(createElement(ManagerActionPanel, {
+    mode: 'return',
+    order: order('in_rental', [item({ status: 'issued' })]),
+    selectedIds: new Set<string>(),
+    now: new Date('2026-11-20T12:00:00.000Z'),
+  }))
+  assert.match(html, /Returns open when the rental period starts/)
+  assert.match(html, /Waiting for the rental to start/)
 })
 
 test('journal renders the event transitions', () => {

@@ -70,13 +70,21 @@ test('issue selection only offers reserved items while the order is paid or in r
   assert.deepEqual(issuableItems(order('created', [item()])), [])
 })
 
-test('return selection only offers issued items while the order is in rental', () => {
+test('return selection only offers issued items after the rental starts', () => {
+  const now = new Date('2026-11-21T12:00:00.000Z')
   const inRental = order('in_rental', [item({ id: 'a', status: 'issued' }), item({ id: 'b', status: 'returned' })])
-  assert.deepEqual(returnableItems(inRental).map((entry) => entry.id), ['a'])
-  assert.equal(canReturnOrder(inRental), true)
+  assert.deepEqual(returnableItems(inRental, now).map((entry) => entry.id), ['a'])
+  assert.equal(canReturnOrder(inRental, now), true)
 
-  assert.equal(canReturnOrder(order('paid', [item({ status: 'issued' })])), false)
-  assert.deepEqual(returnableItems(order('paid', [item({ status: 'issued' })])), [])
+  assert.equal(canReturnOrder(order('paid', [item({ status: 'issued' })]), now), false)
+  assert.deepEqual(returnableItems(order('paid', [item({ status: 'issued' })]), now), [])
+})
+
+test('return selection is blocked before the rental start', () => {
+  const beforeStart = new Date('2026-11-20T12:00:00.000Z')
+  const inRental = order('in_rental', [item({ id: 'a', status: 'issued' })])
+  assert.deepEqual(returnableItems(inRental, beforeStart), [])
+  assert.equal(canReturnOrder(inRental, beforeStart), false)
 })
 
 test('cancel is available only before issuance and after payment', () => {
@@ -114,6 +122,7 @@ test('maps manager action errors without leaking server detail', () => {
   assert.equal(managerActionErrorMessage(problemError(403, 'Only admin')), 'You do not have access to this order.')
   assert.equal(managerActionErrorMessage(problemError(422, 'item does not belong')), 'One of the selected items is not part of this order.')
   assert.match(managerActionErrorMessage(problemError(409, 'Refund of 10 minor units exceeds')), /deposit refund/i)
+  assert.match(managerActionErrorMessage(problemError(409, 'Order item "x" cannot be returned before its rental starts at')), /before its rental period starts/i)
   assert.match(managerActionErrorMessage(problemError(409, 'Order item cannot transition from "reserved"')), /can no longer change/i)
   assert.match(managerActionErrorMessage(problemError(409, 'Payment is still processing; retry later.')), /still processing/i)
   assert.match(managerActionErrorMessage(problemError(409, 'Something unexpected happened.')), /can no longer be completed/i)

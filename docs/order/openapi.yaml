@@ -368,7 +368,8 @@ paths:
       description: |
         Allowed for the manager of the order store and admin. Only selected items
         are processed; already returned items are returned in `skipped_item_ids`.
-        Returning an item refunds its deposit.
+        An item can be returned only after its `rental_start_at`. Returning an
+        item refunds its deposit.
       parameters:
         - $ref: '#/components/parameters/OrderId'
       requestBody:
@@ -393,7 +394,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
         '409':
-          description: Invalid order/item transition, a `reserved` item, `RefundExceedsPayment`, or `PaymentInProgress`.
+          description: Invalid order/item transition, a `reserved` item, an item returned before `rental_start_at`, `RefundExceedsPayment`, or `PaymentInProgress`.
           content:
             application/problem+json:
               schema:

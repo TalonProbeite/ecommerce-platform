@@ -14,6 +14,7 @@ export interface RentalCartItem {
   pricePerHourCents: number
   depositPerUnitCents: number
   quantity: number
+  available: number
   rentalStartAt: string
   rentalEndAt: string
 }
@@ -32,9 +33,14 @@ export function rentalItemKey(item: Pick<RentalCartItem, 'productId' | 'rentalSt
   return `${item.productId}|${item.rentalStartAt}|${item.rentalEndAt}`
 }
 
-function clampQuantity(quantity: number): number {
-  if (!Number.isFinite(quantity)) return 1
-  return Math.min(MAX_ITEM_QUANTITY, Math.max(1, Math.trunc(quantity)))
+export function maxQuantityFor(item: Pick<RentalCartItem, 'available'>): number {
+  if (!Number.isFinite(item.available)) return MAX_ITEM_QUANTITY
+  return Math.min(MAX_ITEM_QUANTITY, Math.max(0, Math.trunc(item.available)))
+}
+
+function clampQuantity(quantity: number, maximum = MAX_ITEM_QUANTITY): number {
+  if (!Number.isFinite(quantity)) return Math.max(1, maximum)
+  return Math.max(1, Math.min(maximum, Math.trunc(quantity)))
 }
 
 export function cartTotals(items: readonly RentalCartItem[]) {
@@ -60,7 +66,9 @@ export const useRentalCartStore = create<RentalCartState>((set, get) => ({
       throw new Error('A rental must be at least one hour long.')
     }
     const current = get().items
-    const nextItem = { ...item, quantity: clampQuantity(item.quantity) }
+    const maximum = maxQuantityFor(item)
+    if (maximum < 1) throw new Error('This item is currently out of stock.')
+    const nextItem = { ...item, quantity: clampQuantity(item.quantity, maximum) }
     const sameStore = current.length === 0 || current[0].storeId === item.storeId
     if (!sameStore) {
       set({ items: [nextItem] })
@@ -72,7 +80,7 @@ export const useRentalCartStore = create<RentalCartState>((set, get) => ({
       set({
         items: current.map((entry) =>
           rentalItemKey(entry) === key
-            ? { ...entry, quantity: clampQuantity(entry.quantity + nextItem.quantity) }
+            ? { ...entry, quantity: clampQuantity(entry.quantity + nextItem.quantity, maxQuantityFor(entry)) }
             : entry,
         ),
       })
@@ -83,7 +91,11 @@ export const useRentalCartStore = create<RentalCartState>((set, get) => ({
     return 'added'
   },
   updateQuantity: (key, quantity) => set((state) => ({
-    items: state.items.map((item) => (rentalItemKey(item) === key ? { ...item, quantity: clampQuantity(quantity) } : item)),
+    items: state.items.map((item) => (
+      rentalItemKey(item) === key
+        ? { ...item, quantity: clampQuantity(quantity, maxQuantityFor(item)) }
+        : item
+    )),
   })),
   removeItem: (key) => set((state) => ({ items: state.items.filter((item) => rentalItemKey(item) !== key) })),
   clear: () => set({ items: [] }),

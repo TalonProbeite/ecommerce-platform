@@ -11,7 +11,7 @@ import { isHttpError } from '@/api/http'
 import { beginCheckoutAttempt, checkoutKey, completeCheckoutAttempt, retryCheckoutAttempt, syncCheckoutAttempt } from '@/lib/idempotency'
 import { formatEurCents } from '@/lib/money'
 import { billedHours, formatDateTime } from '@/lib/rental'
-import { cartTotals, rentalItemKey, useRentalCartStore } from '@/store/rental-cart-store'
+import { cartTotals, maxQuantityFor, rentalItemKey, useRentalCartStore } from '@/store/rental-cart-store'
 import { useAuthStore } from '@/store/auth-store'
 import { submitRentalOrder } from '@/services/rental-checkout'
 import { orderErrorMessage } from '@/api/order-client'
@@ -88,6 +88,7 @@ export function RentalCheckoutPage() {
             {items.map((item) => {
               const key = rentalItemKey(item)
               const hours = billedHours(item.rentalStartAt, item.rentalEndAt)
+              const maximum = maxQuantityFor(item)
               return (
                 <li key={key} className="rounded-3xl border bg-card p-4 sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -98,6 +99,9 @@ export function RentalCheckoutPage() {
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
                         {formatEurCents(item.pricePerHourCents)} / hour · {formatEurCents(item.depositPerUnitCents)} deposit / unit
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                        {maximum > 0 ? `${maximum} available` : 'Out of stock'}
                       </p>
                     </div>
                     <Button
@@ -116,7 +120,7 @@ export function RentalCheckoutPage() {
                         <Minus className="size-4" />
                       </Button>
                       <span className="min-w-8 text-center font-semibold" aria-live="polite">{item.quantity}</span>
-                      <Button type="button" variant="outline" size="icon" aria-label={`Increase quantity of ${item.name}`} disabled={item.quantity >= 1000} onClick={() => updateQuantity(key, item.quantity + 1)}>
+                      <Button type="button" variant="outline" size="icon" aria-label={`Increase quantity of ${item.name}`} disabled={item.quantity >= maximum} onClick={() => updateQuantity(key, item.quantity + 1)}>
                         <Plus className="size-4" />
                       </Button>
                     </div>

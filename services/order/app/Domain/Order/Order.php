@@ -16,6 +16,7 @@ use App\Domain\Exceptions\InvalidOrderItems;
 use App\Domain\Exceptions\InvalidOrderTransition;
 use App\Domain\Exceptions\ItemNotInOrder;
 use App\Domain\Exceptions\MixedStoreOrder;
+use App\Domain\Exceptions\ReturnBeforeRentalStart;
 use App\Domain\Money\Money;
 use Carbon\CarbonImmutable;
 use InvalidArgumentException;
@@ -492,7 +493,7 @@ final class Order
         }
 
         $items = $this->indexItemsById($itemIds);
-        $this->assertItemsCanBeReturned($items, $itemIds);
+        $this->assertItemsCanBeReturned($items, $itemIds, $at);
         $processed = [];
         $skipped = [];
         $depositReturned = Money::zero();
@@ -656,7 +657,7 @@ final class Order
      * @param array<string, OrderItem> $items
      * @param list<string> $itemIds
      */
-    private function assertItemsCanBeReturned(array $items, array $itemIds): void
+    private function assertItemsCanBeReturned(array $items, array $itemIds, CarbonImmutable $at): void
     {
         foreach (array_unique($itemIds) as $itemId) {
             $item = $items[$itemId];
@@ -667,6 +668,10 @@ final class Order
 
             if (! $item->isIssued()) {
                 throw new InvalidItemTransition($itemId, $item->status(), ItemStatus::RETURNED);
+            }
+
+            if ($at->lessThan($item->rentalPeriod()->start())) {
+                throw new ReturnBeforeRentalStart($itemId, $item->rentalPeriod()->start());
             }
         }
     }

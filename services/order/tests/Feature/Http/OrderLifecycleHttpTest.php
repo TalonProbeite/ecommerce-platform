@@ -15,6 +15,7 @@ use App\Domain\Events\OrderReturned;
 use App\Domain\Order\ItemStatus;
 use App\Domain\Order\OrderStatus;
 use App\Enums\Role;
+use Carbon\CarbonImmutable;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\Fakes\FakePaymentGateway;
 use Tests\Support\Fakes\InMemoryPaymentRepository;
@@ -100,6 +101,8 @@ final class OrderLifecycleHttpTest extends ApiTestCase
         )->assertStatus(200)
             ->assertJsonPath('data.status', 'in_rental')
             ->assertJsonPath('skipped_item_ids', []);
+
+        $this->clock->setNow(CarbonImmutable::parse('2026-11-21T09:00:00.000000+00:00'));
 
         $this->postJson(
             '/api/v1/orders/' . $orderId . '/return',

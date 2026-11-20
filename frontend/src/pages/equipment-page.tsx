@@ -15,7 +15,7 @@ import { formatEurCents } from '@/lib/money'
 import { billedHours, defaultRentalEnd, defaultRentalStart, isValidRentalRange, localInputToIso, toDateTimeInput } from '@/lib/rental'
 import { storeFor, toEquipment } from '@/lib/catalog-mapping'
 import { useCartStore } from '@/store/cart-store'
-import { useRentalCartStore } from '@/store/rental-cart-store'
+import { MAX_ITEM_QUANTITY, useRentalCartStore } from '@/store/rental-cart-store'
 import { useAuthStore } from '@/store/auth-store'
 import { LIVE_CATALOG, useCatalogProduct, useCatalogStores } from '@/hooks/use-catalog-data'
 import type { Equipment } from '@/types'
@@ -25,6 +25,8 @@ interface LiveBooking {
   storeName: string
   pricePerHourCents: number
   depositPerUnitCents: number
+  available: number
+  totalQuantity: number
 }
 
 function EquipmentDetail({ item, image, canBook, isGuest, booking }: { item: Equipment; image: string; canBook: boolean; isGuest: boolean; booking?: LiveBooking }) {
@@ -50,7 +52,11 @@ function EquipmentDetail({ item, image, canBook, isGuest, booking }: { item: Equ
     ? Boolean(startIso && endIso && isValidRentalRange(startIso, endIso))
     : days > 0 && startDate >= today
   const unit = live ? 'hour' : (item.priceUnit ?? 'day')
-  const safeQuantity = Math.min(1000, Math.max(1, Number.isFinite(quantity) ? Math.trunc(quantity) : 1))
+  const available = live ? Math.max(0, Math.trunc(booking?.available ?? 0)) : MAX_ITEM_QUANTITY
+  const outOfStock = live && available < 1
+  const quantityLimit = Math.max(1, available)
+  const clampedQuantity = Math.min(quantityLimit, Math.max(1, Number.isFinite(quantity) ? Math.trunc(quantity) : 1))
+  const safeQuantity = outOfStock ? 0 : clampedQuantity
   const subtotalCents = live ? hours * (booking?.pricePerHourCents ?? 0) * safeQuantity : 0
   const depositCents = live ? (booking?.depositPerUnitCents ?? 0) * safeQuantity : 0
   const mockTotals = calculateTotals(days * item.pricePerDay)
@@ -65,10 +71,26 @@ function EquipmentDetail({ item, image, canBook, isGuest, booking }: { item: Equ
     if (endInput <= value) setEndInput(defaultRentalEnd(value))
   }
 
+  function handleQuantityChange(value: number) {
+    if (!Number.isFinite(value)) {
+      setQuantity(1)
+      return
+    }
+    setQuantity(Math.min(quantityLimit, Math.max(1, Math.trunc(value))))
+  }
+
   function handleBook() {
     if (!canBook || !datesValid) return
     if (live && booking) {
       if (!startIso || !endIso) return
+      if (outOfStock) {
+        toast.error('This item is currently out of stock.')
+        return
+      }
+      if (safeQuantity < 1 || safeQuantity > available) {
+        toast.error(`Only ${available} ${available === 1 ? 'unit is' : 'units are'} available for this rental.`)
+        return
+      }
       if (rentalCartItems.length > 0 && rentalCartItems[0].storeId !== booking.storeId) {
         const clear = window.confirm('Your cart already contains equipment from another store. Clear the cart and add this item?')
         if (!clear) return
@@ -83,6 +105,7 @@ function EquipmentDetail({ item, image, canBook, isGuest, booking }: { item: Equ
         pricePerHourCents: booking.pricePerHourCents,
         depositPerUnitCents: booking.depositPerUnitCents,
         quantity: safeQuantity,
+        available,
         rentalStartAt: startIso,
         rentalEndAt: endIso,
       })
@@ -180,8 +203,15 @@ function EquipmentDetail({ item, image, canBook, isGuest, booking }: { item: Equ
                     <Input id="rental-end" type="datetime-local" min={startInput} value={endInput} onChange={(event) => setEndInput(event.target.value)} className="h-10" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="rental-quantity">Quantity</Label>
-                    <Input id="rental-quantity" type="number" inputMode="numeric" min={1} max={1000} value={quantity} onChange={(event) => setQuantity(Number(event.target.value) || 1)} className="h-10" />
+                    <div className="flex items-center justify-between gap-3">
+                      <Label htmlFor="rental-quantity">Quantity</Label>
+                      <span className={outOfStock ? 'text-xs font-semibold text-destructive' : 'text-xs font-semibold text-muted-foreground'}>
+                        {outOfStock
+                          ? 'Out of stock'
+                          : `${available} available${booking && booking.totalQuantity > available ? ` of ${booking.totalQuantity}` : ''}`}
+                      </span>
+                    </div>
+                    <Input id="rental-quantity" type="number" inputMode="numeric" min={1} max={quantityLimit} value={clampedQuantity} disabled={outOfStock} onChange={(event) => handleQuantityChange(Number(event.target.value))} className="h-10" />
                   </div>
                 </div>
 
@@ -245,10 +275,10 @@ function EquipmentDetail({ item, image, canBook, isGuest, booking }: { item: Equ
             <Button
               size="lg"
               className="mt-5 h-12 w-full rounded-full text-base"
-              disabled={!isGuest && (!canBook || !datesValid)}
+              disabled={!isGuest && (!canBook || !datesValid || outOfStock)}
               onClick={isGuest ? handleSignIn : handleBook}
             >
-              {isGuest ? 'Sign in to reserve' : canBook ? 'Reserve now' : 'Customer accounts only'}
+              {isGuest ? 'Sign in to reserve' : outOfStock ? 'Out of stock' : canBook ? 'Reserve now' : 'Customer accounts only'}
             </Button>
             <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
               <ShieldCheck className="size-4" aria-hidden="true" />
@@ -341,6 +371,8 @@ function LiveEquipmentPage() {
         storeName: store?.name ?? 'Equipment provider',
         pricePerHourCents: product.state.data.price_per_hour,
         depositPerUnitCents: product.state.data.deposit_amount,
+        available: product.state.data.stock?.available ?? 0,
+        totalQuantity: product.state.data.stock?.quantity ?? 0,
       }}
     />
   )

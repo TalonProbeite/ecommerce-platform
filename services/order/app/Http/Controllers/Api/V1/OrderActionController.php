@@ -15,6 +15,7 @@ use App\Application\Staff\ReturnItems\ReturnItems;
 use App\Domain\Exceptions\InvalidItemTransition;
 use App\Domain\Exceptions\InvalidOrderTransition;
 use App\Domain\Exceptions\ItemNotInOrder;
+use App\Domain\Exceptions\ReturnBeforeRentalStart;
 use App\Domain\Order\CancelReason;
 use App\Enums\Role;
 use App\Http\Auth\AuthUser;
@@ -114,7 +115,7 @@ final class OrderActionController extends Controller
             $result = $this->returnItems->execute($user, $order, $this->itemIds($request));
         } catch (OrderNotFound) {
             return $this->notFound();
-        } catch (InvalidOrderTransition|InvalidItemTransition $exception) {
+        } catch (InvalidOrderTransition|InvalidItemTransition|ReturnBeforeRentalStart $exception) {
             return ProblemResponse::make(
                 Response::HTTP_CONFLICT,
                 'Conflict',

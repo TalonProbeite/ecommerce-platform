@@ -1,6 +1,6 @@
 import { createRentalOrder } from '@/api/order-client'
 import { billedHours, isValidRentalRange } from '@/lib/rental'
-import { cartTotals, MAX_CART_LINES, MAX_ITEM_QUANTITY, type RentalCartItem } from '@/store/rental-cart-store'
+import { cartTotals, maxQuantityFor, MAX_CART_LINES, type RentalCartItem } from '@/store/rental-cart-store'
 import type { CreateRentalOrderItem, RentalOrder } from '@/types/rental-order'
 
 export function validateRentalCart(items: readonly RentalCartItem[], now = new Date()): string[] {
@@ -10,8 +10,11 @@ export function validateRentalCart(items: readonly RentalCartItem[], now = new D
   const stores = new Set(items.map((item) => item.storeId))
   if (stores.size > 1) errors.push('All items in one order must come from the same store.')
   for (const item of items) {
-    if (item.quantity < 1 || item.quantity > MAX_ITEM_QUANTITY || !Number.isInteger(item.quantity)) {
-      errors.push(`Choose a quantity between 1 and ${MAX_ITEM_QUANTITY} for ${item.name}.`)
+    const maximum = maxQuantityFor(item)
+    if (maximum < 1) {
+      errors.push(`${item.name} is currently out of stock.`)
+    } else if (item.quantity < 1 || item.quantity > maximum || !Number.isInteger(item.quantity)) {
+      errors.push(`Choose a quantity between 1 and ${maximum} for ${item.name}.`)
     }
     if (!isValidRentalRange(item.rentalStartAt, item.rentalEndAt, now)) {
       errors.push(`Choose a valid future rental period for ${item.name}.`)
