@@ -9,10 +9,12 @@ on:
     branches: [main, dev]
     paths:
       - "services/catalog/**"
+      - "services/order/**"
       - ".github/workflows/php-static-analysis.yml"
   pull_request:
     paths:
       - "services/catalog/**"
+      - "services/order/**"
       - ".github/workflows/php-static-analysis.yml"
   workflow_dispatch:
 
@@ -32,6 +34,7 @@ jobs:
       matrix:
         service:
           - catalog
+          - order
     defaults:
       run:
         working-directory: services/${{ matrix.service }}
@@ -56,9 +59,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('services/catalog/composer.lock') }}
+          key: ${{ runner.os }}-composer-${{ matrix.service }}-${{ hashFiles(format('services/{0}/composer.lock', matrix.service)) }}
           restore-keys: |
-            ${{ runner.os }}-composer-
+            ${{ runner.os }}-composer-${{ matrix.service }}-
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress

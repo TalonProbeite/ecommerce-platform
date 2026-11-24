@@ -6,6 +6,7 @@ const (
 	UserEmailVerifiedEventKey          = "user.email_verified"
 	EmailVerificationRequestedEventKey = "user.email_verification_requested"
 	WelcomeEmailRequestedEventKey      = "user.welcome_email_requested"
+	EmailChangedEventKey               = "user.email_changed"
 	OrderPaidEventKey                  = "order.paid"
 	OrderConfirmedEventKey             = "order.confirmed"
 	OrderCancelledEventKey             = "order.cancelled"
@@ -20,26 +21,35 @@ const (
 )
 
 type EmailVerificationRequestedEvent struct {
-	Email string `json:"email"`
-	Code  string `json:"code"`
+	UserID string `json:"user_id"`
+	Email  string `json:"email"`
+	Code   string `json:"code"`
 }
 type WelcomeEmailRequestedEvent struct {
-	Email string `json:"email"`
-	Name  string `json:"name"`
+	UserID string `json:"user_id"`
+	Email  string `json:"email"`
+	Name   string `json:"name"`
+}
+type EmailChangedEvent struct {
+	UserID string `json:"user_id"`
+	Email  string `json:"email"`
 }
 type OrderPaidEvent struct {
-	OrderID string  `json:"order_id"`
-	Email   string  `json:"email"`
-	Amount  float64 `json:"amount"`
+	OrderID    string  `json:"order_id"`
+	CustomerID string  `json:"customer_id"`
+	Email      string  `json:"email"`
+	Amount     float64 `json:"amount"`
 }
 type OrderConfirmedEvent struct {
-	OrderID string `json:"order_id"`
-	Email   string `json:"email"`
+	OrderID    string `json:"order_id"`
+	CustomerID string `json:"customer_id"`
+	Email      string `json:"email"`
 }
 type OrderCancelledPayload struct {
-	OrderID string `json:"order_id"`
-	Email   string `json:"email"`
-	Reason  string `json:"reason"`
+	OrderID    string `json:"order_id"`
+	CustomerID string `json:"customer_id"`
+	Email      string `json:"email"`
+	Reason     string `json:"reason"`
 }
 
 const (

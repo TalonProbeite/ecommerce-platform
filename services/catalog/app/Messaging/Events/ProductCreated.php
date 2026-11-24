@@ -15,6 +15,9 @@ final readonly class ProductCreated implements EventInterface
         public string $storeId,
         public string $name,
         public int $pricePerHour,
+        public string $categoryId,
+        public int $depositAmount,
+        public bool $isActive,
     ) {
     }
 
@@ -24,15 +27,18 @@ final readonly class ProductCreated implements EventInterface
     }
 
     /**
-     * @return array{product_id: string, store_id: string, name: string, price_per_hour: int}
+     * @return array{product_id: string, store_id: string, category_id: string, name: string, price_per_hour: int, deposit_amount: int, is_active: bool}
      */
     public function toArray(): array
     {
         return [
             'product_id' => $this->productId,
             'store_id' => $this->storeId,
+            'category_id' => $this->categoryId,
             'name' => $this->name,
             'price_per_hour' => $this->pricePerHour,
+            'deposit_amount' => $this->depositAmount,
+            'is_active' => $this->isActive,
         ];
     }
 
@@ -43,6 +49,9 @@ final readonly class ProductCreated implements EventInterface
             storeId: $product->store_id,
             name: $product->name,
             pricePerHour: $product->price_per_hour,
+            categoryId: (string) $product->category_id,
+            depositAmount: (int) $product->deposit_amount,
+            isActive: (bool) $product->is_active,
         );
     }
 }

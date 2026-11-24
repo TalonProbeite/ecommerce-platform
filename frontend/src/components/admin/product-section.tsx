@@ -202,17 +202,17 @@ export function ProductSection({ storeId, categories }: { storeId: string; categ
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-5">Product</TableHead>
-                <TableHead>ID</TableHead>
+                <TableHead className="w-40">ID</TableHead>
                 <TableHead className="hidden md:table-cell">Category</TableHead>
                 <TableHead>Price / hour</TableHead>
                 <TableHead className="hidden sm:table-cell">Deposit</TableHead>
                 <TableHead className="hidden sm:table-cell">Status</TableHead>
-                <TableHead className="pr-5 text-right">Actions</TableHead>
+                <TableHead className="sticky right-0 z-10 bg-card pr-5 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((product) => (
-                <TableRow key={product.id}>
+                <TableRow key={product.id} className="group">
                   <TableCell className="pl-5">
                     <div className="flex items-center gap-3">
                       <img src={product.main_image_url || FALLBACK_IMAGE} alt="" className="size-10 shrink-0 rounded-lg object-cover" />
@@ -222,8 +222,8 @@ export function ProductSection({ storeId, categories }: { storeId: string; categ
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <span className="font-mono text-xs text-muted-foreground">{product.id}</span>
+                  <TableCell className="w-40 whitespace-normal">
+                    <span className="block break-all font-mono text-[11px] leading-tight text-muted-foreground">{product.id}</span>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">{productCategory(product)}</TableCell>
                   <TableCell>{formatCents(product.price_per_hour)}</TableCell>
@@ -231,7 +231,7 @@ export function ProductSection({ storeId, categories }: { storeId: string; categ
                   <TableCell className="hidden sm:table-cell">
                     <Badge className="rounded-full px-3">{product.is_active ? 'Active' : 'Inactive'}</Badge>
                   </TableCell>
-                  <TableCell className="pr-5 text-right">
+                  <TableCell className="sticky right-0 z-10 bg-card pr-5 text-right transition-colors group-hover:bg-muted/50">
                     <div className="inline-flex gap-2">
                       <Button variant="outline" size="sm" className="rounded-full" onClick={() => setEditingId(product.id)}>Edit</Button>
                       <Button variant="destructive" size="sm" className="rounded-full" onClick={() => { setDeleteError(null); setDeleteTarget(product) }}>Delete</Button>

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Contracts\Messaging\EventPublisherInterface;
+use App\Contracts\Outbox\OutboxWriterInterface;
 use App\Contracts\Repositories\CategoryRepositoryInterface;
 use App\Contracts\Repositories\ProductAttributeRepositoryInterface;
 use App\Contracts\Repositories\ProductRepositoryInterface;
@@ -23,6 +23,8 @@ use App\Messaging\Events\ProductCreated;
 use App\Messaging\Events\ProductDeleted;
 use App\Messaging\Events\ProductUpdated;
 use App\Models\Product;
+use Carbon\CarbonImmutable;
+use DateTimeInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +37,7 @@ final class ProductService implements ProductServiceInterface
         private readonly CategoryRepositoryInterface $categoryRepository,
         private readonly StockRepositoryInterface $stockRepository,
         private readonly StockReservationRepositoryInterface $reservationRepository,
-        private readonly EventPublisherInterface $eventPublisher,
+        private readonly OutboxWriterInterface $outbox,
         private readonly ProductCache $productCache,
     ) {
     }
@@ -137,11 +139,13 @@ final class ProductService implements ProductServiceInterface
 
             $created = $this->findDetailedProductOrFail($product->id, $storeId);
 
-            DB::afterCommit(function () use ($created): void {
+            $this->outbox->enqueue(
+                ProductCreated::fromModel($created),
+                $this->modelTime($created->created_at),
+            );
+
+            DB::afterCommit(function (): void {
                 $this->productCache->invalidateLists();
-                rescue(fn () => $this->eventPublisher->publish(
-                    ProductCreated::fromModel($created),
-                ), report: true);
             });
 
             return $created;
@@ -185,12 +189,14 @@ final class ProductService implements ProductServiceInterface
 
             $product = $this->findDetailedProductOrFail($productId, $storeId);
 
-            DB::afterCommit(function () use ($product, $productId): void {
+            $this->outbox->enqueue(
+                ProductUpdated::fromModel($product),
+                $this->modelTime($product->updated_at),
+            );
+
+            DB::afterCommit(function () use ($productId): void {
                 $this->productCache->invalidateCard($productId);
                 $this->productCache->invalidateLists();
-                rescue(fn () => $this->eventPublisher->publish(
-                    ProductUpdated::fromModel($product),
-                ), report: true);
             });
 
             return $product;
@@ -210,17 +216,19 @@ final class ProductService implements ProductServiceInterface
                 throw new ProductHasActiveReservationsException($productId);
             }
 
+            $this->outbox->enqueue(
+                ProductDeleted::fromModel($product),
+                CarbonImmutable::now(),
+            );
+
             $this->productRepository->deleteProduct(
                 $productId,
                 $storeId,
             );
 
-            DB::afterCommit(function () use ($product, $productId): void {
+            DB::afterCommit(function () use ($productId): void {
                 $this->productCache->invalidateCard($productId);
                 $this->productCache->invalidateLists();
-                rescue(fn () => $this->eventPublisher->publish(
-                    ProductDeleted::fromModel($product),
-                ), report: true);
             });
         });
     }
@@ -246,16 +254,23 @@ final class ProductService implements ProductServiceInterface
 
             $product = $this->findDetailedProductOrFail($productId, $storeId);
 
-            DB::afterCommit(function () use ($product, $productId): void {
+            $this->outbox->enqueue(
+                ProductUpdated::fromModel($product),
+                $this->modelTime($product->updated_at),
+            );
+
+            DB::afterCommit(function () use ($productId): void {
                 $this->productCache->invalidateCard($productId);
                 $this->productCache->invalidateLists();
-                rescue(fn () => $this->eventPublisher->publish(
-                    ProductUpdated::fromModel($product),
-                ), report: true);
             });
 
             return $product;
         });
+    }
+
+    private function modelTime(?DateTimeInterface $time): CarbonImmutable
+    {
+        return $time !== null ? CarbonImmutable::instance($time) : CarbonImmutable::now();
     }
 
     private function findDetailedProductOrFail(

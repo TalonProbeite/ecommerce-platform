@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesPreciseDates;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,7 @@ use Ramsey\Uuid\Uuid;
 class ProductImage extends Model
 {
     use HasUuids;
+    use UsesPreciseDates;
 
     public function newUniqueId(): string
     {

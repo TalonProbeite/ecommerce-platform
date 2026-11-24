@@ -10,17 +10,42 @@ import (
 type OrderEventHandler struct {
 	renderer   MailRenderer
 	dispatcher *emailDispatcher
+	contacts   ContactStore
 }
 
 func NewOrderEventHandler(
 	renderer MailRenderer,
 	sender MailSender,
 	evRepo EventSaver,
+	contacts ...ContactStore,
 ) *OrderEventHandler {
-	return &OrderEventHandler{
+	handler := &OrderEventHandler{
 		renderer:   renderer,
 		dispatcher: newEmailDispatcher(sender, evRepo),
 	}
+
+	if len(contacts) > 0 {
+		handler.contacts = contacts[0]
+	}
+
+	return handler
+}
+
+func (h *OrderEventHandler) recipient(ctx context.Context, email, customerID string) (string, error) {
+	if email != "" {
+		return email, nil
+	}
+
+	if customerID == "" || h.contacts == nil {
+		return "", fmt.Errorf("order event has no recipient email: %w", ErrUnrecoverable)
+	}
+
+	resolved, err := h.contacts.GetEmail(ctx, customerID)
+	if err != nil {
+		return "", fmt.Errorf("resolve customer email: %w", err)
+	}
+
+	return resolved, nil
 }
 
 func (h *OrderEventHandler) HandleOrderConfirmed(
@@ -42,9 +67,14 @@ func (h *OrderEventHandler) HandleOrderConfirmed(
 		return fmt.Errorf("error rendering confirmed template: %w", err)
 	}
 
+	recipient, err := h.recipient(ctx, event.Email, event.CustomerID)
+	if err != nil {
+		return err
+	}
+
 	return h.dispatcher.dispatch(ctx, &emailMessage{
 		EventType: events.OrderConfirmedEventKey,
-		To:        event.Email,
+		To:        recipient,
 		Subject:   events.OrderConfirmedSubject,
 		Body:      mailBody,
 		Payload:   event,
@@ -70,9 +100,14 @@ func (h *OrderEventHandler) HandleOrderPaid(
 		return fmt.Errorf("error rendering paid template: %w", err)
 	}
 
+	recipient, err := h.recipient(ctx, event.Email, event.CustomerID)
+	if err != nil {
+		return err
+	}
+
 	return h.dispatcher.dispatch(ctx, &emailMessage{
 		EventType: events.OrderPaidEventKey,
-		To:        event.Email,
+		To:        recipient,
 		Subject:   events.OrderPaidSubject,
 		Body:      mailBody,
 		Payload:   event,
@@ -98,9 +133,14 @@ func (h *OrderEventHandler) HandleOrderCancelled(
 		return fmt.Errorf("error rendering canceled template: %w", err)
 	}
 
+	recipient, err := h.recipient(ctx, event.Email, event.CustomerID)
+	if err != nil {
+		return err
+	}
+
 	return h.dispatcher.dispatch(ctx, &emailMessage{
 		EventType: events.OrderCancelledEventKey,
-		To:        event.Email,
+		To:        recipient,
 		Subject:   events.OrderCancelledSubject,
 		Body:      mailBody,
 		Payload:   event,

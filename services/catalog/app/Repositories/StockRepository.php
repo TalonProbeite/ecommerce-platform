@@ -44,7 +44,7 @@ final class StockRepository implements StockRepositoryInterface
             ->where('reserved', '<=', $quantity)
             ->update([
                 'quantity' => $quantity,
-                'updated_at' => now(),
+                'updated_at' => now()->format('Y-m-d H:i:s.uP'),
             ]);
     }
 
@@ -53,7 +53,7 @@ final class StockRepository implements StockRepositoryInterface
         return DB::update(
             'UPDATE stocks SET reserved = reserved + ?, updated_at = ? '
                 . 'WHERE id = ? AND reserved + ? BETWEEN 0 AND quantity',
-            [$delta, now(), $stockId, $delta],
+            [$delta, now()->format('Y-m-d H:i:s.uP'), $stockId, $delta],
         );
     }
 }

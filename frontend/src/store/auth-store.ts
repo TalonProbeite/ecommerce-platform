@@ -3,6 +3,8 @@ import { isHttpError } from '@/api/http'
 import { getErrorMessage, isMockApi, onSessionExpired } from '@/api/client'
 import { completeOAuthProfile, changeAccountPassword, loadAccountProfile, loginAccount, logoutAccount, patchAccountProfile, registerAccount, sendAccountVerification, verifyAccountEmail } from '@/services/auth'
 import type { ChangePasswordPayload, LoginPayload, ProfileChanges, RegisterPayload, User, VerifyEmailPayload } from '@/types'
+import { useCartStore } from '@/store/cart-store'
+import { useRentalCartStore } from '@/store/rental-cart-store'
 
 type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated' | 'error'
 let generation = 0
@@ -132,6 +134,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await logoutAccount()
     } finally {
       ++generation
+      useCartStore.getState().clear()
+      useRentalCartStore.getState().clear()
       set({ user: null, status: 'unauthenticated', sessionExpired: false, sessionError: null })
     }
   },

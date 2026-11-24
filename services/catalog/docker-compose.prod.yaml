@@ -154,6 +154,44 @@ services:
       retries: 5
       start_period: 30s
 
+  catalog-relay:
+    build: *catalog-build
+    image: shop-catalog-app:prod
+    container_name: catalog-relay-prod
+    restart: always
+    env_file: .env
+    environment: *catalog-app-env
+    command: [ "php", "artisan", "messaging:relay" ]
+    depends_on:
+      catalog-migrate:
+        condition: service_completed_successfully
+      catalog-db:
+        condition: service_healthy
+    networks:
+      - catalog_internal
+      - shop_global
+    stop_grace_period: 30s
+
+  catalog-consumer:
+    build: *catalog-build
+    image: shop-catalog-app:prod
+    container_name: catalog-consumer-prod
+    restart: always
+    env_file: .env
+    environment: *catalog-app-env
+    command: [ "php", "artisan", "messaging:consume-orders" ]
+    depends_on:
+      catalog-migrate:
+        condition: service_completed_successfully
+      catalog-db:
+        condition: service_healthy
+      catalog-app:
+        condition: service_healthy
+    networks:
+      - catalog_internal
+      - shop_global
+    stop_grace_period: 30s
+
   catalog-nginx:
     image: nginx:1.28-alpine
     container_name: catalog-nginx-prod

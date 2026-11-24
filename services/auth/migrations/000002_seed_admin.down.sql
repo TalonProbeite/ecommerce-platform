@@ -1,1 +1,1 @@
-DELETE FROM users WHERE email = 'admin@shop.local';
+DELETE FROM users WHERE email IN ('admin@shop.local', 'manager@shop.local');

@@ -12,17 +12,37 @@ const verificationCodeTTLMinutes = 15
 type UserEventHandler struct {
 	renderer   MailRenderer
 	dispatcher *emailDispatcher
+	contacts   ContactStore
 }
 
 func NewUserEventHandler(
 	renderer MailRenderer,
 	sender MailSender,
 	evRepo EventSaver,
+	contacts ...ContactStore,
 ) *UserEventHandler {
-	return &UserEventHandler{
+	handler := &UserEventHandler{
 		renderer:   renderer,
 		dispatcher: newEmailDispatcher(sender, evRepo),
 	}
+
+	if len(contacts) > 0 {
+		handler.contacts = contacts[0]
+	}
+
+	return handler
+}
+
+func (h *UserEventHandler) saveContact(ctx context.Context, userID, email string) error {
+	if h.contacts == nil || userID == "" || email == "" {
+		return nil
+	}
+
+	if err := h.contacts.SaveContact(ctx, userID, email); err != nil {
+		return fmt.Errorf("save user contact: %w", err)
+	}
+
+	return nil
 }
 
 func (h *UserEventHandler) HandleEmailVerificationRequested(
@@ -37,6 +57,10 @@ func (h *UserEventHandler) HandleEmailVerificationRequested(
 			err,
 			ErrUnrecoverable,
 		)
+	}
+
+	if err := h.saveContact(ctx, event.UserID, event.Email); err != nil {
+		return err
 	}
 
 	mailBody, err := h.renderer.RenderVerification(event.Code, verificationCodeTTLMinutes)
@@ -55,6 +79,30 @@ func (h *UserEventHandler) HandleEmailVerificationRequested(
 	})
 }
 
+func (h *UserEventHandler) HandleEmailChanged(
+	ctx context.Context,
+	body []byte,
+) error {
+	var event events.EmailChangedEvent
+
+	if err := json.Unmarshal(body, &event); err != nil {
+		return fmt.Errorf(
+			"unmarshal user.email_changed event: %w: %w",
+			err,
+			ErrUnrecoverable,
+		)
+	}
+
+	if event.UserID == "" || event.Email == "" {
+		return fmt.Errorf(
+			"user.email_changed requires user_id and email: %w",
+			ErrUnrecoverable,
+		)
+	}
+
+	return h.saveContact(ctx, event.UserID, event.Email)
+}
+
 func (h *UserEventHandler) HandleWelcomeEmailRequested(
 	ctx context.Context,
 	body []byte,
@@ -67,6 +115,10 @@ func (h *UserEventHandler) HandleWelcomeEmailRequested(
 			err,
 			ErrUnrecoverable,
 		)
+	}
+
+	if err := h.saveContact(ctx, event.UserID, event.Email); err != nil {
+		return err
 	}
 
 	mailBody, err := h.renderer.RenderWelcome(event.Name)

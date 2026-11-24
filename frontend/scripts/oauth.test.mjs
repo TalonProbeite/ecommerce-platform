@@ -11,7 +11,7 @@ const { HttpError } = await loadHttpErrors()
 async function context() {
  const server = await createServer({ configFile: false, envDir: false,
   resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
-  define: { 'import.meta.env.VITE_API_MODE': '"real"', 'import.meta.env.VITE_API_URL': '"https://rentify.test"' },
+  define: { 'import.meta.env.VITE_API_MODE': '"real"', 'import.meta.env.VITE_API_URL': '"https://rentify.test"', 'import.meta.env.VITE_USE_MOCKS': '"false"' },
   server: { middlewareMode: true, watch: null, ws: false }, appType: 'custom' })
  return { server, ...(await server.ssrLoadModule('/src/api/client.ts')) }
 }

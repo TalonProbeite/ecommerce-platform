@@ -226,7 +226,7 @@ func (as *AuthService) createOAuthUser(ctx context.Context, profile *domain.OAut
 	} else {
 		// Only the request that actually created this account publishes welcome.
 		// Recovering an existing account after a session failure must not resend it.
-		if err := as.publishWelcomeEmail(profile.Email, profile.FirstName); err != nil {
+		if err := as.publishWelcomeEmail(id.String(), profile.Email, profile.FirstName); err != nil {
 			return nil, err
 		}
 		user = &domain.User{ID: id.String(), Role: roles.RoleCustomer, IsActive: true}

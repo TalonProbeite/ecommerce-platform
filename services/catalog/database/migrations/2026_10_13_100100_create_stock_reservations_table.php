@@ -16,11 +16,12 @@ return new class () extends Migration {
             $table->foreignUuid('store_id')->constrained()->restrictOnDelete();
             $table->integer('quantity');
             $table->string('status', 30);
-            $table->timestampTz('rental_start_at')->nullable();
-            $table->timestampTz('rental_end_at')->nullable();
-            $table->timestampTz('issued_at')->nullable();
-            $table->timestampTz('returned_at')->nullable();
-            $table->timestamps();
+            $table->timestampTz('rental_start_at', 6)->nullable();
+            $table->timestampTz('rental_end_at', 6)->nullable();
+            $table->timestampTz('issued_at', 6)->nullable();
+            $table->timestampTz('returned_at', 6)->nullable();
+            $table->timestampTz('created_at', 6)->useCurrent();
+            $table->timestampTz('updated_at', 6)->useCurrent();
 
             $table->foreign(['product_id', 'store_id'], 'stock_reservations_product_store_foreign')
                 ->references(['id', 'store_id'])->on('products')->restrictOnDelete();

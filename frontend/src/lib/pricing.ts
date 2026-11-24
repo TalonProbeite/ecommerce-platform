@@ -1,14 +1,14 @@
 export const SERVICE_FEE_RATE = 0.08
 
-const wholeCurrency = new Intl.NumberFormat('en-US', {
+const wholeCurrency = new Intl.NumberFormat('en-IE', {
   style: 'currency',
-  currency: 'USD',
+  currency: 'EUR',
   maximumFractionDigits: 0,
 })
 
-const preciseCurrency = new Intl.NumberFormat('en-US', {
+const preciseCurrency = new Intl.NumberFormat('en-IE', {
   style: 'currency',
-  currency: 'USD',
+  currency: 'EUR',
   minimumFractionDigits: 2,
 })
 

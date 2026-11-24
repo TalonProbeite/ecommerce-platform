@@ -16,6 +16,11 @@ type EventSaver interface {
 	SaveEvent(ctx context.Context, event any) error
 }
 
+type ContactStore interface {
+	SaveContact(ctx context.Context, userID, email string) error
+	GetEmail(ctx context.Context, userID string) (string, error)
+}
+
 type EventReader interface {
 	GetByID(ctx context.Context, id string) (domain.EventLog, error)
 	GetHistory(ctx context.Context, filters *domain.HistoryFilters) ([]domain.EventLog, error)
@@ -33,5 +38,6 @@ var (
 	_ MailSender   = (*mailer.Sender)(nil)
 	_ EventSaver   = (*repository.EventRepo)(nil)
 	_ EventReader  = (*repository.EventRepo)(nil)
+	_ ContactStore = (*repository.ContactRepo)(nil)
 	_ MailRenderer = (*template.MessageBuilder)(nil)
 )

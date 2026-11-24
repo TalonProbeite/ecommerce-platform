@@ -28,10 +28,20 @@ export const router = createBrowserRouter([
       { path: '/catalog', element: <LegacyCatalogRedirect /> },
       { path: '/catalog/*', element: <LegacyCatalogRedirect /> },
       {
-        element: <ProtectedRoute roles={['customer']} />,
+        element: <ProtectedRoute />,
         children: [
           { path: `${ROUTES.checkout}/*`, lazy: async () => ({ Component: (await import('@/pages/checkout-page')).CheckoutPage }) },
           { path: ROUTES.orders, lazy: async () => ({ Component: (await import('@/pages/orders-page')).OrdersPage }) },
+          { path: `${ROUTES.orders}/:id`, lazy: async () => ({ Component: (await import('@/pages/order-detail-page')).OrderDetailPage }) },
+          { path: `${ROUTES.orders}/:id/pay`, lazy: async () => ({ Component: (await import('@/pages/order-payment-page')).OrderPaymentPage }) },
+        ],
+      },
+      {
+        element: <ProtectedRoute />,
+        children: [
+          { path: ROUTES.manageOrders, lazy: async () => ({ Component: (await import('@/pages/manage-orders-page')).ManageOrdersPage }) },
+          { path: `${ROUTES.manageOrders}/:id`, lazy: async () => ({ Component: (await import('@/pages/manage-order-detail-page')).ManageOrderDetailPage }) },
+          { path: ROUTES.manageCatalog, lazy: async () => ({ Component: (await import('@/pages/manage-catalog-page')).ManageCatalogPage }) },
         ],
       },
       {
@@ -44,6 +54,26 @@ export const router = createBrowserRouter([
         element: <ProtectedRoute roles={['admin', 'store_manager']} />,
         children: [
           { path: ROUTES.admin, lazy: async () => ({ Component: (await import('@/pages/admin-page')).AdminPage }) },
+        ],
+      },
+      {
+        element: <ProtectedRoute feature="orders.manage.all" />,
+        children: [
+          { path: ROUTES.adminOrders, lazy: async () => ({ Component: (await import('@/pages/admin-orders-page')).AdminOrdersPage }) },
+          { path: `${ROUTES.adminOrders}/:id`, lazy: async () => ({ Component: (await import('@/pages/admin-order-detail-page')).AdminOrderDetailPage }) },
+        ],
+      },
+      {
+        element: <ProtectedRoute feature="orders.read.all" />,
+        children: [
+          { path: ROUTES.analyticsOrders, lazy: async () => ({ Component: (await import('@/pages/analytics-orders-page')).AnalyticsOrdersPage }) },
+          { path: `${ROUTES.analyticsOrders}/:id`, lazy: async () => ({ Component: (await import('@/pages/analytics-order-detail-page')).AnalyticsOrderDetailPage }) },
+        ],
+      },
+      {
+        element: <ProtectedRoute feature="overdue.read" />,
+        children: [
+          { path: ROUTES.analyticsOverdue, lazy: async () => ({ Component: (await import('@/pages/analytics-overdue-page')).AnalyticsOverduePage }) },
         ],
       },
       {

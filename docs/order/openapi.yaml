@@ -1,0 +1,1071 @@
+openapi: 3.1.0
+
+info:
+  title: Rentify Order Service API
+  version: 1.0.0
+  description: |
+    HTTP contract for the Order service. The source of truth is the application
+    code in `services/order` (routes, controllers, Form Requests, Resources and
+    `ProblemResponse`). This document describes only endpoints that exist in
+    `routes/api.php`, `routes/web.php` and `bootstrap/app.php`.
+
+    All monetary amounts are integers in minor units (EUR cents). All timestamps
+    are strings with the `date-time` format, UTC, microsecond precision and an
+    explicit `+00:00` offset, for example `2026-11-20T10:00:00.123456+00:00`.
+
+servers:
+  - url: http://localhost:8082/api/v1
+    description: Local direct application (order-app published on host port 8082)
+  - url: https://localhost/order/api/v1
+    description: Gateway prefix `/order` (docker/nginx/conf.d/default.conf rewrites `/order/(.*)` to the Order nginx)
+
+security:
+  - cookieAuth: []
+
+paths:
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Create an order
+      description: |
+        Only `customer` can create orders. Requires `Idempotency-Key` with 1 to 64
+        visible ASCII characters (`^[\x21-\x7E]{1,64}$`).
+
+        A new order returns `201` with a `Location` header. A repeated request with
+        the same key and body returns `200` without `Location`. A parallel request
+        with the same key returns `409`; the same key with a different body returns
+        `422`.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: 1 to 64 visible ASCII characters.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+            pattern: '^[\x21-\x7E]{1,64}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Order created. The `Location` header points to the new order.
+          headers:
+            Location:
+              description: Absolute URL of the created order.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '200':
+          description: Repeated request with the same idempotency key and body; no `Location` header.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          description: Missing or invalid `Idempotency-Key`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The authenticated role is not `customer`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: A parallel request with the same idempotency key is in progress.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: |
+            Validation failure, a different request body for an existing key, an
+            unavailable/inactive product (extension `product_id`), a mixed-store
+            order, or an invalid rental period.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          description: Rate limit exceeded (30 requests per minute per user).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    get:
+      tags: [Orders]
+      summary: List orders
+      description: |
+        Visibility is enforced by `OrderPolicy`: a customer sees own orders, a
+        store manager sees own store, admin and analyst see all orders. The
+        `store_id` filter is accepted only for admin and analyst.
+      parameters:
+        - $ref: '#/components/parameters/OrderStatusFilter'
+        - $ref: '#/components/parameters/StoreIdFilter'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Cursor-paginated order list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: A non-admin/non-analyst supplied `store_id`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Invalid `status`, `store_id`, `cursor` or `limit`, or an invalid cursor.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /orders/{order}:
+    get:
+      tags: [Orders]
+      summary: Get one order
+      description: |
+        A customer sees only own orders; a store manager sees own store; admin and
+        analyst see any order. A foreign or missing order returns `404` (not `403`).
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Order details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: The order does not exist or is not visible to the caller.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /orders/{order}/events:
+    get:
+      tags: [Orders]
+      summary: List order status events
+      description: |
+        Returns the append-only status history of an order in ascending
+        `(occurred_at, id)` order. Available to `admin`, `analyst`, and the
+        `store_manager` of the order's store. `actor_id` and `payload` are
+        intentionally not exposed.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque cursor from `meta.next_cursor` of the previous page.
+          schema:
+            type: string
+            maxLength: 512
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: A page of order events.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderEventListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The caller is not allowed to view the order journal (for example a `customer`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The order does not exist or belongs to another store.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Invalid `cursor` or `limit`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /orders/{order}/payment-intent:
+    post:
+      tags: [Payments]
+      summary: Create or reuse a Stripe PaymentIntent
+      description: |
+        Only the customer owner can request a payment intent. A new intent returns
+        `201`; an already open intent returns `200` with the existing
+        `client_secret`. The order must be in `stock_reserved` or `payment_pending`.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '201':
+          description: A new PaymentIntent was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentIntentResponse'
+        '200':
+          description: An existing open PaymentIntent was returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentIntentResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The authenticated role is not `customer`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The order does not exist or does not belong to the caller.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The order is not in a status that allows a PaymentIntent.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          description: Rate limit exceeded (20 requests per minute per user).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '502':
+          description: Stripe is unavailable.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /orders/{order}/cancel:
+    post:
+      tags: [Order actions]
+      summary: Cancel an order
+      description: |
+        Allowed for the customer owner, the manager of the order store, and admin.
+        The order can be cancelled only before the first item is issued. Analyst
+        cannot cancel. A missing or foreign order returns `404`.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Order cancelled (a repeat cancellation is also `200`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelOrderResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: The order does not exist or is not visible to the caller.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: Invalid order transition (`in_rental`, `completed`, already paid cancellation in progress) or `PaymentInProgress`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          description: Rate limit exceeded (30 requests per minute per user).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '502':
+          description: The payment provider is unavailable while refunding.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /orders/{order}/issue:
+    post:
+      tags: [Order actions]
+      summary: Issue order items
+      description: |
+        Allowed for the manager of the order store and admin. Only selected items
+        are processed; already issued items are returned in `skipped_item_ids`.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemIdsRequest'
+      responses:
+        '200':
+          description: Items issued; `skipped_item_ids` contains items that were already issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemOperationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: The order does not exist or is not visible to the caller.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: Invalid order or item transition.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Validation failure or an item that is not part of the order (extension `item_id`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /orders/{order}/return:
+    post:
+      tags: [Order actions]
+      summary: Return order items
+      description: |
+        Allowed for the manager of the order store and admin. Only selected items
+        are processed; already returned items are returned in `skipped_item_ids`.
+        An item can be returned only after its `rental_start_at`. Returning an
+        item refunds its deposit.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemIdsRequest'
+      responses:
+        '200':
+          description: Items returned; `skipped_item_ids` contains items that were already returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemOperationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: The order does not exist or is not visible to the caller.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: Invalid order/item transition, a `reserved` item, an item returned before `rental_start_at`, `RefundExceedsPayment`, or `PaymentInProgress`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Validation failure or an item that is not part of the order (extension `item_id`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '502':
+          description: The payment provider is unavailable while refunding the deposit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /analytics/overdue-rentals:
+    get:
+      tags: [Analytics]
+      summary: List overdue rentals
+      description: |
+        Available only to `admin` and `analyst`; all other roles receive `403`.
+        An item is overdue when it is `issued`, not returned, and
+        `rental_end_at < now`. `now` comes from `Clock`.
+      parameters:
+        - $ref: '#/components/parameters/StoreIdFilter'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Cursor-paginated overdue rental items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverdueRentalListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The role is not `admin` or `analyst`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Invalid `store_id`, `cursor` or `limit`, or an invalid cursor.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          description: Rate limit exceeded (60 requests per minute per user).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /healthz:
+    servers:
+      - url: http://localhost:8082
+        description: Local direct application
+      - url: https://localhost/order
+        description: Gateway prefix
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: Application is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    examples: [ok]
+        '503':
+          description: Application is not available.
+
+  /readyz:
+    servers:
+      - url: http://localhost:8082
+        description: Local direct application
+      - url: https://localhost/order
+        description: Gateway prefix
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      description: Checks PostgreSQL, the JWT public key, Redis and RabbitMQ.
+      security: []
+      responses:
+        '200':
+          description: All critical dependencies are ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyzResponse'
+        '503':
+          description: A critical dependency is not ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyzResponse'
+
+  /webhooks/stripe:
+    servers:
+      - url: http://localhost:8082
+        description: Local direct application
+      - url: https://localhost/order
+        description: Gateway prefix
+    post:
+      tags: [Webhooks]
+      summary: Stripe webhook
+      x-internal: true
+      description: |
+        Internal Stripe callback. No authentication. The body is the raw request
+        payload exactly as sent by Stripe; the application verifies
+        `Stripe-Signature` against the raw body (`Stripe\Webhook::constructEvent`).
+        A missing or invalid signature returns `400`. A retryable processing
+        failure or unconfigured webhook secret returns `500` so Stripe retries.
+      security: []
+      parameters:
+        - name: Stripe-Signature
+          in: header
+          required: true
+          description: Stripe signature header (`t=...,v1=...`).
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: Raw Stripe event JSON; must not be parsed or transformed before signature verification.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Event accepted and processed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [received]
+                properties:
+                  received:
+                    type: boolean
+                    const: true
+        '400':
+          description: Missing or invalid `Stripe-Signature`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: The webhook secret is not configured or event processing failed with a retryable error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: |
+        HttpOnly `access_token` cookie set by the Auth service. The cookie
+        contains an RS256 JWT verified with the configured public key. The
+        frontend never reads or stores the token; the browser sends the cookie
+        automatically. Bearer headers are not accepted.
+
+        Claims read by `App\Http\Middleware\Authenticate`:
+        - `user_id` (required): UUID string.
+        - `role` (required): `admin`, `store_manager`, `customer` or `analyst`.
+        - `store_id` (optional): string; required when `role` is `store_manager`.
+        - `exp` (required): numeric expiration; an expired token is rejected.
+
+        Authentication errors:
+        - `401` when the `access_token` cookie is missing, invalid/expired, `user_id` is not
+          a UUID, or `role` is missing/unknown.
+        - `403` when `role` is `store_manager` and `store_id` is missing.
+        - `500` when the JWT public key is not configured.
+
+  parameters:
+    OrderId:
+      name: order
+      in: path
+      required: true
+      description: Order UUID.
+      schema:
+        type: string
+        format: uuid
+    OrderStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/OrderStatus'
+    StoreIdFilter:
+      name: store_id
+      in: query
+      required: false
+      description: Store UUID. On `GET /orders` only `admin` and `analyst` may use it.
+      schema:
+        type: string
+        format: uuid
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor from `meta.next_cursor`. An invalid cursor returns `422`.
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Page size, 1 to 100, default 20.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    Unauthorized:
+      description: Missing, invalid or expired `access_token` cookie, invalid `user_id`, or missing/unknown `role`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    Problem:
+      type: object
+      description: RFC 7807 problem response produced by `ProblemResponse::make`.
+      required: [type, title, status, detail]
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        product_id:
+          type: string
+          format: uuid
+          description: Extension returned when a product is unavailable.
+        item_id:
+          type: string
+          format: uuid
+          description: Extension returned when an item is not part of the order.
+        errors:
+          type: object
+          description: Extension returned on Form Request validation failure.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      additionalProperties: true
+
+    OrderStatus:
+      type: string
+      enum:
+        - created
+        - stock_reserved
+        - payment_pending
+        - paid
+        - in_rental
+        - completed
+        - cancelled
+
+    ItemStatus:
+      type: string
+      enum:
+        - reserved
+        - issued
+        - returned
+        - cancelled
+
+    CancelReason:
+      type: string
+      enum:
+        - stock_unavailable
+        - payment_timeout
+        - customer_request
+        - admin_request
+
+    Order:
+      type: object
+      required:
+        - id
+        - customer_id
+        - store_id
+        - status
+        - cancel_reason
+        - currency
+        - subtotal_amount
+        - deposit_amount
+        - total_amount
+        - version
+        - items
+        - created_at
+        - updated_at
+        - cancelled_at
+        - completed_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        store_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        cancel_reason:
+          type: [string, 'null']
+          enum: [stock_unavailable, payment_timeout, customer_request, admin_request, null]
+        currency:
+          type: string
+          const: EUR
+        subtotal_amount:
+          type: integer
+          description: Rental subtotal in EUR minor units (cents).
+          minimum: 0
+        deposit_amount:
+          type: integer
+          description: Deposit total in EUR minor units (cents).
+          minimum: 0
+        total_amount:
+          type: integer
+          description: Rental subtotal plus deposit in EUR minor units (cents).
+          minimum: 0
+        version:
+          type: integer
+          minimum: 1
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        created_at:
+          type: string
+          format: date-time
+          examples: ['2026-11-20T10:00:00.123456+00:00']
+        updated_at:
+          type: string
+          format: date-time
+          examples: ['2026-11-20T10:00:00.123456+00:00']
+        cancelled_at:
+          type: [string, 'null']
+          format: date-time
+          examples: ['2026-11-20T10:10:00.123456+00:00', null]
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+          examples: ['2026-11-23T18:00:00.123456+00:00', null]
+
+    OrderItem:
+      type: object
+      required:
+        - id
+        - product_id
+        - product_name
+        - quantity
+        - rental_start_at
+        - rental_end_at
+        - billed_hours
+        - price_per_hour
+        - deposit_per_unit
+        - line_total
+        - deposit_total
+        - status
+        - issued_at
+        - issued_by
+        - returned_at
+        - returned_by
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Order item (line) identifier.
+        product_id:
+          type: string
+          format: uuid
+        product_name:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        rental_start_at:
+          type: string
+          format: date-time
+          examples: ['2026-11-21T09:00:00.000000+00:00']
+        rental_end_at:
+          type: string
+          format: date-time
+          examples: ['2026-11-23T18:00:00.000000+00:00']
+        billed_hours:
+          type: integer
+          minimum: 1
+        price_per_hour:
+          type: integer
+          description: Hourly price in EUR minor units (cents).
+          minimum: 0
+        deposit_per_unit:
+          type: integer
+          description: Deposit per unit in EUR minor units (cents).
+          minimum: 0
+        line_total:
+          type: integer
+          description: Rental line total in EUR minor units (cents).
+          minimum: 0
+        deposit_total:
+          type: integer
+          description: Deposit line total in EUR minor units (cents).
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/ItemStatus'
+        issued_at:
+          type: [string, 'null']
+          format: date-time
+          examples: ['2026-11-21T09:00:00.123456+00:00', null]
+        issued_by:
+          type: [string, 'null']
+          format: uuid
+        returned_at:
+          type: [string, 'null']
+          format: date-time
+          examples: ['2026-11-23T17:30:00.123456+00:00', null]
+        returned_by:
+          type: [string, 'null']
+          format: uuid
+
+    OverdueRental:
+      type: object
+      required:
+        - order_id
+        - item_id
+        - product_id
+        - product_name
+        - store_id
+        - customer_id
+        - quantity
+        - rental_end_at
+        - overdue_hours
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+        product_id:
+          type: string
+          format: uuid
+        product_name:
+          type: string
+        store_id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+        rental_end_at:
+          type: string
+          format: date-time
+          examples: ['2026-12-02T10:00:00.123456+00:00']
+        overdue_hours:
+          type: integer
+          description: Ceiling of overdue hours; minimum 1 for any positive overdue, 0 when not overdue.
+          minimum: 0
+
+    OverdueRentalsMeta:
+      type: object
+      required: [next_cursor, count]
+      properties:
+        next_cursor:
+          type: [string, 'null']
+          description: Opaque cursor for the next page, or null when this is the last page.
+        count:
+          type: integer
+          description: Number of items in `data`.
+          minimum: 0
+
+    ItemIdsRequest:
+      type: object
+      required: [item_ids]
+      properties:
+        item_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+
+    CreateOrderRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            required: [product_id, quantity, rental_start_at, rental_end_at]
+            properties:
+              product_id:
+                type: string
+                format: uuid
+              quantity:
+                type: integer
+                minimum: 1
+                maximum: 1000
+              rental_start_at:
+                type: string
+                format: date-time
+                examples: ['2026-11-21T09:00:00.000000+00:00']
+              rental_end_at:
+                type: string
+                format: date-time
+                examples: ['2026-11-23T18:00:00.000000+00:00']
+
+    PaymentIntentResponse:
+      type: object
+      required: [client_secret, status, amount_total, currency]
+      properties:
+        client_secret:
+          type: string
+        status:
+          type: string
+          description: Stripe PaymentIntent status.
+        amount_total:
+          type: integer
+          description: Rental plus deposit in EUR minor units (cents).
+          minimum: 0
+        currency:
+          type: string
+          const: EUR
+
+    CancelOrderResponse:
+      description: The cancelled order (`OrderResource`).
+      allOf:
+        - $ref: '#/components/schemas/Order'
+
+    ItemOperationResponse:
+      description: The updated order plus identifiers of items skipped as already processed.
+      allOf:
+        - $ref: '#/components/schemas/Order'
+        - type: object
+          required: [skipped_item_ids]
+          properties:
+            skipped_item_ids:
+              type: array
+              items:
+                type: string
+                format: uuid
+
+    OrderResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Order'
+
+    OrderListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        meta:
+          type: object
+          required: [next_cursor, limit]
+          properties:
+            next_cursor:
+              type: [string, 'null']
+            limit:
+              type: integer
+              minimum: 1
+              maximum: 100
+
+    OrderEvent:
+      type: object
+      required: [id, from_status, to_status, order_item_id, actor_role, occurred_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        from_status:
+          type: [string, 'null']
+          enum: [created, stock_reserved, payment_pending, paid, in_rental, completed, cancelled, null]
+        to_status:
+          type: string
+          enum: [created, stock_reserved, payment_pending, paid, in_rental, completed, cancelled]
+        order_item_id:
+          type: [string, 'null']
+          format: uuid
+        actor_role:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+          description: UTC timestamp with microsecond precision.
+
+    OrderEventListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderEvent'
+        meta:
+          type: object
+          required: [next_cursor, limit]
+          properties:
+            next_cursor:
+              type: [string, 'null']
+            limit:
+              type: integer
+              minimum: 1
+              maximum: 100
+
+    OverdueRentalListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OverdueRental'
+        meta:
+          $ref: '#/components/schemas/OverdueRentalsMeta'
+
+    ReadyzResponse:
+      type: object
+      required: [status, checks]
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+        checks:
+          type: object
+          description: Probe results keyed by dependency (`database`, `jwt`, `redis`, `rabbitmq`).
+          additionalProperties:
+            type: object
+            required: [ok, critical, latency_ms]
+            properties:
+              ok:
+                type: boolean
+              critical:
+                type: boolean
+              latency_ms:
+                type: number

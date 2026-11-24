@@ -4,6 +4,7 @@ include:
   - services/auth/docker-compose.prod.yaml
   - services/notification/docker-compose.prod.yaml
   - services/catalog/docker-compose.prod.yaml
+  - services/order/docker-compose.prod.yaml
   - frontend/docker-compose.prod.yaml
 
 services:
@@ -26,6 +27,8 @@ services:
         condition: service_healthy
       catalog-nginx:
         condition: service_healthy
+      order-nginx:
+        condition: service_healthy
     networks:
       - shop_global
     healthcheck:
@@ -36,7 +39,7 @@ services:
       start_period: 5s
 
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:4.4-management
     container_name: global-rabbitmq
     restart: always
     environment:

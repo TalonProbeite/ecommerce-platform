@@ -73,11 +73,11 @@ func (as *AuthService) Registration(
 		return domain.TokenPair{}, domain.UserProfile{}, fmt.Errorf("user repository returned empty user id")
 	}
 
-	if welcomeErr := as.publishWelcomeEmail(userData.Email, userData.FirstName); welcomeErr != nil {
+	userIDString := userID.String()
+
+	if welcomeErr := as.publishWelcomeEmail(userIDString, userData.Email, userData.FirstName); welcomeErr != nil {
 		return domain.TokenPair{}, domain.UserProfile{}, welcomeErr
 	}
-
-	userIDString := userID.String()
 
 	tokens, err := as.CreateSession(
 		ctx,
@@ -336,8 +336,9 @@ func (as *AuthService) SendVerificationEmail(
 	}
 
 	payload, err := json.Marshal(events.EmailVerificationRequestedEvent{
-		Email: email,
-		Code:  code,
+		UserID: userID,
+		Email:  email,
+		Code:   code,
 	})
 	if err != nil {
 		return fmt.Errorf(

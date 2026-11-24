@@ -68,6 +68,7 @@ func newStack(t *testing.T, sender services.MailSender) *stack {
 	handlers := map[string]services.HandlerFunc{
 		events.EmailVerificationRequestedEventKey: userHandler.HandleEmailVerificationRequested,
 		events.WelcomeEmailRequestedEventKey:      userHandler.HandleWelcomeEmailRequested,
+		events.EmailChangedEventKey:               userHandler.HandleEmailChanged,
 		events.OrderConfirmedEventKey:             orderHandler.HandleOrderConfirmed,
 		events.OrderPaidEventKey:                  orderHandler.HandleOrderPaid,
 		events.OrderCancelledEventKey:             orderHandler.HandleOrderCancelled,

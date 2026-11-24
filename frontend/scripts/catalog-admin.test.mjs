@@ -13,7 +13,7 @@ test('catalog admin uses cookie credentials, refreshes once and respects FormDat
   const server = await createServer({
     configFile: false,
     envDir: false,
-    define: { 'import.meta.env.VITE_API_MODE': '"real"', 'import.meta.env.VITE_API_URL': '"https://example.invalid"' },
+    define: { 'import.meta.env.VITE_API_MODE': '"real"', 'import.meta.env.VITE_API_URL': '"https://example.invalid"', 'import.meta.env.VITE_USE_MOCKS': '"false"' },
     resolve: { alias: { '@': new URL('../src', import.meta.url).pathname } },
     server: { middlewareMode: true, ws: false, watch: null },
     appType: 'custom',

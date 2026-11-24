@@ -59,6 +59,7 @@ class ProductRepository implements ProductRepositoryInterface
             ->with([
                 'category:id,name',
                 'stock',
+                'mainImage' => fn ($q) => $q->select(['id', 'product_id', 'object_key', 'is_main']),
                 'attributes' => fn ($q) => $q->select(['id', 'product_id', 'name', 'value'])
                     ->orderBy('name'),
                 'images' => fn ($q) => $q->orderBy('created_at')->orderBy('id'),

@@ -17,8 +17,9 @@ return new class () extends Migration {
             $table->string('slug', 255);
             $table->uuid('parent_id')->nullable();
             $table->foreignUuid('store_id')->constrained()->restrictOnDelete();
-            $table->timestamps();
-            $table->softDeletes();
+            $table->timestampTz('created_at', 6)->useCurrent();
+            $table->timestampTz('updated_at', 6)->useCurrent();
+            $table->timestampTz('deleted_at', 6)->nullable();
 
             $table->unique(['store_id', 'slug']);
             $table->unique(['id', 'store_id']);

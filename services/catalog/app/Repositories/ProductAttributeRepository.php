@@ -35,7 +35,7 @@ class ProductAttributeRepository implements ProductAttributeRepositoryInterface
             return;
         }
 
-        $now = now();
+        $now = now()->format('Y-m-d H:i:s.uP');
         $rows = array_map(
             static fn (ProductAttributeData $dto): array => [
                 'id' => (string) Uuid::uuid7(),
