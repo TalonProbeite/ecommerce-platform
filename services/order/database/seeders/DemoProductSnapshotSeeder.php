@@ -21,14 +21,14 @@ final class DemoProductSnapshotSeeder extends Seeder
             'store' => 'studio',
             'key' => 'photo-video',
             'price_per_hour' => 18000,
-            'deposit_amount' => 4000000,
+            'deposit_amount' => 40000,
             'items' => ['Камера', 'Видеокамера', 'Экшн-камера', 'Штатив', 'Стабилизатор', 'Суфлёр'],
         ],
         [
             'store' => 'studio',
             'key' => 'lenses',
             'price_per_hour' => 10000,
-            'deposit_amount' => 2000000,
+            'deposit_amount' => 20000,
             'items' => [
                 'Объектив широкоугольный',
                 'Объектив портретный',
@@ -42,7 +42,7 @@ final class DemoProductSnapshotSeeder extends Seeder
             'store' => 'studio',
             'key' => 'lighting',
             'price_per_hour' => 5000,
-            'deposit_amount' => 600000,
+            'deposit_amount' => 6000,
             'items' => [
                 'Светодиодная панель',
                 'Софтбокс',
@@ -56,7 +56,7 @@ final class DemoProductSnapshotSeeder extends Seeder
             'store' => 'studio',
             'key' => 'sound',
             'price_per_hour' => 7000,
-            'deposit_amount' => 1000000,
+            'deposit_amount' => 10000,
             'items' => [
                 'Микрофон для интервью',
                 'Петличный микрофон',
@@ -70,14 +70,14 @@ final class DemoProductSnapshotSeeder extends Seeder
             'store' => 'digital',
             'key' => 'computers',
             'price_per_hour' => 15000,
-            'deposit_amount' => 5000000,
+            'deposit_amount' => 50000,
             'items' => ['Ноутбук', 'Рабочая станция', 'Монитор', 'Док-станция', 'Клавиатура', 'Веб-камера'],
         ],
         [
             'store' => 'digital',
             'key' => 'projectors',
             'price_per_hour' => 12000,
-            'deposit_amount' => 2500000,
+            'deposit_amount' => 25000,
             'items' => [
                 'Проектор',
                 'Проекционный экран',
@@ -91,7 +91,7 @@ final class DemoProductSnapshotSeeder extends Seeder
             'store' => 'digital',
             'key' => 'sound',
             'price_per_hour' => 5000,
-            'deposit_amount' => 1000000,
+            'deposit_amount' => 10000,
             'items' => [
                 'Наушники',
                 'Портативная колонка',
@@ -105,7 +105,7 @@ final class DemoProductSnapshotSeeder extends Seeder
             'store' => 'digital',
             'key' => 'mobile-testing',
             'price_per_hour' => 8000,
-            'deposit_amount' => 1500000,
+            'deposit_amount' => 15000,
             'items' => [
                 'Смартфон',
                 'Планшет',
@@ -119,7 +119,7 @@ final class DemoProductSnapshotSeeder extends Seeder
             'store' => 'workshop',
             'key' => 'tools',
             'price_per_hour' => 4000,
-            'deposit_amount' => 500000,
+            'deposit_amount' => 5000,
             'items' => [
                 'Дрель',
                 'Шуруповёрт',
@@ -156,7 +156,7 @@ final class DemoProductSnapshotSeeder extends Seeder
                         'category_id' => $categoryId,
                         'name' => sprintf('DEMO %s %s', $item, $variant),
                         'price_per_hour' => $category['price_per_hour'] + $variantIndex * 500,
-                        'deposit_amount' => $category['deposit_amount'] + $variantIndex * 100000,
+                        'deposit_amount' => $category['deposit_amount'] + $variantIndex * 1000,
                         'is_active' => true,
                         'source_occurred_at' => $now,
                         'deleted_at' => null,
