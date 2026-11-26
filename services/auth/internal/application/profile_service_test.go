@@ -190,13 +190,14 @@ func newProfileFixture(t *testing.T) *profileFixture {
 	}
 
 	pub := &MockPublisher{
-		PublishEventFunc: func(key string, payload []byte) error {
+		PublishEventFunc: func(key string, exchange string, payload []byte) error {
 			if err := f.hit("pub.PublishEvent"); err != nil {
 				return err
 			}
 			f.events = append(f.events, publishedEvent{
-				key:     key,
-				payload: append([]byte(nil), payload...),
+				key:      key,
+				exchange: exchange,
+				payload:  append([]byte(nil), payload...),
 			})
 			return nil
 		},

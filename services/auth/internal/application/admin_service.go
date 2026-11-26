@@ -49,7 +49,7 @@ func (ads *AdminService) UpdateRole(ctx context.Context, userID, adminID string,
 		return fmt.Errorf("error while creating json struct for event: %w", err)
 	}
 
-	err = ads.publisher.PublishEvent(events.RoutingKeyUserRoleChanged, payload)
+	err = ads.publisher.PublishEvent(events.RoutingKeyUserRoleChanged, events.ExchangeUser, payload)
 	if err != nil {
 		return fmt.Errorf("error while publishing event: %w", err)
 	}
@@ -80,7 +80,7 @@ func (ads *AdminService) BanUser(ctx context.Context, userID, adminID string, is
 		return fmt.Errorf("error while creating json struct for event: %w", err)
 	}
 
-	err = ads.publisher.PublishEvent(events.RoutingKeyUserBanned, payload)
+	err = ads.publisher.PublishEvent(events.RoutingKeyUserBanned, events.ExchangeUser, payload)
 	if err != nil {
 		return fmt.Errorf("error while publishing event: %w", err)
 	}

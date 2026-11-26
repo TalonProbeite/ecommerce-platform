@@ -13,7 +13,7 @@ func (as *AuthService) publishWelcomeEmail(userID, email, name string) error {
 	if err != nil {
 		return fmt.Errorf("error while creating json struct for event: %w", err)
 	}
-	if err := as.publisher.PublishEvent(events.WelcomeEmailRequestedEventKey, payload); err != nil {
+	if err := as.publisher.PublishEvent(events.WelcomeEmailRequestedEventKey, events.ExchangeUser, payload); err != nil {
 		return fmt.Errorf("error while publishing event: %w", err)
 	}
 	return nil

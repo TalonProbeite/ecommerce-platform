@@ -214,4 +214,4 @@ func TestOAuthCancellationConsumesBoundTransaction(t *testing.T) {
 // password registration; the HTTP fixture needs a publisher as well.
 type oauthPublisher struct{}
 
-func (oauthPublisher) PublishEvent(string, []byte) error { return nil }
+func (oauthPublisher) PublishEvent(string, string, []byte) error { return nil }

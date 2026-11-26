@@ -49,15 +49,17 @@ func (m *adminUserRepoMock) UpdateStoreID(ctx context.Context, userID string, st
 }
 
 type adminPublisherMock struct {
-	err     error
-	calls   int
-	key     string
-	payload []byte
+	err      error
+	calls    int
+	key      string
+	exchange string
+	payload  []byte
 }
 
-func (m *adminPublisherMock) PublishEvent(key string, payload []byte) error {
+func (m *adminPublisherMock) PublishEvent(key string, exchange string, payload []byte) error {
 	m.calls++
 	m.key = key
+	m.exchange = exchange
 	m.payload = append([]byte(nil), payload...)
 	return m.err
 }

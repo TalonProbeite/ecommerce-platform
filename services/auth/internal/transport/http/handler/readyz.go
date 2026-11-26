@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"shop/auth/internal/infra/rabbitmq"
+	"shop/shared/rabbitmq"
 	"time"
 
 	"github.com/jmoiron/sqlx"

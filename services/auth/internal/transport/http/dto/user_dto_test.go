@@ -3,8 +3,8 @@ package dto_test
 import (
 	"testing"
 
-	"shop/auth/internal/infra/validator"
 	"shop/auth/internal/transport/http/dto"
+	"shop/shared/validator"
 )
 
 func boolPtr(value bool) *bool { return &value }

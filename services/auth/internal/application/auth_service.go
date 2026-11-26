@@ -349,6 +349,7 @@ func (as *AuthService) SendVerificationEmail(
 
 	err = as.publisher.PublishEvent(
 		events.EmailVerificationRequestedEventKey,
+		events.ExchangeUser,
 		payload,
 	)
 	if err != nil {

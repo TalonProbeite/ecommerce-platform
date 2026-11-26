@@ -75,7 +75,7 @@ type SessionRepository interface {
 }
 
 type EventPublisher interface {
-	PublishEvent(eventKey string, payload []byte) error
+	PublishEvent(eventKey, eventExchange string, payload []byte) error
 }
 
 type TokenManager interface {

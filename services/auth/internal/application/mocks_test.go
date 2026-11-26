@@ -192,14 +192,14 @@ func (m *MockSessionRepo) RevokeAllSessions(ctx context.Context, userID string) 
 // ---------------------------------------------------------------------------
 
 type MockPublisher struct {
-	PublishEventFunc func(string, []byte) error
+	PublishEventFunc func(string, string, []byte) error
 }
 
-func (m *MockPublisher) PublishEvent(eventKey string, payload []byte) error {
+func (m *MockPublisher) PublishEvent(eventKey string, eventExchange string, payload []byte) error {
 	if m.PublishEventFunc == nil {
 		unset("PublishEventFunc")
 	}
-	return m.PublishEventFunc(eventKey, payload)
+	return m.PublishEventFunc(eventKey, eventExchange, payload)
 }
 
 type MockTokenManager struct {

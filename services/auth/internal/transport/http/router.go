@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 	"shop/auth/internal/config"
-	"shop/auth/internal/infra/validator"
 	"shop/auth/internal/transport/http/handler"
 	"shop/shared/middleware"
+	"shop/shared/validator"
 
 	json "encoding/json/v2"
 

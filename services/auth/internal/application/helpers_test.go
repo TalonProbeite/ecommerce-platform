@@ -59,8 +59,9 @@ type savedEntry struct {
 }
 
 type publishedEvent struct {
-	key     string
-	payload []byte
+	key      string
+	exchange string
+	payload  []byte
 }
 
 type tokenRequest struct {
@@ -317,11 +318,11 @@ func newFixture(t *testing.T) *fixture {
 	}
 
 	pub := &MockPublisher{
-		PublishEventFunc: func(key string, payload []byte) error {
+		PublishEventFunc: func(key string, exchange string, payload []byte) error {
 			if err := f.hit("pub.PublishEvent"); err != nil {
 				return err
 			}
-			f.events = append(f.events, publishedEvent{key: key, payload: slices.Clone(payload)})
+			f.events = append(f.events, publishedEvent{key: key, exchange: exchange, payload: slices.Clone(payload)})
 			return nil
 		},
 	}

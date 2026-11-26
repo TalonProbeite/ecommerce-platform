@@ -12,12 +12,13 @@ import (
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/db"
 	"shop/auth/internal/infra/oauth"
-	"shop/auth/internal/infra/rabbitmq"
+	authrabbit "shop/auth/internal/infra/rabbitmq"
 	"shop/auth/internal/infra/repository"
 	"shop/auth/internal/transport/http/handler"
 	"shop/shared/jwt"
 	"shop/shared/logger"
 	"shop/shared/middleware"
+	"shop/shared/rabbitmq"
 	"syscall"
 
 	"github.com/jmoiron/sqlx"
@@ -64,7 +65,7 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}
 
-	rabbit, err := rabbitmq.NewRabbitClient(cfg.Rabbit.RabbitURL)
+	rabbit, eventPublisher, err := initRabbitMQ(cfg.Rabbit.RabbitURL, log)
 	if err != nil {
 		if closeErr := pg.Close(); closeErr != nil {
 			log.Error("failed to close postgres", slog.Any("err", closeErr))
@@ -72,26 +73,13 @@ func New(cfg *config.Config) (*App, error) {
 		if closeErr := rdb.Close(); closeErr != nil {
 			log.Error("failed to close redis", slog.Any("err", closeErr))
 		}
-		return nil, fmt.Errorf("failed to connect to rabbitmq: %w", err)
+		return nil, err
 	}
 
 	tokenManager := jwt.NewJWTManager(cfg.RSAPublicKey(), cfg.RSAPrivateKey())
 	sessionRepo := repository.NewSessionRepo(rdb)
 	userRepo := repository.NewUserRepo(pg)
 	oauthClient := oauth.NewGoogleClient(cfg.OAuthStateGoogle())
-	eventPublisher, err := rabbitmq.NewEventPublisher(rabbit)
-	if err != nil {
-		if closeErr := pg.Close(); closeErr != nil {
-			log.Error("failed to close postgres", slog.Any("err", closeErr))
-		}
-		if closeErr := rdb.Close(); closeErr != nil {
-			log.Error("failed to close redis", slog.Any("err", closeErr))
-		}
-		if closeErr := rabbit.Close(); closeErr != nil {
-			log.Error("failed to close rabbitmq", slog.Any("err", closeErr))
-		}
-		return nil, fmt.Errorf("failed to init event publisher: %w", err)
-	}
 
 	authService := application.NewAuthService(userRepo, sessionRepo, eventPublisher, tokenManager, oauthClient)
 	profileService := application.NewProfileService(userRepo, sessionRepo, eventPublisher)
@@ -120,6 +108,31 @@ func New(cfg *config.Config) (*App, error) {
 		rdb:    rdb,
 		rabbit: rabbit,
 	}, nil
+}
+
+func initRabbitMQ(rabbitURL string, log *slog.Logger) (*rabbitmq.RabbitClient, *rabbitmq.EventPublisher, error) {
+	rabbit, err := rabbitmq.NewRabbitClient(rabbitURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to connect to rabbitmq: %w", err)
+	}
+
+	err = authrabbit.InitTopology(rabbit)
+	if err != nil {
+		if closeErr := rabbit.Close(); closeErr != nil {
+			log.Error("failed to close rabbitmq", slog.Any("err", closeErr))
+		}
+		return nil, nil, fmt.Errorf("failed to init rabbitmq topology: %w", err)
+	}
+
+	eventPublisher, err := rabbitmq.NewEventPublisher(rabbit)
+	if err != nil {
+		if closeErr := rabbit.Close(); closeErr != nil {
+			log.Error("failed to close rabbitmq", slog.Any("err", closeErr))
+		}
+		return nil, nil, fmt.Errorf("failed to init event publisher: %w", err)
+	}
+
+	return rabbit, eventPublisher, nil
 }
 
 func (a *App) Run() error {
