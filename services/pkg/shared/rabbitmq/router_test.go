@@ -1,21 +1,24 @@
-package services
+package rabbitmq
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"shop/notification/internal/infra/rabbitmq"
+	"io"
+	"log/slog"
+	"reflect"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const waitTimeout = 2 * time.Second
 
-func newTestRouter(handlers map[string]HandlerFunc, consumers ...rabbitmq.EventConsumer) *EventRouter {
+func newTestRouter(handlers map[string]HandlerFunc, consumers ...EventConsumer) *EventRouter {
 	return NewEventRouter(consumers, handlers, newTestLogger())
 }
 
@@ -98,9 +101,11 @@ func TestEventRouter_Process_AckAndNackDecision(t *testing.T) {
 			r := newTestRouter(map[string]HandlerFunc{knownKey: tc.handler})
 			d := newDelivery(tc.key, []byte("{}"), ack)
 
-			require.NotPanics(t, func() { r.process(context.Background(), "q", &d) })
+			requireNotPanics(t, func() { r.process(context.Background(), "q", &d) })
 
-			assert.Equal(t, tc.want, ack.snapshot())
+			if got := ack.snapshot(); !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("expected ack records %v, got %v", tc.want, got)
+			}
 		})
 	}
 }
@@ -130,7 +135,7 @@ func TestEventRouter_Process_PassesBodyAndAttemptToHandler(t *testing.T) {
 			r := newTestRouter(map[string]HandlerFunc{
 				"key": func(ctx context.Context, body []byte) error {
 					gotBody = body
-					gotAttempt = attemptFromContext(ctx)
+					gotAttempt = AttemptFromContext(ctx)
 
 					return nil
 				},
@@ -141,8 +146,12 @@ func TestEventRouter_Process_PassesBodyAndAttemptToHandler(t *testing.T) {
 
 			r.process(context.Background(), "q", &d)
 
-			assert.Equal(t, []byte(`{"id":1}`), gotBody)
-			assert.Equal(t, tc.wantAttempt, gotAttempt)
+			if !bytes.Equal(gotBody, []byte(`{"id":1}`)) {
+				t.Errorf("unexpected body: %s", gotBody)
+			}
+			if gotAttempt != tc.wantAttempt {
+				t.Errorf("expected attempt %d, got %d", tc.wantAttempt, gotAttempt)
+			}
 		})
 	}
 }
@@ -169,8 +178,8 @@ func TestEventRouter_Run_RoutesByKeyAcrossConsumers(t *testing.T) {
 				return nil
 			},
 		},
-		rabbitmq.EventConsumer{Queue: "user.q", Deliveries: userCh},
-		rabbitmq.EventConsumer{Queue: "order.q", Deliveries: orderCh},
+		EventConsumer{Queue: "user.q", Deliveries: userCh},
+		EventConsumer{Queue: "order.q", Deliveries: orderCh},
 	)
 
 	cancel, done := startRouter(t, r)
@@ -178,25 +187,37 @@ func TestEventRouter_Run_RoutesByKeyAcrossConsumers(t *testing.T) {
 	userCh <- newDelivery("user.event", []byte("user-body"), ack)
 	orderCh <- newDelivery("order.event", []byte("order-body"), ack)
 
-	assert.Equal(t, []byte("user-body"), receive(t, userGot))
-	assert.Equal(t, []byte("order-body"), receive(t, orderGot))
+	if got := receive(t, userGot); !bytes.Equal(got, []byte("user-body")) {
+		t.Errorf("unexpected user body: %s", got)
+	}
+	if got := receive(t, orderGot); !bytes.Equal(got, []byte("order-body")) {
+		t.Errorf("unexpected order body: %s", got)
+	}
 
 	cancel()
 
-	require.NoError(t, receiveErr(t, done))
-	assert.Equal(t, []ackRecord{{kind: ackKindAck}, {kind: ackKindAck}}, ack.snapshot())
+	if err := receiveErr(t, done); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := []ackRecord{{kind: ackKindAck}, {kind: ackKindAck}}
+	if got := ack.snapshot(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected ack records %v, got %v", want, got)
+	}
 }
 
 func TestEventRouter_Run_StopsWithoutErrorOnContextCancel(t *testing.T) {
 	t.Parallel()
 
 	ch := make(chan amqp.Delivery)
-	r := newTestRouter(nil, rabbitmq.EventConsumer{Queue: "q", Deliveries: ch})
+	r := newTestRouter(nil, EventConsumer{Queue: "q", Deliveries: ch})
 
 	cancel, done := startRouter(t, r)
 	cancel()
 
-	require.NoError(t, receiveErr(t, done))
+	if err := receiveErr(t, done); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
 func TestEventRouter_Run_ReturnsErrorWhenDeliveriesChannelClosed(t *testing.T) {
@@ -205,13 +226,17 @@ func TestEventRouter_Run_ReturnsErrorWhenDeliveriesChannelClosed(t *testing.T) {
 	ch := make(chan amqp.Delivery)
 	close(ch)
 
-	r := newTestRouter(nil, rabbitmq.EventConsumer{Queue: "broken.q", Deliveries: ch})
+	r := newTestRouter(nil, EventConsumer{Queue: "broken.q", Deliveries: ch})
 
 	_, done := startRouter(t, r)
 
 	err := receiveErr(t, done)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "broken.q")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "broken.q") {
+		t.Fatalf("expected error to mention queue, got %v", err)
+	}
 }
 
 func receiveErr(t *testing.T, ch <-chan error) error {
@@ -224,5 +249,77 @@ func receiveErr(t *testing.T, ch <-chan error) error {
 		t.Fatal("timed out waiting for router to stop")
 
 		return nil
+	}
+}
+
+func requireNotPanics(t *testing.T, f func()) {
+	t.Helper()
+
+	defer func() {
+		if rec := recover(); rec != nil {
+			t.Fatalf("unexpected panic: %v", rec)
+		}
+	}()
+
+	f()
+}
+
+func newTestLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
+const (
+	ackKindAck  = "ack"
+	ackKindNack = "nack"
+)
+
+type ackRecord struct {
+	kind    string
+	requeue bool
+}
+
+type fakeAcknowledger struct {
+	mu      sync.Mutex
+	records []ackRecord
+}
+
+func (f *fakeAcknowledger) Ack(_ uint64, _ bool) error {
+	f.add(ackRecord{kind: ackKindAck})
+
+	return nil
+}
+
+func (f *fakeAcknowledger) Nack(_ uint64, _ bool, requeue bool) error {
+	f.add(ackRecord{kind: ackKindNack, requeue: requeue})
+
+	return nil
+}
+
+func (f *fakeAcknowledger) Reject(_ uint64, requeue bool) error {
+	f.add(ackRecord{kind: ackKindNack, requeue: requeue})
+
+	return nil
+}
+
+func (f *fakeAcknowledger) add(r ackRecord) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.records = append(f.records, r)
+}
+
+func (f *fakeAcknowledger) snapshot() []ackRecord {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]ackRecord(nil), f.records...)
+}
+
+func newDelivery(key string, body []byte, ack *fakeAcknowledger) amqp.Delivery {
+	return amqp.Delivery{
+		Acknowledger: ack,
+		RoutingKey:   key,
+		Body:         body,
+		DeliveryTag:  1,
 	}
 }

@@ -1,11 +1,10 @@
-package services
+package rabbitmq
 
 import (
 	"context"
 	"testing"
 
 	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestAttemptFromContext(t *testing.T) {
@@ -29,10 +28,12 @@ func TestAttemptFromContext(t *testing.T) {
 
 			ctx := context.Background()
 			if tc.hasValue {
-				ctx = withAttempt(ctx, tc.value)
+				ctx = WithAttempt(ctx, tc.value)
 			}
 
-			assert.Equal(t, tc.want, attemptFromContext(ctx))
+			if got := AttemptFromContext(ctx); got != tc.want {
+				t.Errorf("expected attempt %d, got %d", tc.want, got)
+			}
 		})
 	}
 }
@@ -60,7 +61,9 @@ func TestDeliveryAttempt(t *testing.T) {
 
 			d := &amqp.Delivery{Headers: tc.headers}
 
-			assert.Equal(t, tc.want, deliveryAttempt(d))
+			if got := deliveryAttempt(d); got != tc.want {
+				t.Errorf("expected attempt %d, got %d", tc.want, got)
+			}
 		})
 	}
 }

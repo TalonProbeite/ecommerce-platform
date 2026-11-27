@@ -12,7 +12,6 @@ import (
 	"shop/notification/internal/infra/logger"
 	"shop/notification/internal/infra/mailer"
 	"shop/notification/internal/infra/mongodb"
-	"shop/notification/internal/infra/rabbitmq"
 	"shop/notification/internal/infra/repository"
 	"shop/notification/internal/infra/template"
 	"shop/notification/internal/services"
@@ -20,7 +19,10 @@ import (
 	"shop/shared/events"
 	"shop/shared/jwt"
 	"shop/shared/middleware"
+	"shop/shared/rabbitmq"
 	"syscall"
+
+	notifrabbit "shop/notification/internal/infra/rabbitmq"
 
 	"github.com/labstack/echo/v4"
 
@@ -34,7 +36,7 @@ type App struct {
 	mongo    *mongodb.MongoClient
 	rabbit   *rabbitmq.RabbitClient
 	consumer *rabbitmq.Consumer
-	router   *services.EventRouter
+	router   *rabbitmq.EventRouter
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -55,6 +57,11 @@ func New(cfg *config.Config) (*App, error) {
 	}
 	a.rabbit = rabbit
 
+	if topoErr := notifrabbit.InitTopology(rabbit); topoErr != nil {
+		a.closeResources()
+		return nil, fmt.Errorf("failed to init rabbitmq topology: %w", topoErr)
+	}
+
 	sender, err := mailer.NewSender(&cfg.SMTP)
 	if err != nil {
 		a.closeResources()
@@ -74,14 +81,14 @@ func New(cfg *config.Config) (*App, error) {
 	orderHandler := services.NewOrderEventHandler(renderer, sender, eventRepo, contactRepo)
 	analyticsService := services.NewAnalyticsService(eventRepo)
 
-	consumer, err := rabbitmq.NewConsumer(rabbit)
+	consumer, err := rabbitmq.NewConsumer(rabbit, notifrabbit.QueueNames())
 	if err != nil {
 		a.closeResources()
 		return nil, fmt.Errorf("failed to init rabbitmq consumer: %w", err)
 	}
 	a.consumer = consumer
 
-	a.router = services.NewEventRouter(
+	a.router = rabbitmq.NewEventRouter(
 		consumer.ConsumerList,
 		eventHandlers(userHandler, orderHandler),
 		log,
@@ -107,8 +114,8 @@ func New(cfg *config.Config) (*App, error) {
 func eventHandlers(
 	user *services.UserEventHandler,
 	order *services.OrderEventHandler,
-) map[string]services.HandlerFunc {
-	return map[string]services.HandlerFunc{
+) map[string]rabbitmq.HandlerFunc {
+	return map[string]rabbitmq.HandlerFunc{
 		events.UserRegisteredEventKey:             user.HandleEmailVerificationRequested,
 		events.UserEmailVerifiedEventKey:          user.HandleWelcomeEmailRequested,
 		events.EmailVerificationRequestedEventKey: user.HandleEmailVerificationRequested,

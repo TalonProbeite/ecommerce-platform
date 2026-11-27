@@ -5,6 +5,7 @@ import (
 	json "encoding/json/v2"
 	"fmt"
 	"shop/shared/events"
+	"shop/shared/rabbitmq"
 )
 
 type OrderEventHandler struct {
@@ -37,7 +38,7 @@ func (h *OrderEventHandler) recipient(ctx context.Context, email, customerID str
 	}
 
 	if customerID == "" || h.contacts == nil {
-		return "", fmt.Errorf("order event has no recipient email: %w", ErrUnrecoverable)
+		return "", fmt.Errorf("order event has no recipient email: %w", rabbitmq.ErrUnrecoverable)
 	}
 
 	resolved, err := h.contacts.GetEmail(ctx, customerID)
@@ -58,7 +59,7 @@ func (h *OrderEventHandler) HandleOrderConfirmed(
 		return fmt.Errorf(
 			"unmarshal order.confirmed event: %w: %w",
 			err,
-			ErrUnrecoverable,
+			rabbitmq.ErrUnrecoverable,
 		)
 	}
 
@@ -91,7 +92,7 @@ func (h *OrderEventHandler) HandleOrderPaid(
 		return fmt.Errorf(
 			"unmarshal order.paid event: %w: %w",
 			err,
-			ErrUnrecoverable,
+			rabbitmq.ErrUnrecoverable,
 		)
 	}
 
@@ -124,7 +125,7 @@ func (h *OrderEventHandler) HandleOrderCancelled(
 		return fmt.Errorf(
 			"unmarshal order.cancelled event: %w: %w",
 			err,
-			ErrUnrecoverable,
+			rabbitmq.ErrUnrecoverable,
 		)
 	}
 

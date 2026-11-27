@@ -1,8 +1,11 @@
 package rabbitmq
 
 import (
+	"errors"
 	"fmt"
 	"shop/shared/events"
+
+	sharedrabbit "shop/shared/rabbitmq"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -16,7 +19,6 @@ const (
 	argDeadLetterExc = "x-dead-letter-exchange"
 
 	deliveryLimit = 5
-	prefetchCount = 10
 )
 
 type exchangeSpec struct {
@@ -59,68 +61,47 @@ var queues = []queueSpec{
 	},
 }
 
-type EventConsumer struct {
-	Deliveries <-chan amqp.Delivery
-	Queue      string
+type topologyDeclarer interface {
+	ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait bool, args amqp.Table) error
+	QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, args amqp.Table) (amqp.Queue, error)
+	QueueBind(queue, key, exchange string, noWait bool, args amqp.Table) error
 }
 
-type Consumer struct {
-	client       *RabbitClient
-	ConsumerList []EventConsumer
+// InitTopology declares the RabbitMQ exchanges and queues required by the notification service.
+func InitTopology(client *sharedrabbit.RabbitClient) error {
+	if client == nil || client.Chan == nil {
+		return errors.New("rabbitmq client or channel is nil")
+	}
+
+	return initTopology(client.Chan)
 }
 
-func NewConsumer(client *RabbitClient) (*Consumer, error) {
-	c := &Consumer{client: client}
-
-	if err := c.declareTopology(); err != nil {
-		return nil, err
-	}
-
-	if err := c.client.Chan.Qos(prefetchCount, 0, false); err != nil {
-		return nil, fmt.Errorf("set qos: %w", err)
-	}
-
-	list, err := c.subscribe()
-	if err != nil {
-		return nil, err
-	}
-
-	c.ConsumerList = list
-
-	return c, nil
-}
-
-func (c *Consumer) subscribe() ([]EventConsumer, error) {
-	result := make([]EventConsumer, 0, len(queues))
-
-	for _, q := range queues {
-		deliveries, err := c.client.Chan.Consume(q.Name, "", false, false, false, false, nil)
-		if err != nil {
-			return nil, fmt.Errorf("consume queue %s: %w", q.Name, err)
-		}
-
-		result = append(result, EventConsumer{Queue: q.Name, Deliveries: deliveries})
-	}
-
-	return result, nil
-}
-
-func (c *Consumer) declareTopology() error {
-	if err := c.declareExchanges(); err != nil {
+func initTopology(ch topologyDeclarer) error {
+	if err := declareExchanges(ch); err != nil {
 		return err
 	}
 
-	if err := c.declareDLQ(); err != nil {
+	if err := declareDLQ(ch); err != nil {
 		return err
 	}
 
-	return c.declareQueues()
+	return declareQueues(ch)
 }
 
-func (c *Consumer) declareExchanges() error {
+// QueueNames returns the queues the notification consumer must subscribe to.
+func QueueNames() []string {
+	names := make([]string, 0, len(queues))
+
+	for _, spec := range queues {
+		names = append(names, spec.Name)
+	}
+
+	return names
+}
+
+func declareExchanges(ch topologyDeclarer) error {
 	for _, e := range exchanges {
-		err := c.client.Chan.ExchangeDeclare(e.Name, e.Kind, true, false, false, false, nil)
-		if err != nil {
+		if err := ch.ExchangeDeclare(e.Name, e.Kind, true, false, false, false, nil); err != nil {
 			return fmt.Errorf("declare exchange %s: %w", e.Name, err)
 		}
 	}
@@ -128,22 +109,22 @@ func (c *Consumer) declareExchanges() error {
 	return nil
 }
 
-func (c *Consumer) declareDLQ() error {
-	q, err := c.client.Chan.QueueDeclare(QueueFailedMessages, true, false, false, false, nil)
+func declareDLQ(ch topologyDeclarer) error {
+	q, err := ch.QueueDeclare(QueueFailedMessages, true, false, false, false, nil)
 	if err != nil {
 		return fmt.Errorf("declare queue %s: %w", QueueFailedMessages, err)
 	}
 
-	if err := c.client.Chan.QueueBind(q.Name, "", events.ExchangeDLX, false, nil); err != nil {
+	if err := ch.QueueBind(q.Name, "", events.ExchangeDLX, false, nil); err != nil {
 		return fmt.Errorf("bind queue %s to %s: %w", q.Name, events.ExchangeDLX, err)
 	}
 
 	return nil
 }
 
-func (c *Consumer) declareQueues() error {
+func declareQueues(ch topologyDeclarer) error {
 	for _, spec := range queues {
-		if err := c.declareQueue(spec); err != nil {
+		if err := declareQueue(ch, spec); err != nil {
 			return err
 		}
 	}
@@ -151,14 +132,14 @@ func (c *Consumer) declareQueues() error {
 	return nil
 }
 
-func (c *Consumer) declareQueue(spec queueSpec) error {
-	q, err := c.client.Chan.QueueDeclare(spec.Name, true, false, false, false, workQueueArgs())
+func declareQueue(ch topologyDeclarer, spec queueSpec) error {
+	q, err := ch.QueueDeclare(spec.Name, true, false, false, false, workQueueArgs())
 	if err != nil {
 		return fmt.Errorf("declare queue %s: %w", spec.Name, err)
 	}
 
 	for _, key := range spec.Keys {
-		if err := c.client.Chan.QueueBind(q.Name, key, spec.Exchange, false, nil); err != nil {
+		if err := ch.QueueBind(q.Name, key, spec.Exchange, false, nil); err != nil {
 			return fmt.Errorf("bind queue %s to %s with key %s: %w", q.Name, spec.Exchange, key, err)
 		}
 	}

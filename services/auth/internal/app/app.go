@@ -12,13 +12,14 @@ import (
 	"shop/auth/internal/config"
 	"shop/auth/internal/infra/db"
 	"shop/auth/internal/infra/oauth"
-	authrabbit "shop/auth/internal/infra/rabbitmq"
 	"shop/auth/internal/infra/repository"
 	"shop/auth/internal/transport/http/handler"
+	"shop/shared/events"
 	"shop/shared/jwt"
 	"shop/shared/logger"
 	"shop/shared/middleware"
 	"shop/shared/rabbitmq"
+	"shop/shared/redisx"
 	"syscall"
 
 	"github.com/jmoiron/sqlx"
@@ -57,7 +58,7 @@ func New(cfg *config.Config) (*App, error) {
 		}
 	}
 
-	rdb, err := db.NewRedisClient(cfg.Redis.RedisURL)
+	rdb, err := redisx.NewRedisClient(cfg.Redis.RedisURL)
 	if err != nil {
 		if closeErr := pg.Close(); closeErr != nil {
 			log.Error("failed to close postgres", slog.Any("err", closeErr))
@@ -116,7 +117,7 @@ func initRabbitMQ(rabbitURL string, log *slog.Logger) (*rabbitmq.RabbitClient, *
 		return nil, nil, fmt.Errorf("failed to connect to rabbitmq: %w", err)
 	}
 
-	err = authrabbit.InitTopology(rabbit)
+	err = rabbitmq.DeclareExchange(rabbit, events.ExchangeUser, events.ExchangeKindTopic)
 	if err != nil {
 		if closeErr := rabbit.Close(); closeErr != nil {
 			log.Error("failed to close rabbitmq", slog.Any("err", closeErr))

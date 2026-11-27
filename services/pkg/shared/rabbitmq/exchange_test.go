@@ -2,8 +2,6 @@ package rabbitmq
 
 import (
 	"errors"
-	"shop/shared/events"
-	sharedrabbit "shop/shared/rabbitmq"
 	"testing"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -37,31 +35,53 @@ func (m *mockExchangeDeclarer) ExchangeDeclare(
 	return m.err
 }
 
-func TestInitTopology_NilClientOrChannel(t *testing.T) {
-	if err := InitTopology(nil); err == nil {
+func TestDeclareExchange_NilClientOrChannel(t *testing.T) {
+	if err := DeclareExchange(nil, "test.events", "topic"); err == nil {
 		t.Fatal("expected error for nil client, got nil")
 	}
 
-	if err := InitTopology(&sharedrabbit.RabbitClient{}); err == nil {
+	if err := DeclareExchange(&RabbitClient{}, "test.events", "topic"); err == nil {
 		t.Fatal("expected error for nil channel, got nil")
 	}
 }
 
-func TestInitTopology_DeclaresUserExchange(t *testing.T) {
+func TestDeclareExchange_EmptyName(t *testing.T) {
 	mock := &mockExchangeDeclarer{}
 
-	if err := initTopology(mock); err != nil {
+	if err := declareExchange(mock, "", "topic"); err == nil {
+		t.Fatal("expected error for empty exchange name, got nil")
+	}
+	if mock.calls != 0 {
+		t.Fatalf("expected no ExchangeDeclare calls, got %d", mock.calls)
+	}
+}
+
+func TestDeclareExchange_EmptyKind(t *testing.T) {
+	mock := &mockExchangeDeclarer{}
+
+	if err := declareExchange(mock, "test.events", ""); err == nil {
+		t.Fatal("expected error for empty exchange kind, got nil")
+	}
+	if mock.calls != 0 {
+		t.Fatalf("expected no ExchangeDeclare calls, got %d", mock.calls)
+	}
+}
+
+func TestDeclareExchange_DeclaresDurableExchange(t *testing.T) {
+	mock := &mockExchangeDeclarer{}
+
+	if err := declareExchange(mock, "test.events", "topic"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if mock.calls != 1 {
 		t.Fatalf("expected 1 ExchangeDeclare call, got %d", mock.calls)
 	}
-	if mock.name != events.ExchangeUser {
-		t.Errorf("expected exchange %q, got %q", events.ExchangeUser, mock.name)
+	if mock.name != "test.events" {
+		t.Errorf("expected exchange %q, got %q", "test.events", mock.name)
 	}
-	if mock.kind != events.ExchangeKindTopic {
-		t.Errorf("expected kind %q, got %q", events.ExchangeKindTopic, mock.kind)
+	if mock.kind != "topic" {
+		t.Errorf("expected kind %q, got %q", "topic", mock.kind)
 	}
 	if !mock.durable || mock.autoDelete || mock.internal || mock.noWait || mock.args != nil {
 		t.Errorf("unexpected declare flags: durable=%v autoDelete=%v internal=%v noWait=%v args=%v",
@@ -69,11 +89,11 @@ func TestInitTopology_DeclaresUserExchange(t *testing.T) {
 	}
 }
 
-func TestInitTopology_PropagatesDeclareError(t *testing.T) {
+func TestDeclareExchange_PropagatesDeclareError(t *testing.T) {
 	wantErr := errors.New("broker unavailable")
 	mock := &mockExchangeDeclarer{err: wantErr}
 
-	err := initTopology(mock)
+	err := declareExchange(mock, "test.events", "topic")
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("expected error wrapping %v, got %v", wantErr, err)
 	}

@@ -5,6 +5,7 @@ import (
 	json "encoding/json/v2"
 	"fmt"
 	"shop/shared/events"
+	"shop/shared/rabbitmq"
 )
 
 const verificationCodeTTLMinutes = 15
@@ -55,7 +56,7 @@ func (h *UserEventHandler) HandleEmailVerificationRequested(
 		return fmt.Errorf(
 			"unmarshal user.email_verification_requested event: %w: %w",
 			err,
-			ErrUnrecoverable,
+			rabbitmq.ErrUnrecoverable,
 		)
 	}
 
@@ -89,14 +90,14 @@ func (h *UserEventHandler) HandleEmailChanged(
 		return fmt.Errorf(
 			"unmarshal user.email_changed event: %w: %w",
 			err,
-			ErrUnrecoverable,
+			rabbitmq.ErrUnrecoverable,
 		)
 	}
 
 	if event.UserID == "" || event.Email == "" {
 		return fmt.Errorf(
 			"user.email_changed requires user_id and email: %w",
-			ErrUnrecoverable,
+			rabbitmq.ErrUnrecoverable,
 		)
 	}
 
@@ -113,7 +114,7 @@ func (h *UserEventHandler) HandleWelcomeEmailRequested(
 		return fmt.Errorf(
 			"unmarshal user.welcome_email_requested event: %w: %w",
 			err,
-			ErrUnrecoverable,
+			rabbitmq.ErrUnrecoverable,
 		)
 	}
 

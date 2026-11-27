@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"shop/notification/internal/infra/mailer"
+	"shop/shared/rabbitmq"
 )
 
 func newDispatcherFixture() (*emailDispatcher, *fakeSender, *fakeSaver) {
@@ -114,9 +115,9 @@ func TestEmailDispatcher_Dispatch_Failures(t *testing.T) {
 			}
 
 			if tc.wantUnrecoverable {
-				require.ErrorIs(t, err, ErrUnrecoverable)
+				require.ErrorIs(t, err, rabbitmq.ErrUnrecoverable)
 			} else {
-				require.NotErrorIs(t, err, ErrUnrecoverable)
+				require.NotErrorIs(t, err, rabbitmq.ErrUnrecoverable)
 			}
 
 			assert.Len(t, sender.calls, 1)
@@ -162,7 +163,7 @@ func TestEmailDispatcher_Dispatch_StopsSaveRetriesWhenContextIsCancelled(t *test
 	err := d.dispatch(ctx, testEmailMessage())
 
 	require.ErrorIs(t, err, context.Canceled)
-	require.ErrorIs(t, err, ErrUnrecoverable)
+	require.ErrorIs(t, err, rabbitmq.ErrUnrecoverable)
 	assert.Len(t, sender.calls, 1)
 	assert.Len(t, saver.calls, 1)
 }
@@ -171,7 +172,7 @@ func TestEmailDispatcher_Dispatch_UsesAttemptFromContext(t *testing.T) {
 	t.Parallel()
 
 	d, _, saver := newDispatcherFixture()
-	ctx := withAttempt(context.Background(), 3)
+	ctx := rabbitmq.WithAttempt(context.Background(), 3)
 
 	require.NoError(t, d.dispatch(ctx, testEmailMessage()))
 

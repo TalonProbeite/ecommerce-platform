@@ -16,11 +16,12 @@ import (
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mailer"
 	"shop/notification/internal/infra/mongodb"
-	"shop/notification/internal/infra/rabbitmq"
+	notifrabbit "shop/notification/internal/infra/rabbitmq"
 	"shop/notification/internal/infra/repository"
 	"shop/notification/internal/infra/template"
 	"shop/notification/internal/services"
 	"shop/shared/events"
+	"shop/shared/rabbitmq"
 	"strings"
 	"testing"
 	"time"
@@ -52,7 +53,9 @@ func newStack(t *testing.T, sender services.MailSender) *stack {
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, rabbitClient.Close()) })
 
-	consumer, err := rabbitmq.NewConsumer(rabbitClient)
+	require.NoError(t, notifrabbit.InitTopology(rabbitClient))
+
+	consumer, err := rabbitmq.NewConsumer(rabbitClient, notifrabbit.QueueNames())
 	require.NoError(t, err)
 
 	renderer, err := template.NewMessageBuilder("local")
@@ -65,7 +68,7 @@ func newStack(t *testing.T, sender services.MailSender) *stack {
 	userHandler := services.NewUserEventHandler(renderer, sender, repo)
 	orderHandler := services.NewOrderEventHandler(renderer, sender, repo)
 
-	handlers := map[string]services.HandlerFunc{
+	handlers := map[string]rabbitmq.HandlerFunc{
 		events.EmailVerificationRequestedEventKey: userHandler.HandleEmailVerificationRequested,
 		events.WelcomeEmailRequestedEventKey:      userHandler.HandleWelcomeEmailRequested,
 		events.EmailChangedEventKey:               userHandler.HandleEmailChanged,
@@ -74,7 +77,7 @@ func newStack(t *testing.T, sender services.MailSender) *stack {
 		events.OrderCancelledEventKey:             orderHandler.HandleOrderCancelled,
 	}
 
-	router := services.NewEventRouter(consumer.ConsumerList, handlers, newLogger())
+	router := rabbitmq.NewEventRouter(consumer.ConsumerList, handlers, newLogger())
 	startRouter(t, router)
 
 	conn, err := amqp.Dial(env.amqpURL)
@@ -87,7 +90,7 @@ func newStack(t *testing.T, sender services.MailSender) *stack {
 	dlq, err := conn.Channel()
 	require.NoError(t, err)
 
-	_, err = dlq.QueuePurge(rabbitmq.QueueFailedMessages, false)
+	_, err = dlq.QueuePurge(notifrabbit.QueueFailedMessages, false)
 	require.NoError(t, err)
 
 	return &stack{repo: repo, publisher: publisher, dlq: dlq}
@@ -124,7 +127,7 @@ func uniqueDBName() string {
 	return fmt.Sprintf("it_%d", time.Now().UnixNano())
 }
 
-func startRouter(t *testing.T, router *services.EventRouter) {
+func startRouter(t *testing.T, router *rabbitmq.EventRouter) {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -172,7 +175,7 @@ func (s *stack) waitForDeadLetter(t *testing.T) amqp.Delivery {
 	var msg amqp.Delivery
 
 	require.Eventually(t, func() bool {
-		d, ok, err := s.dlq.Get(rabbitmq.QueueFailedMessages, true)
+		d, ok, err := s.dlq.Get(notifrabbit.QueueFailedMessages, true)
 		if err != nil || !ok {
 			return false
 		}

@@ -13,6 +13,18 @@ const (
 )
 
 const (
+	ProductCreatedEventKey  = "product.created"
+	ProductUpdatedEventKey  = "product.updated"
+	ProductDeletedEventKey  = "product.deleted"
+	CategoryCreatedEventKey = "category.created"
+	CategoryUpdatedEventKey = "category.updated"
+	CategoryDeletedEventKey = "category.deleted"
+	StockChangedEventKey    = "stock.changed"
+
+	SearchPerformedEventKey = "search.performed"
+)
+
+const (
 	EmailVerificationSubject = "Verify your email"
 	WelcomeEmailSubject      = "Welcome aboard"
 	OrderPaidSubject         = "Payment confirmed"
@@ -50,6 +62,12 @@ type OrderCancelledPayload struct {
 	CustomerID string `json:"customer_id"`
 	Email      string `json:"email"`
 	Reason     string `json:"reason"`
+}
+type SearchPerformedEvent struct {
+	Filters      map[string]any `json:"filters"`
+	Query        string         `json:"query"`
+	Timestamp    int64          `json:"timestamp"`
+	ResultsCount int            `json:"results_count"`
 }
 
 const (

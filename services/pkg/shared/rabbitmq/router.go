@@ -1,14 +1,13 @@
-package services
+package rabbitmq
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
-	"shop/notification/internal/infra/rabbitmq"
+	"sync"
 
 	amqp "github.com/rabbitmq/amqp091-go"
-	"golang.org/x/sync/errgroup"
 )
 
 var ErrUnrecoverable = errors.New("unrecoverable event error")
@@ -18,11 +17,11 @@ type HandlerFunc func(ctx context.Context, body []byte) error
 type EventRouter struct {
 	handlers  map[string]HandlerFunc
 	log       *slog.Logger
-	consumers []rabbitmq.EventConsumer
+	consumers []EventConsumer
 }
 
 func NewEventRouter(
-	consumers []rabbitmq.EventConsumer,
+	consumers []EventConsumer,
 	handlers map[string]HandlerFunc,
 	log *slog.Logger,
 ) *EventRouter {
@@ -34,18 +33,36 @@ func NewEventRouter(
 }
 
 func (r *EventRouter) Run(ctx context.Context) error {
-	g, ctx := errgroup.WithContext(ctx)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var (
+		wg     sync.WaitGroup
+		once   sync.Once
+		runErr error
+	)
 
 	for _, c := range r.consumers {
-		g.Go(func() error {
-			return r.consume(ctx, c)
-		})
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			if err := r.consume(ctx, c); err != nil {
+				once.Do(func() {
+					runErr = err
+					cancel()
+				})
+			}
+		}()
 	}
 
-	return g.Wait()
+	wg.Wait()
+
+	return runErr
 }
 
-func (r *EventRouter) consume(ctx context.Context, c rabbitmq.EventConsumer) error {
+func (r *EventRouter) consume(ctx context.Context, c EventConsumer) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -68,7 +85,7 @@ func (r *EventRouter) process(ctx context.Context, queue string, d *amqp.Deliver
 		return
 	}
 
-	ctx = withAttempt(ctx, deliveryAttempt(d))
+	ctx = WithAttempt(ctx, deliveryAttempt(d))
 
 	err := r.safeHandle(ctx, handler, d.Body)
 	if err == nil {

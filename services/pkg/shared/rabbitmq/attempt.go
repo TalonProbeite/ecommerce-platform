@@ -1,4 +1,4 @@
-package services
+package rabbitmq
 
 import (
 	"context"
@@ -10,11 +10,11 @@ const headerDeliveryCount = "x-delivery-count"
 
 type attemptKey struct{}
 
-func withAttempt(ctx context.Context, attempt int) context.Context {
+func WithAttempt(ctx context.Context, attempt int) context.Context {
 	return context.WithValue(ctx, attemptKey{}, attempt)
 }
 
-func attemptFromContext(ctx context.Context) int {
+func AttemptFromContext(ctx context.Context) int {
 	attempt, ok := ctx.Value(attemptKey{}).(int)
 	if !ok || attempt < 1 {
 		return 1

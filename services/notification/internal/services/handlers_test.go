@@ -10,6 +10,7 @@ import (
 
 	"shop/notification/internal/infra/mailer"
 	"shop/shared/events"
+	"shop/shared/rabbitmq"
 )
 
 const testRecipient = "customer@example.com"
@@ -41,7 +42,7 @@ func newHandlerFixture() *handlerFixture {
 
 type handlerCase struct {
 	name       string
-	handle     func(f *handlerFixture) HandlerFunc
+	handle     func(f *handlerFixture) rabbitmq.HandlerFunc
 	event      any
 	eventKey   string
 	subject    string
@@ -54,7 +55,7 @@ func handlerCases() []handlerCase {
 	return []handlerCase{
 		{
 			name:       "email verification requested",
-			handle:     func(f *handlerFixture) HandlerFunc { return f.user.HandleEmailVerificationRequested },
+			handle:     func(f *handlerFixture) rabbitmq.HandlerFunc { return f.user.HandleEmailVerificationRequested },
 			event:      events.EmailVerificationRequestedEvent{UserID: "user-1", Email: testRecipient, Code: "123456"},
 			eventKey:   events.EmailVerificationRequestedEventKey,
 			subject:    events.EmailVerificationSubject,
@@ -64,7 +65,7 @@ func handlerCases() []handlerCase {
 		},
 		{
 			name:       "welcome email requested",
-			handle:     func(f *handlerFixture) HandlerFunc { return f.user.HandleWelcomeEmailRequested },
+			handle:     func(f *handlerFixture) rabbitmq.HandlerFunc { return f.user.HandleWelcomeEmailRequested },
 			event:      events.WelcomeEmailRequestedEvent{UserID: "user-1", Email: testRecipient, Name: "John"},
 			eventKey:   events.WelcomeEmailRequestedEventKey,
 			subject:    events.WelcomeEmailSubject,
@@ -72,7 +73,7 @@ func handlerCases() []handlerCase {
 		},
 		{
 			name:       "order confirmed",
-			handle:     func(f *handlerFixture) HandlerFunc { return f.order.HandleOrderConfirmed },
+			handle:     func(f *handlerFixture) rabbitmq.HandlerFunc { return f.order.HandleOrderConfirmed },
 			event:      events.OrderConfirmedEvent{OrderID: "order-1", Email: testRecipient},
 			eventKey:   events.OrderConfirmedEventKey,
 			subject:    events.OrderConfirmedSubject,
@@ -80,7 +81,7 @@ func handlerCases() []handlerCase {
 		},
 		{
 			name:       "order paid",
-			handle:     func(f *handlerFixture) HandlerFunc { return f.order.HandleOrderPaid },
+			handle:     func(f *handlerFixture) rabbitmq.HandlerFunc { return f.order.HandleOrderPaid },
 			event:      events.OrderPaidEvent{OrderID: "order-1", Email: testRecipient, Amount: 100},
 			eventKey:   events.OrderPaidEventKey,
 			subject:    events.OrderPaidSubject,
@@ -88,7 +89,7 @@ func handlerCases() []handlerCase {
 		},
 		{
 			name:       "order cancelled",
-			handle:     func(f *handlerFixture) HandlerFunc { return f.order.HandleOrderCancelled },
+			handle:     func(f *handlerFixture) rabbitmq.HandlerFunc { return f.order.HandleOrderCancelled },
 			event:      events.OrderCancelledPayload{OrderID: "order-1", Email: testRecipient, Reason: "out of stock"},
 			eventKey:   events.OrderCancelledEventKey,
 			subject:    events.OrderCancelledSubject,
@@ -159,7 +160,7 @@ func TestUserHandlers_EmailChangedRequiresFields(t *testing.T) {
 
 	err := f.user.HandleEmailChanged(t.Context(), mustMarshal(t, events.EmailChangedEvent{UserID: "user-1"}))
 
-	require.ErrorIs(t, err, ErrUnrecoverable)
+	require.ErrorIs(t, err, rabbitmq.ErrUnrecoverable)
 	assert.Empty(t, f.contacts.savedID)
 }
 
@@ -168,19 +169,19 @@ func TestOrderHandlers_ResolveRecipientFromCustomerID(t *testing.T) {
 
 	for _, tc := range []struct {
 		name     string
-		handle   func(*OrderEventHandler) HandlerFunc
+		handle   func(*OrderEventHandler) rabbitmq.HandlerFunc
 		event    any
 		wantSubj string
 	}{
 		{
 			name:     "order paid",
-			handle:   func(h *OrderEventHandler) HandlerFunc { return h.HandleOrderPaid },
+			handle:   func(h *OrderEventHandler) rabbitmq.HandlerFunc { return h.HandleOrderPaid },
 			event:    events.OrderPaidEvent{OrderID: "order-1", CustomerID: "customer-1", Amount: 100},
 			wantSubj: events.OrderPaidSubject,
 		},
 		{
 			name:     "order cancelled",
-			handle:   func(h *OrderEventHandler) HandlerFunc { return h.HandleOrderCancelled },
+			handle:   func(h *OrderEventHandler) rabbitmq.HandlerFunc { return h.HandleOrderCancelled },
 			event:    events.OrderCancelledPayload{OrderID: "order-1", CustomerID: "customer-1", Reason: "out of stock"},
 			wantSubj: events.OrderCancelledSubject,
 		},
@@ -209,7 +210,7 @@ func TestOrderHandlers_ContactLookupFailureIsRetryable(t *testing.T) {
 	err := handler.HandleOrderPaid(t.Context(), mustMarshal(t, events.OrderPaidEvent{OrderID: "order-1", CustomerID: "customer-1"}))
 
 	require.Error(t, err)
-	require.NotErrorIs(t, err, ErrUnrecoverable)
+	require.NotErrorIs(t, err, rabbitmq.ErrUnrecoverable)
 	assert.Empty(t, f.sender.calls)
 }
 
@@ -224,7 +225,7 @@ func TestHandlers_InvalidPayload_IsUnrecoverableAndHasNoSideEffects(t *testing.T
 
 			err := tc.handle(f)(t.Context(), []byte("{not json"))
 
-			require.ErrorIs(t, err, ErrUnrecoverable)
+			require.ErrorIs(t, err, rabbitmq.ErrUnrecoverable)
 			assert.Empty(t, f.renderer.calls)
 			assert.Empty(t, f.sender.calls)
 			assert.Empty(t, f.saver.saved)
@@ -247,7 +248,7 @@ func TestHandlers_RenderFailure_ReturnsRetryableErrorWithoutSending(t *testing.T
 			err := tc.handle(f)(t.Context(), mustMarshal(t, tc.event))
 
 			require.ErrorIs(t, err, errRender)
-			require.NotErrorIs(t, err, ErrUnrecoverable)
+			require.NotErrorIs(t, err, rabbitmq.ErrUnrecoverable)
 			assert.Empty(t, f.sender.calls)
 			assert.Empty(t, f.saver.saved)
 		})

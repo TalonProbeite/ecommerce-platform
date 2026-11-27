@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"shop/notification/internal/infra/rabbitmq"
+	"shop/shared/rabbitmq"
 	"time"
 
 	"github.com/labstack/echo/v4"

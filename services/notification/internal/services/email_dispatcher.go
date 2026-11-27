@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"shop/notification/internal/domain"
 	"shop/notification/internal/infra/mailer"
+	"shop/shared/rabbitmq"
 	"time"
 )
 
@@ -44,7 +45,7 @@ func (d *emailDispatcher) dispatch(ctx context.Context, msg *emailMessage) error
 		Channel:   channelEmail,
 		Recipient: msg.To,
 		Status:    mailer.SendStatusSent,
-		Attempts:  attemptFromContext(ctx),
+		Attempts:  rabbitmq.AttemptFromContext(ctx),
 		Payload:   msg.Payload,
 		Error:     "",
 		CreatedAt: time.Now().UTC(),
@@ -63,7 +64,7 @@ func (d *emailDispatcher) dispatch(ctx context.Context, msg *emailMessage) error
 	}
 
 	if sendErr == nil && saveErr != nil {
-		return fmt.Errorf("mail already sent, audit log lost: %w: %w", saveErr, ErrUnrecoverable)
+		return fmt.Errorf("mail already sent, audit log lost: %w: %w", saveErr, rabbitmq.ErrUnrecoverable)
 	}
 
 	return errors.Join(sendErr, saveErr)
