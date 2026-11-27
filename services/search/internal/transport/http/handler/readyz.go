@@ -18,10 +18,10 @@ import (
 type ReadyzHandler struct {
 	rdb    *redis.Client
 	rabbit *rabbitmq.RabbitClient
-	meili  *meilisearch.ServiceManager
+	meili  meilisearch.ServiceManager
 }
 
-func NewReadyzHandler(rdb *redis.Client, rabbit *rabbitmq.RabbitClient, meili *meilisearch.ServiceManager) *ReadyzHandler {
+func NewReadyzHandler(rdb *redis.Client, rabbit *rabbitmq.RabbitClient, meili meilisearch.ServiceManager) *ReadyzHandler {
 	return &ReadyzHandler{
 		rdb:    rdb,
 		rabbit: rabbit,

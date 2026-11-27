@@ -7,7 +7,7 @@ import (
 	"github.com/meilisearch/meilisearch-go"
 )
 
-func NewMeliClient(url, apiKey string, ctx context.Context) (*meilisearch.ServiceManager, error) {
+func NewMeliClient(url, apiKey string, ctx context.Context) (meilisearch.ServiceManager, error) {
 	client := meilisearch.New(url, meilisearch.WithAPIKey(apiKey))
 
 	_, err := client.Health(ctx)
@@ -15,5 +15,5 @@ func NewMeliClient(url, apiKey string, ctx context.Context) (*meilisearch.Servic
 		return nil, fmt.Errorf("Error connecting to meilisearch: %w", err)
 	}
 
-	return &client, nil
+	return client, nil
 }

@@ -1,25 +1,33 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"shop/search/internal/config"
+	"shop/search/internal/infra/meili"
 	"shop/shared/events"
+	"shop/shared/jwt"
 	"shop/shared/logger"
+	"shop/shared/middleware"
 	"shop/shared/rabbitmq"
 	"shop/shared/redisx"
 
 	"github.com/labstack/echo/v4"
 	"github.com/meilisearch/meilisearch-go"
 	"github.com/redis/go-redis/v9"
+
+	transporthttp "shop/search/internal/transport/http"
+	"shop/search/internal/transport/http/handler"
 )
 
 type App struct {
 	cfg    *config.Config
 	log    *slog.Logger
 	echo   *echo.Echo
-	meili  *meilisearch.ServiceManager
+	meili  meilisearch.ServiceManager
 	rdb    *redis.Client
 	rabbit *rabbitmq.RabbitClient
 }
@@ -43,12 +51,49 @@ func New(cfg *config.Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}
+
+	rabbit, _, _, err := initRabbitMQ(cfg.Rabbit.RabbitURL, log)
+	if err != nil {
+		return nil, fmt.Errorf("error initializing rabbit: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	meili, err := meili.NewMeliClient(cfg.Meli.MeiliUrl, cfg.Meli.APIKey, ctx)
+	if err != nil {
+		return nil, fmt.Errorf("meilisearch client initialization error: %w", err)
+	}
+
+	jwtManager := jwt.NewJWTManager(cfg.RSAPublicKey())
+
+	h := transporthttp.Handlers{
+		HealthHandler: handler.NewHealthHandler(),
+		ReadyzHandler: handler.NewReadyzHandler(rdb, rabbit, meili),
+	}
+
+	m := transporthttp.Middlewares{
+		AuthCheck: middleware.AuthCheck(jwtManager),
+	}
+
+	e := transporthttp.NewRouter(cfg, log, h, m)
+
+	a := App{
+		cfg:    cfg,
+		log:    log,
+		meili:  meili,
+		rdb:    rdb,
+		rabbit: rabbit,
+		echo:   e,
+	}
+
+	return &a, nil
 }
 
-func initRabbitMQ(rabbitURL string, log *slog.Logger) (*rabbitmq.RabbitClient, *rabbitmq.EventPublisher, error) {
+func initRabbitMQ(rabbitURL string, log *slog.Logger) (*rabbitmq.RabbitClient, *rabbitmq.EventPublisher, *rabbitmq.Consumer, error) {
 	rabbit, err := rabbitmq.NewRabbitClient(rabbitURL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to connect to rabbitmq: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to connect to rabbitmq: %w", err)
 	}
 
 	closeRabbit := func() {
@@ -59,16 +104,22 @@ func initRabbitMQ(rabbitURL string, log *slog.Logger) (*rabbitmq.RabbitClient, *
 
 	if err := declareSearchTopology(rabbit); err != nil {
 		closeRabbit()
-		return nil, nil, fmt.Errorf("failed to init rabbitmq topology: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to init rabbitmq topology: %w", err)
 	}
 
 	eventPublisher, err := rabbitmq.NewEventPublisher(rabbit)
 	if err != nil {
 		closeRabbit()
-		return nil, nil, fmt.Errorf("failed to init event publisher: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to init event publisher: %w", err)
 	}
 
-	return rabbit, eventPublisher, nil
+	catalogConsumer, err := rabbitmq.NewConsumer(rabbit, []string{searchCatalogQueue})
+	if err != nil {
+		closeRabbit()
+		return nil, nil, nil, fmt.Errorf("failed to init catalog consumer: %w", err)
+	}
+
+	return rabbit, eventPublisher, catalogConsumer, nil
 }
 
 func declareSearchTopology(rabbit *rabbitmq.RabbitClient) error {
